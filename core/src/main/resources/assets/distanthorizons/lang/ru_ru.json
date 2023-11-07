@@ -326,8 +326,17 @@
     "Generation Priority",
   "distanthorizons.config.client.advanced.worldGenerator.generationPriority.@tooltip":
     "The priority for chunks being generated around the player.",
+
+
+    "distanthorizons.config.client.advanced.lodBuilding":
+    "Сборка местности",
+
+  "distanthorizons.config.client.advanced.lodBuilding.minTimeBetweenChunkUpdatesInSeconds":
+    "Минимальный интервал обновления (в секундах)",
+  "distanthorizons.config.client.advanced.lodBuilding.minTimeBetweenChunkUpdatesInSeconds.@tooltip":
+    "Длительность ожидания между обновлениями упрощённой модели местности.\n\nПовышение этого значения снизит нагрузку на ЦП, однако\nупрощённая местность будет быстрее устаревать и дольше обновляться.",
   
-  
+    
   "distanthorizons.config.client.advanced.multiplayer":
     "Сетевая игра",
 
@@ -356,7 +365,7 @@
   "distanthorizons.config.client.advanced.multiThreading.numberOfWorldGenerationThreads":
     "Количество потоков генерации",
   "distanthorizons.config.client.advanced.multiThreading.numberOfWorldGenerationThreads.@tooltip":
-    "Количество потоков, используемых для генерации\nуровней детализации за пределами прорисовки.\n\nУвеличьте для повышения скорости генерации.\nУменьшите для снижения нагрузки и зависаний.\n\nПотоки генерации и сборки местности независимы,\nих сумма может превышать число ядер процессора.",
+    "Количество потоков, используемых для генерации\nуровней детализации за пределами прорисовки.\n\nУвеличьте для повышения скорости генерации.\nУменьшите для снижения нагрузки и зависаний.",
   "distanthorizons.config.client.advanced.multiThreading.runTimeRatioForWorldGenerationThreads":
     "Процент времени выполнения потоков генерации",
   
@@ -374,20 +383,16 @@
   "distanthorizons.config.client.advanced.multiThreading.runTimeRatioForFileHandlerThreads":
     "Процент времени выполнения потоков чтения",
   
-  "distanthorizons.config.client.advanced.multiThreading.numberOfDataTransformerThreads":
-    "Количество потоков преобразования данных",
-  "distanthorizons.config.client.advanced.multiThreading.numberOfDataTransformerThreads.@tooltip":
-    "Количество потоков, используемых для преобразования\nпрочитанных данных в данные для отрисовки (как правило,\nзадействуются при генерации местности или изменении\nнастроек графики).\nНе может превышать число ядер процессора и быть меньше 1.",
-  "distanthorizons.config.client.advanced.multiThreading.runTimeRatioForDataTransformerThreads":
-    "Процент времени потоков преобразования",
-  
-  "distanthorizons.config.client.advanced.multiThreading.numberOfChunkLodConverterThreads":
-    "Количество потоков конвертации модели чанков",
-  "distanthorizons.config.client.advanced.multiThreading.numberOfChunkLodConverterThreads.@tooltip":
-    "Количество потоков, используемых для конвертации\nмодели чанков в данные упрощённой местности.\nВыполняются при генерации местности, загрузке\nчанков, их изменении и выгрузке.",
-  "distanthorizons.config.client.advanced.multiThreading.runTimeRatioForChunkLodConverterThreads":
-    "Процент времени потоков конвертации чанков",
-  
+    "distanthorizons.config.client.advanced.multiThreading.numberOfLodBuilderThreads":
+    "Количество потоков сборки местности",
+    "distanthorizons.config.client.advanced.multiThreading.numberOfLodBuilderThreads.@tooltip":
+    "Количество потоков, используемых для сборки упрощённой местности. Они используются при генерации местности, движении по миру или изменении настроек графики).",
+    "distanthorizons.config.client.advanced.multiThreading.runTimeRatioForLodBuilderThreads":
+    "Процент времени потоков сборки местности",
+    "distanthorizons.config.client.advanced.multiThreading.enableLodBuilderThreadLimiting":
+    "Ограничить потоки сборки местности",
+  "distanthorizons.config.client.advanced.multiThreading.enableLodBuilderThreadLimiting.@tooltip":
+    "Отключать следует только в случае полного зависания процесса обновления упрощённой местности.\nЭто приведёт к резкому повышению использования процессора потоками сборки.\nУчтите, что в случае зависания потоков для восстановления их функционирования может потребоваться перезапуск игры.",
   
   
   "distanthorizons.config.client.advanced.debugging":
@@ -741,7 +746,7 @@
     "Far first",
 
   "distanthorizons.config.enum.EBlocksToAvoid.NONE":
-    "Нет",
+    "Отсутствуют",
   "distanthorizons.config.enum.EBlocksToAvoid.NON_COLLIDING":
     "Без твёрдой поверхности",
 
@@ -847,7 +852,7 @@
   "distanthorizons.config.enum.ELodShading.OLD_LIGHTING":
     "Старое освещение",
   "distanthorizons.config.enum.ELodShading.NONE":
-    "Нет",
+    "Отсутствует",
 
     "distanthorizons.config.enum.EUpdateBranch.STABLE":
     "Stable",
