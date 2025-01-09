@@ -164,7 +164,7 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 		
 		ACTIVE_CONNECTION_STRINGS_BY_REPO.put(this, this.connectionString);
 		
-		DatabaseUpdater.runAutoUpdateScripts(this);
+		DatabaseUpdater.runAutoUpdateScripts(this.connection);
 	}
 	
 	
