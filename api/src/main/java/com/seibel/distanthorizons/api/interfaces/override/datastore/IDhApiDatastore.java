@@ -21,4 +21,20 @@ public interface IDhApiDatastore extends IDhApiOverrideable {
      * @return the levelId used by the datastore.
      */
     int ensureLevel(String uniqueLevelName);
+
+    /**
+     * setChunkHash sets the chunkHash for the given level and position, updating if it already exists.
+     *
+     * @param levelId   unique id of the level. See {@link #ensureLevel}
+     * @param chunkHash hash value
+     */
+    void setChunkHash(int levelId, int chunkPosX, int chunkPosZ, int chunkHash);
+
+    /**
+     * getChunkHash returns the hash for the chunk at the given position, returning 0 if it doesn't exist.
+     *
+     * @param levelId unique id of the level. See {@link #ensureLevel}
+     * @return hash value
+     */
+    int getChunkHash(int levelId, int chunkPosX, int chunkPosZ);
 }

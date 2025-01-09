@@ -21,14 +21,36 @@ public class SQLiteDatastoreTest {
             Assert.assertTrue("unable to delete old test DB File.", dbFile.delete());
         }
     }
-
+    
     @Test
-    public void testCanCreateLevel() {
+    public void canSetAndGetChunkHash() {
+        File dbFile = new File(DB_FILE_NAME);
+        SQLiteDatastore datastore = SQLiteDatastore.SINGLETON;
+        
+        int levelId = datastore.ensureLevel(dbFile.getAbsolutePath());
+        
+        datastore.setChunkHash(levelId, 1,2, 20);
+        assert datastore.getChunkHash(levelId, 1, 2) == 20;
+    }
+    
+    @Test(expected = RuntimeException.class)
+    public void setChunkHashValidatesLevelId() {
         File dbFile = new File(DB_FILE_NAME);
         SQLiteDatastore datastore = SQLiteDatastore.SINGLETON;
 
-        datastore.ensureLevel(dbFile.getAbsolutePath());
+        int levelId = datastore.ensureLevel(dbFile.getAbsolutePath());
 
-        assert dbFile.exists();
+        datastore.setChunkHash(levelId + 1, 1,2, 20);
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void getChunkHashValidatesLevelId() {
+        File dbFile = new File(DB_FILE_NAME);
+        SQLiteDatastore datastore = SQLiteDatastore.SINGLETON;
+
+        int levelId = datastore.ensureLevel(dbFile.getAbsolutePath());
+
+        datastore.setChunkHash(levelId, 1,2, 20);
+        datastore.getChunkHash(levelId + 1, 1,2);
     }
 }

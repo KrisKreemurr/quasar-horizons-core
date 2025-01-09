@@ -19,6 +19,7 @@
 
 package com.seibel.distanthorizons.core.level;
 
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiChunkModifiedEvent;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.file.beacon.BeaconBeamDataHandler;
@@ -29,11 +30,10 @@ import com.seibel.distanthorizons.core.pos.DhChunkPos;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.render.renderer.generic.CloudRenderHandler;
 import com.seibel.distanthorizons.core.render.renderer.generic.GenericObjectRenderer;
+import com.seibel.distanthorizons.core.sql.SQLiteDatastore;
 import com.seibel.distanthorizons.core.sql.dto.BeaconBeamDTO;
-import com.seibel.distanthorizons.core.sql.dto.ChunkHashDTO;
 import com.seibel.distanthorizons.core.sql.repo.AbstractDhRepo;
 import com.seibel.distanthorizons.core.sql.repo.BeaconBeamRepo;
-import com.seibel.distanthorizons.core.sql.repo.ChunkHashRepo;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.wrapperInterfaces.chunk.IChunkWrapper;
 import com.seibel.distanthorizons.coreapi.DependencyInjection.ApiEventInjector;
@@ -52,9 +52,9 @@ public abstract class AbstractDhLevel implements IDhLevel
 {
 	private static final Logger LOGGER = DhLoggerBuilder.getLogger();
 	
-	/** if this is null then the other handler is probably null too, but just in case */
-	@Nullable
-	public ChunkHashRepo chunkHashRepo;
+	private IDhApiDatastore datastore;
+	private int levelId;
+	
 	/** if this is null then the other handler is probably null too, but just in case */
 	@Nullable
 	public BeaconBeamRepo beaconBeamRepo;
@@ -83,18 +83,8 @@ public abstract class AbstractDhLevel implements IDhLevel
 	 */
 	protected void createAndSetSupportingRepos(File databaseFile)
 	{
-		// chunk hash
-		ChunkHashRepo newChunkHashRepo = null;
-		try
-		{
-			newChunkHashRepo = new ChunkHashRepo(AbstractDhRepo.DEFAULT_DATABASE_TYPE, databaseFile);
-		}
-		catch (SQLException e)
-		{
-			LOGGER.error("Unable to create [ChunkHashRepo], error: ["+e.getMessage()+"].", e);
-		}
-		this.chunkHashRepo = newChunkHashRepo;
-		
+		this.datastore =  SQLiteDatastore.SINGLETON;
+		this.levelId = datastore.ensureLevel(databaseFile.getAbsolutePath());
 		
 		// beacon beam
 		BeaconBeamRepo newBeaconBeamRepo = null;
@@ -188,10 +178,8 @@ public abstract class AbstractDhLevel implements IDhLevel
 					{
 						// save after the data source has been updated to prevent saving the hash without the associated datasource
 						Integer chunkHash = this.updatedChunkHashesByChunkPos.remove(chunkPos);
-						if (this.chunkHashRepo != null && chunkHash != null)
-						{
-							this.chunkHashRepo.save(new ChunkHashDTO(chunkPos, chunkHash));
-						}
+						if (this.datastore != null)
+							this.datastore.setChunkHash(levelId, chunkPos.getX(), chunkPos.getZ(), chunkHash);
 						
 						ApiEventInjector.INSTANCE.fireAllEvents(
 								DhApiChunkModifiedEvent.class,
@@ -212,13 +200,10 @@ public abstract class AbstractDhLevel implements IDhLevel
 	@Override
 	public int getChunkHash(DhChunkPos pos)
 	{
-		if (this.chunkHashRepo == null)
-		{
+		if (this.datastore == null)
 			return 0;
-		}
 		
-		ChunkHashDTO dto = this.chunkHashRepo.getByKey(pos);
-		return (dto != null) ? dto.chunkHash : 0;
+		return this.datastore.getChunkHash(levelId, pos.getX(), pos.getZ());
 	}
 	
 	

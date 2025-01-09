@@ -10,9 +10,8 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.sql.*;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -112,12 +111,18 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
         try {
             return operation.run(connectionByLevelId.computeIfAbsent(levelId, id -> {
                 try {
-                    return DriverManager.getConnection(databaseUrlByLevelId.get(levelId));
+                    String databaseUrl = databaseUrlByLevelId.get(levelId);
+                    if (databaseUrl == null) {
+                        throw new RuntimeException("no such level " + levelId);
+                    }
+
+                    return DriverManager.getConnection(databaseUrl);
                 } catch (SQLException e) {
                     throw new RuntimeException(e);
                 }
             }));
         } catch (SQLException err) {
+            LOGGER.error(err);
             throw new RuntimeException(err);
         } finally {
             mutex.writeLock().unlock();
@@ -182,6 +187,46 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
 
         withConnection(levelId, DatabaseUpdater::runAutoUpdateScripts);
         return levelId;
+    }
+
+
+    @Override
+    public int getChunkHash(int levelId, int posX, int posZ) {
+        return withConnection(levelId, connection -> {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "select ChunkHash from ChunkHash where ChunkPosX = ? and ChunkPosZ = ?"
+            )) {
+                preparedStatement.setInt(1, posX);
+                preparedStatement.setInt(2, posZ);
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    if (!resultSet.next())
+                        return 0;
+                    return resultSet.getInt("ChunkHash");
+                }
+            }
+        });
+    }
+
+    @Override
+    public void setChunkHash(int levelId, int posX, int posZ, int hash) {
+        withConnection(levelId, connection -> {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "insert into ChunkHash (ChunkPosX, ChunkPosZ, ChunkHash, LastModifiedUnixDateTime, CreatedUnixDateTime) " +
+                    "values (?, ?, ?, ?, ?) " +
+                    "on conflict(ChunkPosX, ChunkPosZ) do update set " +
+                    "ChunkPosX=excluded.ChunkPosX, " +
+                    "ChunkPosZ=excluded.ChunkPosZ, " +
+                    "ChunkHash=excluded.ChunkHash, " +
+                    "LastModifiedUnixDateTime=excluded.LastModifiedUnixDateTime"
+            )) {
+                preparedStatement.setInt(1, posX);
+                preparedStatement.setInt(2, posZ);
+                preparedStatement.setInt(3, hash);
+                preparedStatement.setTimestamp(4, Timestamp.from(Instant.now()));
+                preparedStatement.setTimestamp(5, Timestamp.from(Instant.now()));
+                return preparedStatement.executeUpdate();
+            }
+        });
     }
 
 }
