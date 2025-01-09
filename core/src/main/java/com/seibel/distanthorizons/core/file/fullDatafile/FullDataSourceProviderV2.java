@@ -897,8 +897,6 @@ public class FullDataSourceProviderV2
 			Thread.sleep(200);
 			
 			LOGGER.info("Closing [" + this.getClass().getSimpleName() + "] for level: [" + this.level + "].");
-			
-			this.repo.close();
 		}
 		catch (InterruptedException ignore)
 		{

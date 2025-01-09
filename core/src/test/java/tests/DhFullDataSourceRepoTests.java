@@ -66,11 +66,10 @@ public class DhFullDataSourceRepoTests
 	@Test
 	public void test()
 	{
-		try (final FullDataSourceV2Repo repo = new FullDataSourceV2Repo(DATABASE_TYPE, new File(DB_FILE_NAME)))
+		try
 		{
-			
-			
-			
+			FullDataSourceV2Repo repo = new FullDataSourceV2Repo(DATABASE_TYPE, new File(DB_FILE_NAME));
+					
 			//========================//
 			// create test datasource //
 			//========================//

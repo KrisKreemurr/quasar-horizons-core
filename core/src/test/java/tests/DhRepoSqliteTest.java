@@ -136,13 +136,6 @@ public class DhRepoSqliteTest
 		{
 			Assert.fail(e.getMessage());
 		}
-		finally
-		{
-			if (primaryKeyRepo != null)
-			{
-				primaryKeyRepo.close();
-			}
-		}
 	}
 	
 	@Test
@@ -199,14 +192,5 @@ public class DhRepoSqliteTest
 		{
 			Assert.fail(e.getMessage());
 		}
-		finally
-		{
-			if (compoundKeyRepo != null)
-			{
-				compoundKeyRepo.close();
-			}
-		}
 	}
-	
-	
 }

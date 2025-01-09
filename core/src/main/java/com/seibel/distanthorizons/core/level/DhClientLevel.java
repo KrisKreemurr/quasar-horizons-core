@@ -355,7 +355,6 @@ public class DhClientLevel extends AbstractDhLevel implements IDhClientLevel
 		
 		this.levelWrapper.setParentLevel(null);
 		this.clientside.close();
-		super.close();
 		this.dataFileHandler.close();
 		LOGGER.info("Closed [" + DhClientLevel.class.getSimpleName() + "] for [" + this.levelWrapper + "]");
 	}

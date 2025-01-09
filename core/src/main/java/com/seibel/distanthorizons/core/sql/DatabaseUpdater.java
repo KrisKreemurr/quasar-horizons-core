@@ -58,8 +58,9 @@ public class DatabaseUpdater
 	// script running //
 	//================//
 	
-	public static void runAutoUpdateScripts(Connection connection) throws SQLException
+	public static int runAutoUpdateScripts(Connection connection) throws SQLException
 	{
+		int ran = 0;
 		// get the resource scripts
 		ArrayList<SqlScript> scriptList;
 		try
@@ -69,7 +70,7 @@ public class DatabaseUpdater
 		catch (IOException e)
 		{
 			LOGGER.error("Get auto update SQL scripts failed. Error: " + e.getMessage(), e);
-			return;
+			return 0;
 		}
 		
 		// This table should never be modified, however if for some reason that needs to happen, additional logic will need to be added to migrate over the old data
@@ -157,8 +158,11 @@ public class DatabaseUpdater
 			try (Statement statement = connection.createStatement())
 			{
 				statement.executeUpdate("INSERT INTO Schema (ScriptName) VALUES('" + resource.name + "');");
+				ran++;
 			}
 		}
+		
+		return ran;
 	}
 	
 	

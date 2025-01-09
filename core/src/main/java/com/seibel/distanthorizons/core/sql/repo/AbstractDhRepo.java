@@ -22,21 +22,17 @@ package com.seibel.distanthorizons.core.sql.repo;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.sql.DatabaseUpdater;
 import com.seibel.distanthorizons.core.sql.DbConnectionClosedException;
+import com.seibel.distanthorizons.core.sql.SQLiteDatastore;
 import com.seibel.distanthorizons.core.sql.dto.IBaseDTO;
 import com.seibel.distanthorizons.core.util.KeyedLockContainer;
-import com.seibel.distanthorizons.core.util.ThreadUtil;
-import com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
 
-import javax.swing.plaf.nimbus.State;
 import java.io.File;
 import java.io.IOException;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -44,7 +40,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * 
  * @param <TDTO> DTO stands for "Data Transfer Object" 
  */
-public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implements AutoCloseable
+public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>>
 {
 	private static final Logger LOGGER = DhLoggerBuilder.getLogger();
 	
@@ -55,15 +51,12 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 	private static final ConcurrentHashMap<String, Connection> CONNECTIONS_BY_CONNECTION_STRING = new ConcurrentHashMap<>();
 	private static final ConcurrentHashMap<AbstractDhRepo<?, ?>, String> ACTIVE_CONNECTION_STRINGS_BY_REPO = new ConcurrentHashMap<>();
 	
-	private static final ThreadPoolExecutor WAL_FLUSH_THREAD = ThreadUtil.makeSingleDaemonThreadPool("Abstract Repo WAL Flush");
-	private static final AtomicBoolean FLUSH_THREAD_QUEUED = new AtomicBoolean(false);
-	
-	
-	private final String connectionString;
-	private final Connection connection;
-	
 	public final String databaseType;
 	public final File databaseFile;
+	@Deprecated
+	private final Connection connection;
+	private static final SQLiteDatastore datastore = SQLiteDatastore.SINGLETON;
+	private final int levelId;
 	
 	public final Class<? extends TDTO> dtoClass;
 	
@@ -81,90 +74,9 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 		this.databaseType = databaseType;
 		this.databaseFile = databaseFile;
 		this.dtoClass = dtoClass;
-		
-		
-		try
-		{
-			// needed by Forge to load the Java database connection
-			Class.forName("org.sqlite.JDBC");	
-		}
-		catch (ClassNotFoundException e)
-		{
-			throw new RuntimeException(e);
-		}
-		
-		
-		
-		//==========================//
-		// database file validation //
-		//==========================//
-		
-		// check that the database file exists
-		if (!databaseFile.exists())
-		{
-			// check that the parent folder exists
-			File parentFolder = databaseFile.getParentFile();
-			if (parentFolder != null && !parentFolder.exists())
-			{
-				if (!parentFolder.mkdirs())
-				{
-					throw new RuntimeException("Unable to create the necessary parent folders for the database file at location ["+databaseFile.getPath()+"].");
-				}
-			}
-			
-			if (!databaseFile.exists())
-			{
-				try
-				{
-					boolean fileCreated = databaseFile.createNewFile();
-				}
-				catch (IOException e)
-				{
-					throw new RuntimeException("Unable to create database file at location ["+databaseFile.getPath()+"] due to error: ["+e.getMessage()+"]", e);
-				}
-			}
-		}
-		
-		if (!databaseFile.canRead())
-		{
-			throw new RuntimeException("Unable to read database file at location ["+databaseFile.getPath()+"], please make sure the folder and file has the correct permissions.");
-		}
-		if (!databaseFile.canWrite())
-		{
-			throw new RuntimeException("Unable to write database file at location ["+databaseFile.getPath()+"], please make sure the folder and file aren't set to read-only.");
-		}
-		
-		
-		
-		//==================//
-		// connection setup //
-		//==================//
-		
-		// get or create the connection,
-		// reusing existing connections reduces the chance of locking the database during trivial queries
-		this.connectionString = this.databaseType+":"+this.databaseFile.getPath();
-		
-		
-		this.connection = CONNECTIONS_BY_CONNECTION_STRING.computeIfAbsent(this.connectionString, (connectionString) ->
-			{
-				try
-				{
-					return DriverManager.getConnection(connectionString);
-				}
-				catch (SQLException e)
-				{
-					LOGGER.error("Unable to connect to database with the connection string: ["+connectionString+"]");
-					return null;
-				}
-			});
-		if (this.connection == null)
-		{
-			throw new SQLException("Unable to get repo with connection string ["+this.connectionString+"]");
-		}
-		
-		ACTIVE_CONNECTION_STRINGS_BY_REPO.put(this, this.connectionString);
-		
-		DatabaseUpdater.runAutoUpdateScripts(this.connection);
+
+		levelId = datastore.ensureLevel(databaseFile.getAbsolutePath());
+		connection = datastore.getConnection(levelId);
 	}
 	
 	
@@ -218,14 +130,13 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 		finally
 		{
 			saveLock.unlock();
-			//this.tryTriggerWalFlush();
 		}
 	}
 	private void insert(TDTO dto) 
 	{
-		try(PreparedStatement statement = this.createInsertStatement(dto);
-			ResultSet result = this.query(statement))
+		try(PreparedStatement statement = this.createInsertStatement(dto))
 		{
+			this.query(statement);
 		}
 		catch (DbConnectionClosedException ignored) 
 		{
@@ -240,10 +151,9 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 	}
 	private void update(TDTO dto)
 	{
-		try(PreparedStatement statement = this.createUpdateStatement(dto);
-			ResultSet result = this.query(statement))
+		try(PreparedStatement statement = this.createUpdateStatement(dto))
 		{
-			
+			this.query(statement);
 		}
 		catch (DbConnectionClosedException e)
 		{
@@ -261,29 +171,23 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 	public void delete(TDTO dto) { this.deleteWithKey(dto.getKey()); }
 	public void deleteWithKey(TKey key) 
 	{
-		try (PreparedStatement statement = this.createDeleteStatementByKey(key);
-			ResultSet result = this.query(statement))
+		try (PreparedStatement statement = this.createDeleteStatementByKey(key))
 		{
-			
+			this.query(statement);
 		}
 		catch (SQLException e)
 		{
 			throw new RuntimeException(e);
 		}
-		//finally
-		//{
-		//	this.tryTriggerWalFlush();
-		//}
 	}
 	
 	/** With great power comes great responsibility... */
 	public void deleteAll() 
 	{ 
 		String sql = "DELETE FROM " + this.getTableName();
-		try (PreparedStatement statement = this.createPreparedStatement(sql);
-			ResultSet result = this.query(statement))
+		try (PreparedStatement statement = this.createPreparedStatement(sql))
 		{
-			
+			this.query(statement);
 		}
 		catch (SQLException e)
 		{
@@ -308,65 +212,6 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 			return false;
 		}
 	}
-	
-	
-	protected void tryTriggerWalFlush()
-	{
-		if (FLUSH_THREAD_QUEUED.compareAndSet(false, true))
-		{
-			WAL_FLUSH_THREAD.execute(() -> 
-			{
-				try
-				{
-					Thread.sleep(10_000);
-					this.triggerWalFlush();
-				}
-				catch (InterruptedException ignore) { }
-				finally
-				{
-					FLUSH_THREAD_QUEUED.set(false);
-				}
-			});
-		}
-	}
-	protected void triggerWalFlush()
-	{
-		try (PreparedStatement statement = this.createPreparedStatement("PRAGMA wal_checkpoint(PASSIVE)");
-			ResultSet result = this.query(statement))
-		{
-			if (result == null)
-			{
-				return;
-			}
-			
-			int busyInt = result.getInt("busy"); // usually 0 but will be 1 if a RESTART or FULL or TRUNCATE checkpoint was blocked from completing
-			boolean checkpointWasBlocked = (busyInt == 1);
-			int modifiedPageCount = result.getInt("log"); // number of modified pages that have been written to the write-ahead log file
-			int numberOfPagesWrittenToDb = result.getInt("checkpointed"); // number of pages in the write-ahead log file that have been successfully moved back into the database file at the conclusion of the checkpoint
-			
-			if (!checkpointWasBlocked)
-			{
-				LOGGER.info("WAL flushed, modified pages: ["+modifiedPageCount+"], written pages: ["+numberOfPagesWrittenToDb+"].");
-			}
-			else
-			{
-				LOGGER.warn("WAL flush blocked, modified pages: ["+modifiedPageCount+"], written pages: ["+numberOfPagesWrittenToDb+"].");
-			}
-		}
-		catch (Exception e)
-		{
-			if (e instanceof SQLException && DbConnectionClosedException.IsClosedException((SQLException)e))
-			{
-				LOGGER.warn("DB closed");
-			}
-			else
-			{
-				LOGGER.error("unexpected error", e);
-			}
-		}
-	}
-	
-	
 	
 	
 	
@@ -403,7 +248,7 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 	 */
 	private List<Map<String, Object>> queryDictionary(String sql) throws RuntimeException, DbConnectionClosedException
 	{
-		try (Statement statement = this.connection.createStatement())
+		try (Statement statement = connection.createStatement())
 		{
 			statement.setQueryTimeout(TIMEOUT_SECONDS);
 			
@@ -494,7 +339,7 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 	{
 		try
 		{
-			PreparedStatement statement = this.connection.prepareStatement(sql);
+			PreparedStatement statement = connection.prepareStatement(sql);
 			statement.setQueryTimeout(TIMEOUT_SECONDS);
 			return statement;
 		}
@@ -522,19 +367,7 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 	// connections //
 	//=============//
 	
-	public Connection getConnection() { return this.connection; }
-	
-	public boolean isConnected() 
-	{
-		try
-		{
-			return this.connection != null && this.connection.isClosed();
-		}
-		catch (SQLException e)
-		{
-			return false;
-		}
-	}
+	public Connection getConnection() { return connection; }
 	
 	/** can be used to make sure everything is closed when the world closes */
 	public static void closeAllConnections()
@@ -565,44 +398,6 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 			}
 		}
 	}
-	
-	@Override
-	public void close()
-	{
-		try
-		{
-			// mark this repo as deactivated
-			ACTIVE_CONNECTION_STRINGS_BY_REPO.remove(this);
-			
-			// check if any other repos are using this connection
-			if (!ACTIVE_CONNECTION_STRINGS_BY_REPO.containsValue(this.connectionString)) // not a fast operation, but we shouldn't have more than 10 repos active at a time, so it shouldn't be a problem
-			{
-				if(this.connection != null)
-				{
-					CONNECTIONS_BY_CONNECTION_STRING.remove(this.connectionString);
-					
-					if (!this.connection.isClosed())
-					{
-						LOGGER.info("Closing database connection: [" + this.connectionString + "]...");
-						this.connection.close();
-						LOGGER.info("Finished closing database connection: [" + this.connectionString + "]");
-					}
-					else
-					{
-						LOGGER.warn("Attempting to close already closed database connection: [" + this.connectionString + "]");
-					}
-				}
-				ACTIVE_CONNECTION_STRINGS_BY_REPO.remove(this);
-			}
-		}
-		catch(SQLException e)
-		{
-			// connection close failed.
-			LOGGER.error("Unable to close the connection ["+this.connectionString+"], error: ["+e.getMessage()+"]");
-		}
-	}
-	
-	
 	
 	//================//
 	// helper methods //

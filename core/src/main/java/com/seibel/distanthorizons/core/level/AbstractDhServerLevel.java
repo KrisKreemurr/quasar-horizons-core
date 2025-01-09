@@ -346,7 +346,6 @@ public abstract class AbstractDhServerLevel extends AbstractDhLevel implements I
 	@Override
 	public void close()
 	{
-		super.close();
 		this.serverside.close();
 		LOGGER.info("Closed DHLevel for [" + this.getLevelWrapper() + "].");
 	}
