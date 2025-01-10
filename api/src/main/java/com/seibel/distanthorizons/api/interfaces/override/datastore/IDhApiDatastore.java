@@ -2,6 +2,10 @@ package com.seibel.distanthorizons.api.interfaces.override.datastore;
 
 import com.seibel.distanthorizons.api.interfaces.override.IDhApiOverrideable;
 
+import java.sql.Timestamp;
+import java.util.List;
+import java.util.Optional;
+
 /// IDhApiDatastore provides an interface which Distant Horizons uses to store LOD data.
 /// 
 /// Traditionally an SQLite database. The motivation behind this API is dedicated database support
@@ -37,4 +41,43 @@ public interface IDhApiDatastore extends IDhApiOverrideable {
      * @return hash value
      */
     int getChunkHash(int levelId, int chunkPosX, int chunkPosZ);
+
+    /**
+     * setBeaconBeam sets the BeaconBeam, updating if it already exists.
+     *
+     * @param levelId unique id of the level. See {@link #ensureLevel}
+     */
+    void setBeaconBeam(int levelId, int blockPosX, int blockPosY, int blockPosZ, int colourR, int colourG, int colourB);
+
+    /**
+     * deleteBeaconBeam removed the given BeaconBeam.
+     *
+     * @param levelId unique id of the level. See {@link #ensureLevel}
+     * @return true if the BeaconBeam existed
+     */
+    boolean deleteBeaconBeam(int levelId, int blockPosX, int blockPosY, int blockPosZ);
+
+    /**
+     * getBeaconBeamsInArea returns the beacon beams that exist within the given X, Z area at any Y.
+     *
+     * @param levelId      unique id of the level. See {@link #ensureLevel}
+     * @param minBlockPosX bounding box min X
+     * @param minBlockPosZ bounding box min Z
+     * @param maxBlockPosX bounding box max X
+     * @param maxBlockPosZ bounding box max Z
+     * @return list of {@link BeaconBeam} within the given area
+     */
+    List<BeaconBeam> getBeaconBeamsInArea(int levelId, int minBlockPosX, int minBlockPosZ, int maxBlockPosX, int maxBlockPosZ);
+
+    class BeaconBeam {
+        public int levelId;
+        public int blockPosX;
+        public int blockPosY;
+        public int blockPosZ;
+        public int colourR;
+        public int colourG;
+        public int colourB;
+        public Timestamp lastModified;
+        public Timestamp created;
+    }
 }

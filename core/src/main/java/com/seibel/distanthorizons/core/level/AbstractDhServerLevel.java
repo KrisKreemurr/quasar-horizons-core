@@ -250,8 +250,14 @@ public abstract class AbstractDhServerLevel extends AbstractDhLevel implements I
 					return;
 				}
 				
-				LodUtil.assertTrue(this.beaconBeamRepo != null, "beaconBeamRepo should not be null");
-				try (FullDataPayload payload = new FullDataPayload(data, this.beaconBeamRepo.getAllBeamsForPos(data.getPos())))
+				LodUtil.assertTrue(this.datastore != null, "datastore should not be null");
+				try (FullDataPayload payload = new FullDataPayload(data, this.datastore.getBeaconBeamsInArea(
+						levelId,
+						DhSectionPos.getMinCornerBlockX(data.getPos()),
+						DhSectionPos.getMinCornerBlockZ(data.getPos()),
+						DhSectionPos.getMinCornerBlockX(data.getPos()) + DhSectionPos.getBlockWidth(data.getPos()),
+						DhSectionPos.getMinCornerBlockZ(data.getPos()) + DhSectionPos.getBlockWidth(data.getPos())
+				)))
 				{
 					for (ServerPlayerState serverPlayerState : this.serverPlayerStateManager.getReadyPlayers())
 					{

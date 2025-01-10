@@ -19,12 +19,12 @@
 
 package com.seibel.distanthorizons.core.wrapperInterfaces.chunk;
 
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.core.generation.AdjacentChunkHolder;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPos;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPos2D;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPosMutable;
 import com.seibel.distanthorizons.core.pos.DhChunkPos;
-import com.seibel.distanthorizons.core.sql.dto.BeaconBeamDTO;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.misc.IMutableBlockPosWrapper;
 import com.seibel.distanthorizons.coreapi.ModInfo;
@@ -34,6 +34,7 @@ import com.seibel.distanthorizons.core.wrapperInterfaces.world.IBiomeWrapper;
 import org.jetbrains.annotations.Nullable;
 
 import java.awt.*;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -298,9 +299,9 @@ public interface IChunkWrapper extends IBindable
 		return hash;
 	}
 	
-	default List<BeaconBeamDTO> getAllActiveBeacons(ArrayList<IChunkWrapper> neighbourChunkList)
+	default List<IDhApiDatastore.BeaconBeam> getAllActiveBeacons(ArrayList<IChunkWrapper> neighbourChunkList)
 	{
-		ArrayList<BeaconBeamDTO> beaconBeamList = new ArrayList<>();
+		ArrayList<IDhApiDatastore.BeaconBeam> beaconBeamList = new ArrayList<>();
 		
 		AdjacentChunkHolder adjacentChunkHolder = new AdjacentChunkHolder(this, neighbourChunkList);
 		
@@ -322,7 +323,14 @@ public interface IChunkWrapper extends IBindable
 				if (beaconColor != null)
 				{
 					// beacon is active
-					BeaconBeamDTO beam = new BeaconBeamDTO(blockPosList.get(i), beaconColor);
+					
+					IDhApiDatastore.BeaconBeam beam = new IDhApiDatastore.BeaconBeam();
+					beam.blockPosX = blockPosList.get(i).getX();
+					beam.blockPosY = blockPosList.get(i).getY();
+					beam.blockPosZ = blockPosList.get(i).getZ();
+					beam.colourR = beaconColor.getRed();
+					beam.colourG = beaconColor.getGreen();
+					beam.colourB = beaconColor.getBlue();
 					beaconBeamList.add(beam);
 				}
 			}

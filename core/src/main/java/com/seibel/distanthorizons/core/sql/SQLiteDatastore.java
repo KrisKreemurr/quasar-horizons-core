@@ -12,8 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.sql.*;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -111,12 +110,7 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
         try {
             return operation.run(connectionByLevelId.computeIfAbsent(levelId, id -> {
                 try {
-                    String databaseUrl = databaseUrlByLevelId.get(levelId);
-                    if (databaseUrl == null) {
-                        throw new RuntimeException("no such level " + levelId);
-                    }
-
-                    return DriverManager.getConnection(databaseUrl);
+                    return DriverManager.getConnection(databaseUrlByLevelId.get(levelId));
                 } catch (SQLException e) {
                     throw new RuntimeException(e);
                 }
@@ -189,6 +183,25 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
         return levelId;
     }
 
+    @Override
+    public void setChunkHash(int levelId, int posX, int posZ, int hash) {
+        withConnection(levelId, connection -> {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "insert into ChunkHash (ChunkPosX, ChunkPosZ, ChunkHash, LastModifiedUnixDateTime, CreatedUnixDateTime) " +
+                    "values (?, ?, ?, ?, ?) " +
+                    "on conflict(ChunkPosX, ChunkPosZ) do update set " +
+                    "ChunkHash = excluded.ChunkHash, " +
+                    "LastModifiedUnixDateTime = excluded.LastModifiedUnixDateTime"
+            )) {
+                preparedStatement.setInt(1, posX);
+                preparedStatement.setInt(2, posZ);
+                preparedStatement.setInt(3, hash);
+                preparedStatement.setTimestamp(4, Timestamp.from(Instant.now()));
+                preparedStatement.setTimestamp(5, Timestamp.from(Instant.now()));
+                return preparedStatement.executeUpdate();
+            }
+        });
+    }
 
     @Override
     public int getChunkHash(int levelId, int posX, int posZ) {
@@ -208,25 +221,75 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
     }
 
     @Override
-    public void setChunkHash(int levelId, int posX, int posZ, int hash) {
+    public void setBeaconBeam(int levelId, int blockPosX, int blockPosY, int blockPosZ, int colourR, int colourG, int colourB) {
         withConnection(levelId, connection -> {
             try (PreparedStatement preparedStatement = connection.prepareStatement(
-                    "insert into ChunkHash (ChunkPosX, ChunkPosZ, ChunkHash, LastModifiedUnixDateTime, CreatedUnixDateTime) " +
-                    "values (?, ?, ?, ?, ?) " +
-                    "on conflict(ChunkPosX, ChunkPosZ) do update set " +
-                    "ChunkPosX=excluded.ChunkPosX, " +
-                    "ChunkPosZ=excluded.ChunkPosZ, " +
-                    "ChunkHash=excluded.ChunkHash, " +
-                    "LastModifiedUnixDateTime=excluded.LastModifiedUnixDateTime"
+                    "insert into BeaconBeam (BlockPosX, BlockPosY, BlockPosZ, ColorR, ColorG, ColorB, LastModifiedUnixDateTime, CreatedUnixDateTime) " +
+                    "values (?, ?, ?, ?, ?, ?, ?, ?) " +
+                    "on conflict(BlockPosX, BlockPosY, BlockPosZ) do update set " +
+                    "ColorR = excluded.ColorR, " +
+                    "ColorG = excluded.ColorG, " +
+                    "ColorB = excluded.ColorB, " +
+                    "LastModifiedUnixDateTime = excluded.LastModifiedUnixDateTime"
             )) {
-                preparedStatement.setInt(1, posX);
-                preparedStatement.setInt(2, posZ);
-                preparedStatement.setInt(3, hash);
-                preparedStatement.setTimestamp(4, Timestamp.from(Instant.now()));
-                preparedStatement.setTimestamp(5, Timestamp.from(Instant.now()));
+                preparedStatement.setInt(1, blockPosX);
+                preparedStatement.setInt(2, blockPosY);
+                preparedStatement.setInt(3, blockPosZ);
+                preparedStatement.setInt(4, colourR);
+                preparedStatement.setInt(5, colourG);
+                preparedStatement.setInt(6, colourB);
+                preparedStatement.setTimestamp(7, Timestamp.from(Instant.now()));
+                preparedStatement.setTimestamp(8, Timestamp.from(Instant.now()));
                 return preparedStatement.executeUpdate();
             }
         });
     }
 
+    @Override
+    public boolean deleteBeaconBeam(int levelId, int blockPosX, int blockPosY, int blockPosZ) {
+        return withConnection(levelId, connection -> {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "delete from BeaconBeam where BlockPosX = ? and BlockPosY = ? and BlockPosZ = ?"
+            )) {
+                preparedStatement.setInt(1, blockPosX);
+                preparedStatement.setInt(2, blockPosY);
+                preparedStatement.setInt(3, blockPosZ);
+                return preparedStatement.executeUpdate() > 0;
+            }
+        });
+    }
+
+    @Override
+    public List<BeaconBeam> getBeaconBeamsInArea(int levelId, int minBlockPosX, int minBlockPosZ, int maxBlockPosX, int maxBlockPosZ) {
+        return withConnection(levelId, connection -> {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "select * from BeaconBeam where " +
+                    "BlockPosX >= ? and BlockPosZ >= ? and " +
+                    "BlockPosX <= ? and BlockPosZ <= ?"
+            )) {
+                preparedStatement.setInt(1, minBlockPosX);
+                preparedStatement.setInt(2, minBlockPosZ);
+                preparedStatement.setInt(3, maxBlockPosX);
+                preparedStatement.setInt(4, maxBlockPosZ);
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    List<BeaconBeam> beaconBeams = new ArrayList<>();
+                    while (resultSet.next()) {
+                        BeaconBeam beam = new BeaconBeam();
+                        beam.levelId = levelId;
+                        beam.blockPosX = resultSet.getInt("BlockPosX");
+                        beam.blockPosY = resultSet.getInt("BlockPosY");
+                        beam.blockPosZ = resultSet.getInt("BlockPosZ");
+                        beam.colourR = resultSet.getInt("ColorR");
+                        beam.colourG = resultSet.getInt("ColorG");
+                        beam.colourB = resultSet.getInt("ColorB");
+                        beam.lastModified = resultSet.getTimestamp("LastModifiedUnixDateTime");
+                        beam.created = resultSet.getTimestamp("CreatedUnixDateTime");
+                        beaconBeams.add(beam);
+                    }
+
+                    return beaconBeams;
+                }
+            }
+        });
+    }
 }

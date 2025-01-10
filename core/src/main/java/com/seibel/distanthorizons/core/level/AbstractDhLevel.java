@@ -31,9 +31,6 @@ import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.render.renderer.generic.CloudRenderHandler;
 import com.seibel.distanthorizons.core.render.renderer.generic.GenericObjectRenderer;
 import com.seibel.distanthorizons.core.sql.SQLiteDatastore;
-import com.seibel.distanthorizons.core.sql.dto.BeaconBeamDTO;
-import com.seibel.distanthorizons.core.sql.repo.AbstractDhRepo;
-import com.seibel.distanthorizons.core.sql.repo.BeaconBeamRepo;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.wrapperInterfaces.chunk.IChunkWrapper;
 import com.seibel.distanthorizons.coreapi.DependencyInjection.ApiEventInjector;
@@ -41,7 +38,6 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -52,12 +48,8 @@ public abstract class AbstractDhLevel implements IDhLevel
 {
 	private static final Logger LOGGER = DhLoggerBuilder.getLogger();
 	
-	private IDhApiDatastore datastore;
-	private int levelId;
-	
-	/** if this is null then the other handler is probably null too, but just in case */
-	@Nullable
-	public BeaconBeamRepo beaconBeamRepo;
+	public IDhApiDatastore datastore;
+	public int levelId;
 	
 	protected final DelayedFullDataSourceSaveCache delayedFullDataSourceSaveCache = new DelayedFullDataSourceSaveCache(this::onDataSourceSaveAsync, 3_000);
 	/** contains the {@link DhChunkPos} for each {@link DhSectionPos} that are queued to save */
@@ -85,18 +77,6 @@ public abstract class AbstractDhLevel implements IDhLevel
 	{
 		this.datastore =  SQLiteDatastore.SINGLETON;
 		this.levelId = datastore.ensureLevel(databaseFile.getAbsolutePath());
-		
-		// beacon beam
-		BeaconBeamRepo newBeaconBeamRepo = null;
-		try
-		{
-			newBeaconBeamRepo = new BeaconBeamRepo(AbstractDhRepo.DEFAULT_DATABASE_TYPE, databaseFile);
-		}
-		catch (SQLException e)
-		{
-			LOGGER.error("Unable to create [BeaconBeamRepo], error: ["+e.getMessage()+"].", e);
-		}
-		this.beaconBeamRepo = newBeaconBeamRepo;
 	}
 	
 	/** handles any setup that needs the repos to be created */
@@ -119,9 +99,9 @@ public abstract class AbstractDhLevel implements IDhLevel
 		
 		
 		// shouldn't happen, but just in case
-		if (this.beaconBeamRepo != null)
+		if (this.datastore != null)
 		{
-			this.beaconBeamDataHandler = new BeaconBeamDataHandler(this.beaconBeamRepo, genericRenderer);
+			this.beaconBeamDataHandler = new BeaconBeamDataHandler(this.levelId, this.datastore, genericRenderer);
 		}
 	}
 	
@@ -217,7 +197,7 @@ public abstract class AbstractDhLevel implements IDhLevel
 	{
 		if (this.beaconBeamDataHandler != null)
 		{
-			List<BeaconBeamDTO> activeBeamList = chunkToUpdate.getAllActiveBeacons(nearbyChunkList);
+			List<IDhApiDatastore.BeaconBeam> activeBeamList = chunkToUpdate.getAllActiveBeacons(nearbyChunkList);
 			this.beaconBeamDataHandler.setBeaconBeamsForChunk(chunkToUpdate.getChunkPos(), activeBeamList);
 		}
 	}

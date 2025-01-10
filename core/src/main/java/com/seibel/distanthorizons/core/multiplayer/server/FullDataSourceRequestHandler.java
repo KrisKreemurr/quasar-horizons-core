@@ -1,6 +1,7 @@
 package com.seibel.distanthorizons.core.multiplayer.server;
 
 import com.seibel.distanthorizons.api.enums.worldGeneration.EDhApiDistantGeneratorMode;
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.file.fullDatafile.GeneratedFullDataSourceProvider;
 import com.seibel.distanthorizons.core.level.AbstractDhServerLevel;
@@ -11,7 +12,6 @@ import com.seibel.distanthorizons.core.network.exceptions.SectionRequiresSplitti
 import com.seibel.distanthorizons.core.network.messages.fullData.FullDataSourceRequestMessage;
 import com.seibel.distanthorizons.core.network.messages.fullData.FullDataSourceResponseMessage;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
-import com.seibel.distanthorizons.core.sql.dto.BeaconBeamDTO;
 import com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil;
 import org.apache.logging.log4j.LogManager;
 
@@ -29,7 +29,15 @@ public class FullDataSourceRequestHandler
 	private final AbstractDhServerLevel serverLevel;
 	private String getLevelIdentifier() { return this.serverLevel.getLevelWrapper().getDhIdentifier(); }
 	private GeneratedFullDataSourceProvider fullDataSourceProvider() { return this.serverLevel.serverside.fullDataFileHandler; }
-	private List<BeaconBeamDTO> getAllBeamsForPos(long pos) { return this.serverLevel.beaconBeamRepo.getAllBeamsForPos(pos); }
+	private List<IDhApiDatastore.BeaconBeam> getAllBeamsForPos(long pos) { 
+		return this.serverLevel.datastore.getBeaconBeamsInArea(
+				this.serverLevel.levelId,
+				DhSectionPos.getMinCornerBlockX(pos),
+				DhSectionPos.getMinCornerBlockZ(pos),
+				DhSectionPos.getMinCornerBlockX(pos) + DhSectionPos.getBlockWidth(pos),
+				DhSectionPos.getMinCornerBlockZ(pos) + DhSectionPos.getBlockWidth(pos)
+		); 
+	}
 	
 	private final ConcurrentMap<Long, DataSourceRequestGroup> requestGroupsByPos = new ConcurrentHashMap<>();
 	private final ConcurrentMap<Long, DataSourceRequestGroup> requestGroupsByFutureId = new ConcurrentHashMap<>();
