@@ -20,6 +20,7 @@
 package com.seibel.distanthorizons.core.file.fullDatafile;
 
 import com.seibel.distanthorizons.api.enums.worldGeneration.EDhApiWorldGenerationStep;
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.core.api.internal.SharedApi;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
@@ -79,7 +80,6 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 	// constructor //
 	//=============//
 	
-	public GeneratedFullDataSourceProvider(IDhLevel level, ISaveStructure saveStructure) { super(level, saveStructure); }
 	public GeneratedFullDataSourceProvider(IDhLevel level, ISaveStructure saveStructure, @Nullable File saveDirOverride) { super(level, saveStructure, saveDirOverride); }
 	
 	
@@ -313,36 +313,30 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 			return null;
 		}
 		
-		
-		// don't check any child positions if this position is already fully generated 
-		if (this.repo.existsWithKey(pos))
+		Optional<IDhApiDatastore.FullDataMetadata> metadata = this.datastore.getFullDataMetadata(this.levelId, DhSectionPos.getDetailLevel(pos), DhSectionPos.getX(pos), DhSectionPos.getZ(pos));
+		if (metadata.isPresent())
 		{
-			try(PhantomArrayListCheckout checkout = ARRAY_LIST_POOL.checkoutArrays(1, 0, 0))
+			ByteArrayList columnGenStepArray = new ByteArrayList(metadata.get().columnGenerationStep);
+			if (!columnGenStepArray.isEmpty())
 			{
-				ByteArrayList columnGenStepArray = checkout.getByteArray(0, FullDataSourceV2.WIDTH*FullDataSourceV2.WIDTH);
-				this.repo.getColumnGenerationStepForPos(pos, columnGenStepArray);
-				if (!columnGenStepArray.isEmpty())
+				boolean positionFullyGenerated = true;
+				
+				// check if any positions are ungenerated
+				for (int i = 0; i < columnGenStepArray.size(); i++)
 				{
-					boolean positionFullyGenerated = true;
-					
-					// check if any positions are ungenerated
-					for (int i = 0; i < columnGenStepArray.size(); i++)
+					if (columnGenStepArray.getByte(i) == EDhApiWorldGenerationStep.EMPTY.value)
 					{
-						if (columnGenStepArray.getByte(i) == EDhApiWorldGenerationStep.EMPTY.value)
-						{
-							positionFullyGenerated = false;
-							break;
-						}
+						positionFullyGenerated = false;
+						break;
 					}
-					
-					if (positionFullyGenerated)
-					{
-						return new LongArrayList();
-					}
+				}
+				
+				if (positionFullyGenerated)
+				{
+					return new LongArrayList();
 				}
 			}
 		}
-		
 		
 		
 		// this section is missing one or more columns, queue the missing ones for generation.
@@ -350,66 +344,59 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 		LongArrayList generationList = new LongArrayList();
 		
 		byte lowestGeneratorDetailLevel = (byte) Math.min(
-				worldGenQueue.lowestDataDetail()  + DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL,
+				worldGenQueue.lowestDataDetail() + DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL,
 				DhSectionPos.getDetailLevel(pos));
 		
 		DhSectionPos.forEachChildAtDetailLevel(pos, lowestGeneratorDetailLevel, (genPos) ->
 		{
-			if (!this.repo.existsWithKey(genPos))
+			Optional<IDhApiDatastore.FullDataMetadata> genMetadata = this.datastore.getFullDataMetadata(this.levelId, DhSectionPos.getDetailLevel(genPos), DhSectionPos.getX(genPos), DhSectionPos.getZ(genPos));
+			if (!genMetadata.isPresent())
 			{
-				// nothing exists for this position, it needs generation
 				generationList.add(genPos);
+				return;
 			}
-			else
+			
+			EDhApiWorldGenerationStep currentMinWorldGenStep = EDhApiWorldGenerationStep.LIGHT;
+			ByteArrayList columnGenerationSteps = new ByteArrayList(genMetadata.get().columnGenerationStep);
+			
+			if (columnGenerationSteps.isEmpty())
 			{
-				
-				EDhApiWorldGenerationStep currentMinWorldGenStep = EDhApiWorldGenerationStep.LIGHT;
-				try(PhantomArrayListCheckout checkout = ARRAY_LIST_POOL.checkoutArrays(1, 0, 0))
+				// shouldn't happen, but just in case
+				return;
+			}
+			
+			checkWorldGenLoop:
+			for (int x = 0; x < FullDataSourceV2.WIDTH; x++)
+			{
+				for (int z = 0; z < FullDataSourceV2.WIDTH; z++)
 				{
-					ByteArrayList columnGenerationSteps = checkout.getByteArray(0, FullDataSourceV2.WIDTH*FullDataSourceV2.WIDTH);
-					this.repo.getColumnGenerationStepForPos(genPos, columnGenerationSteps);
-					if (columnGenerationSteps.isEmpty())
+					int index = FullDataSourceV2.relativePosToIndex(x, z);
+					byte genStepValue = columnGenerationSteps.getByte(index);
+					
+					if (genStepValue < currentMinWorldGenStep.value)
 					{
-						// shouldn't happen, but just in case
-						return;
-					}
-					
-					
-					
-					checkWorldGenLoop:
-					for (int x = 0; x < FullDataSourceV2.WIDTH; x++)
-					{
-						for (int z = 0; z < FullDataSourceV2.WIDTH; z++)
+						EDhApiWorldGenerationStep newWorldGenStep = EDhApiWorldGenerationStep.fromValue(genStepValue);
+						if (newWorldGenStep != null && newWorldGenStep.value < currentMinWorldGenStep.value)
 						{
-							int index = FullDataSourceV2.relativePosToIndex(x, z);
-							byte genStepValue = columnGenerationSteps.getByte(index);
-							
-							if (genStepValue < currentMinWorldGenStep.value)
-							{
-								EDhApiWorldGenerationStep newWorldGenStep = EDhApiWorldGenerationStep.fromValue(genStepValue);
-								if (newWorldGenStep != null && newWorldGenStep.value < currentMinWorldGenStep.value)
-								{
-									currentMinWorldGenStep = newWorldGenStep;
-								}
-							}
-							
-							if (currentMinWorldGenStep == EDhApiWorldGenerationStep.EMPTY)
-							{
-								// queue the task
-								break checkWorldGenLoop;
-							}
+							currentMinWorldGenStep = newWorldGenStep;
 						}
 					}
+					
+					if (currentMinWorldGenStep == EDhApiWorldGenerationStep.EMPTY)
+					{
+						// queue the task
+						break checkWorldGenLoop;
+					}
 				}
-				
-				if (currentMinWorldGenStep != EDhApiWorldGenerationStep.EMPTY)
-				{
-					// no world gen needed for this position
-					return;
-				}
-				
-				generationList.add(genPos);
 			}
+			
+			if (currentMinWorldGenStep != EDhApiWorldGenerationStep.EMPTY)
+			{
+				// no world gen needed for this position
+				return;
+			}
+			
+			generationList.add(genPos);
 		});
 		
 		return generationList;

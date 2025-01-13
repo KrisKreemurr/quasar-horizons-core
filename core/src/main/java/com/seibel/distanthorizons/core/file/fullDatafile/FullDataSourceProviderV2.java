@@ -20,6 +20,7 @@
 package com.seibel.distanthorizons.core.file.fullDatafile;
 
 import com.seibel.distanthorizons.api.enums.config.EDhApiDataCompressionMode;
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.core.api.internal.ClientApi;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV1;
@@ -34,9 +35,8 @@ import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPos;
 import com.seibel.distanthorizons.core.render.renderer.DebugRenderer;
 import com.seibel.distanthorizons.core.render.renderer.IDebugRenderable;
+import com.seibel.distanthorizons.core.sql.SQLiteDatastore;
 import com.seibel.distanthorizons.core.sql.dto.FullDataSourceV2DTO;
-import com.seibel.distanthorizons.core.sql.repo.AbstractDhRepo;
-import com.seibel.distanthorizons.core.sql.repo.FullDataSourceV2Repo;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.ThreadUtil;
 import com.seibel.distanthorizons.core.util.objects.DataCorruptedException;
@@ -44,6 +44,7 @@ import com.seibel.distanthorizons.core.util.threading.PositionalLockProvider;
 import com.seibel.distanthorizons.core.util.threading.PriorityTaskPicker;
 import com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil;
 import com.seibel.distanthorizons.core.wrapperInterfaces.minecraft.IMinecraftClientWrapper;
+import com.seibel.distanthorizons.coreapi.DependencyInjection.OverrideInjector;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -52,9 +53,9 @@ import org.jetbrains.annotations.Nullable;
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -143,7 +144,9 @@ public class FullDataSourceProviderV2
 	
 	protected final IDhLevel level;
 	protected final File saveDir;
-	public final FullDataSourceV2Repo repo;
+	
+	public IDhApiDatastore datastore;
+	public int levelId;
 	
 	public final ArrayList<Consumer<FullDataSourceV2>> dateSourceUpdateListeners = new ArrayList<>();
 	
@@ -152,12 +155,16 @@ public class FullDataSourceProviderV2
 	// constructor //
 	//=============//
 	
-	public FullDataSourceProviderV2(IDhLevel level, ISaveStructure saveStructure) { this(level, saveStructure, null); }
 	public FullDataSourceProviderV2(IDhLevel level, ISaveStructure saveStructure, @Nullable File saveDirOverride)
 	{
+		this.datastore = OverrideInjector.INSTANCE.get(IDhApiDatastore.class);
+		if (this.datastore == null) {
+			this.datastore = SQLiteDatastore.SINGLETON;
+		}
+		
 		this.level = level;
 		this.saveDir = (saveDirOverride == null) ? saveStructure.getSaveFolder(level.getLevelWrapper()) : saveDirOverride;
-		this.repo = this.createRepo();
+		this.levelId = this.datastore.ensureLevel(new File(this.saveDir.getPath() + File.separator + ISaveStructure.DATABASE_NAME).getAbsolutePath());
 		
 		this.legacyFileHandler = new FullDataSourceProviderV1<>(level, saveStructure, saveDirOverride);
 		
@@ -180,26 +187,6 @@ public class FullDataSourceProviderV2
 		// update propagation doesn't need to be run on the server since only the highest detail level is needed
 		this.updateQueueProcessor = ThreadUtil.makeSingleThreadPool("Parent Update Queue [" + levelId + "]");
 		this.updateQueueProcessor.execute(this::runUpdateQueue);
-	}
-	
-	
-	
-	//====================//
-	// Abstract overrides //
-	//====================//
-	
-	protected FullDataSourceV2Repo createRepo()
-	{
-		try
-		{
-			return new FullDataSourceV2Repo(AbstractDhRepo.DEFAULT_DATABASE_TYPE, new File(this.saveDir.getPath() + File.separator + ISaveStructure.DATABASE_NAME));
-		}
-		catch (SQLException e)
-		{
-			// should only happen if there is an issue with the database (it's locked or the folder path is missing) 
-			// or the database update failed
-			throw new RuntimeException(e);
-		}
 	}
 	
 	protected FullDataSourceV2DTO createDtoFromDataSource(FullDataSourceV2 dataSource)
@@ -258,12 +245,18 @@ public class FullDataSourceProviderV2
 						&& this.parentUpdatingPosSet.size() < MAX_UPDATE_TASK_COUNT)
 				{
 					// get the positions that need to be applied to their parents
-					LongArrayList parentUpdatePosList = this.repo.getPositionsToUpdate(targetBlockPos.getX(), targetBlockPos.getZ(), MAX_UPDATE_TASK_COUNT);
+					List<IDhApiDatastore.FullDataPosition> parentUpdatePosList = this.datastore.getFullDataPositionsToUpdate(
+							this.levelId,
+							targetBlockPos.getX(),
+							targetBlockPos.getZ(),
+							MAX_UPDATE_TASK_COUNT
+					);
 					
 					// combine updates together based on their parent
 					HashMap<Long, HashSet<Long>> updatePosByParentPos = new HashMap<>();
-					for (Long pos : parentUpdatePosList)
+					for (IDhApiDatastore.FullDataPosition fdPos : parentUpdatePosList)
 					{
+						long pos = DhSectionPos.encode(fdPos.detailLevel, fdPos.posX, fdPos.posZ);
 						updatePosByParentPos.compute(DhSectionPos.getParentPos(pos), (parentPos, updatePosSet) ->
 						{
 							if (updatePosSet == null)
@@ -317,7 +310,7 @@ public class FullDataSourceProviderV2
 													if (dataSource != null)
 													{
 														this.updateDataSourceAtPos(parentUpdatePos, dataSource, false);
-														this.repo.setApplyToParent(childPos, false);
+														this.datastore.setFullDataApplyToParent(this.levelId, DhSectionPos.getDetailLevel(childPos), DhSectionPos.getX(childPos), DhSectionPos.getZ(childPos), false);
 													}
 												}
 											}
@@ -402,7 +395,7 @@ public class FullDataSourceProviderV2
 						// save the updated data to the database
 						try (FullDataSourceV2DTO dto = this.createDtoFromDataSource(recipientDataSource))
 						{
-							this.repo.save(dto);
+							this.datastore.setFullData(dto.toDatastoreFullData(levelId));
 						}
 						
 						
@@ -463,47 +456,45 @@ public class FullDataSourceProviderV2
 	 */
 	public FullDataSourceV2 get(long pos)
 	{
-		FullDataSourceV2 dataSource = null;
-		try (FullDataSourceV2DTO dto = this.repo.getByKey(pos))
+		Optional<FullDataSourceV2DTO> fullData = this.datastore.getFullData(
+				this.levelId,
+				DhSectionPos.getDetailLevel(pos),
+				DhSectionPos.getX(pos),
+				DhSectionPos.getZ(pos)
+		).map(FullDataSourceV2DTO::fromDatastoreFullData);
+		
+		if (!fullData.isPresent())
+			return this.makeEmptyDataSource(pos);
+		
+		try
 		{
-			if (dto != null)
-			{
-				try
-				{
-					// load from database
-					dataSource = this.createDataSourceFromDto(dto);
-				}
-				catch (DataCorruptedException e)
-				{
-					// there's a rare issue where the exception doesn't
-					// have a message, which can cause problems
-					String message = (e.getMessage() == null) ? e.getMessage() : "No Error message for exception [" + e.getClass().getSimpleName() + "]";
-					
-					// Only log each message type once.
-					// This is done to prevent logging "No compression mode with the value [2]" 10,000 times 
-					// if the user is migrating from a nightly build and used ZStd.
-					if (CORRUPT_DATA_ERRORS_LOGGED.add(message))
-					{
-						LOGGER.warn("Corrupted data found at pos [" + DhSectionPos.toString(pos) + "]. Data at position will be deleted so it can be re-generated to prevent issues. Future errors with this same message won't be logged. Error: [" + message + "].", e);
-					}
-					
-					this.repo.deleteWithKey(pos);
-				}
-			}
-			else
-			{
-				dataSource = this.makeEmptyDataSource(pos);
-			}
+			return this.createDataSourceFromDto(fullData.get());
 		}
-		catch (InterruptedException ignore)
+		catch (DataCorruptedException e)
 		{
+			// there's a rare issue where the exception doesn't
+			// have a message, which can cause problems
+			String message = (e.getMessage() == null) ? e.getMessage() : "No Error message for exception [" + e.getClass().getSimpleName() + "]";
+			
+			// Only log each message type once.
+			// This is done to prevent logging "No compression mode with the value [2]" 10,000 times 
+			// if the user is migrating from a nightly build and used ZStd.
+			if (CORRUPT_DATA_ERRORS_LOGGED.add(message))
+			{
+				LOGGER.warn("Corrupted data found at pos [" + DhSectionPos.toString(pos) + "]. Data at position will be deleted so it can be re-generated to prevent issues. Future errors with this same message won't be logged. Error: [" + message + "].", e);
+			}
+			
+			this.datastore.deleteFullData(levelId, DhSectionPos.getDetailLevel(pos), DhSectionPos.getX(pos), DhSectionPos.getZ(pos));
 		}
 		catch (IOException e)
 		{
 			LOGGER.warn("File read Error for pos [" + DhSectionPos.toString(pos) + "], error: " + e.getMessage(), e);
 		}
+		catch (InterruptedException ignore)
+		{
+		}
 		
-		return dataSource;
+		return null;
 	}
 	
 	/**
@@ -855,8 +846,6 @@ public class FullDataSourceProviderV2
 	/** Can be used to display how many total chunk retrieval requests should be available. */
 	public void setEstimatedRemainingRetrievalChunkCount(int newCount) { }
 	
-	public boolean fileExists(long pos) { return this.repo.getDataSizeInBytes(pos) > 0; }
-	
 	
 	
 	//========================//
@@ -865,7 +854,19 @@ public class FullDataSourceProviderV2
 	
 	@Nullable
 	public Long getTimestampForPos(long pos)
-	{ return this.repo.getTimestampForPos(pos); }
+	{
+		Optional<IDhApiDatastore.FullDataMetadata> metadata = this.datastore.getFullDataMetadata(
+				this.levelId,
+				DhSectionPos.getDetailLevel(pos),
+				DhSectionPos.getX(pos),
+				DhSectionPos.getZ(pos)
+		);
+		
+		if (!metadata.isPresent())
+			return null;
+		
+		return metadata.map(m -> m.lastModified.getTime()).get();
+	}
 	
 	
 	

@@ -69,16 +69,6 @@ public abstract class AbstractDhLevel implements IDhLevel
 	
 	protected AbstractDhLevel() {  }
 	
-	/** 
-	 * Creating the repos requires access to the level file, which isn't
-	 * available at constructor time.
-	 */
-	protected void createAndSetSupportingRepos(File databaseFile)
-	{
-		this.datastore =  SQLiteDatastore.SINGLETON;
-		this.levelId = datastore.ensureLevel(databaseFile.getAbsolutePath());
-	}
-	
 	/** handles any setup that needs the repos to be created */
 	protected void runRepoReliantSetup()
 	{

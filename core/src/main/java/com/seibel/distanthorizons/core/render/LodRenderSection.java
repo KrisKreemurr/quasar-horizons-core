@@ -387,7 +387,13 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 	{  
 		if (!this.checkedIfFullDataSourceExists)
 		{
-			this.fullDataSourceExists = this.fullDataSourceProvider.repo.existsWithKey(this.pos);
+			this.fullDataSourceExists = this.fullDataSourceProvider.datastore.getFullDataMetadata(
+					this.fullDataSourceProvider.levelId, 
+					DhSectionPos.getDetailLevel(this.pos),
+					DhSectionPos.getX(this.pos), 
+					DhSectionPos.getZ(this.pos)
+			).isPresent();
+			
 			this.checkedIfFullDataSourceExists = true;
 		}
 		

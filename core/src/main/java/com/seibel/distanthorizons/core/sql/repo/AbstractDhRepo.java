@@ -40,6 +40,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * 
  * @param <TDTO> DTO stands for "Data Transfer Object" 
  */
+@Deprecated
 public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>>
 {
 	private static final Logger LOGGER = DhLoggerBuilder.getLogger();

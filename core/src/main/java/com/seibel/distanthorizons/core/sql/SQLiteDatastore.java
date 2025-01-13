@@ -5,9 +5,11 @@ import com.seibel.distanthorizons.api.methods.events.DhApiEventRegister;
 import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiWorldUnloadEvent;
 import com.seibel.distanthorizons.api.methods.events.sharedParameterObjects.DhApiEventParam;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
+import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.coreapi.interfaces.dependencyInjection.IOverrideInjector;
 import org.apache.logging.log4j.Logger;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.sql.*;
@@ -15,20 +17,20 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.BaseStream;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiDatastore {
     private static final Logger LOGGER = DhLoggerBuilder.getLogger();
-
-    // This ensures that only a single instance of SQLiteDatastore exists
-    // while code is migrated.
-    @Deprecated
+	
     public static final SQLiteDatastore SINGLETON = new SQLiteDatastore();
 
     private final ReadWriteLock mutex = new ReentrantReadWriteLock();
     private final Map<Integer, Connection> connectionByLevelId = new HashMap<>();
     private final Map<Integer, String> databaseUrlByLevelId = new HashMap<>();
 
-    private SQLiteDatastore() {
+    public SQLiteDatastore() {
         try {
             // needed by Forge to load the Java database connection
             Class.forName("org.sqlite.JDBC");
@@ -65,9 +67,16 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
         return IOverrideInjector.CORE_PRIORITY;
     }
 
-    //=============================//
-    // concurrency support wrapper //
-    //=============================//
+    // This allows legacy code to access a Connection instance
+    // while bring migrated to IDhApiDatastore
+    @Deprecated
+    public Connection getConnection(int levelId) {
+        return withConnection(levelId, connection -> connection);
+    }
+
+    //=====================//
+    // concurrency support //
+    //=====================//
 
     @FunctionalInterface
     private interface Operation<T> {
@@ -116,18 +125,10 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
                 }
             }));
         } catch (SQLException err) {
-            LOGGER.error(err);
             throw new RuntimeException(err);
         } finally {
             mutex.writeLock().unlock();
         }
-    }
-
-    // This allows legacy code to access a Connection instance
-    // while bring migrated to IDhApiDatastore
-    @Deprecated
-    public Connection getConnection(int levelId) throws SQLException {
-        return withConnection(levelId, connection -> connection);
     }
 
     //=========================//
@@ -288,6 +289,235 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
                     }
 
                     return beaconBeams;
+                }
+            }
+        });
+    }
+
+    @Override
+    public void setFullData(FullData fullData) {
+        withConnection(fullData.levelId, connection -> {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "insert into FullData (" +
+                    "DetailLevel, " +
+                    "PosX, " +
+                    "PosZ, " +
+                    "MinY, " +
+                    "DataChecksum, " +
+                    "Data, " +
+                    "ColumnGenerationStep, " +
+                    "ColumnWorldCompressionMode, " +
+                    "Mapping, " +
+                    "DataFormatVersion, " +
+                    "CompressionMode, " +
+                    "ApplyToParent, " +
+                    "LastModifiedUnixDateTime, " +
+                    "CreatedUnixDateTime" +
+                    ") values (?,?,?,?,?,?,?,?,?,?,?,?,?,?) on conflict (DetailLevel, PosX, PosZ) do update set " +
+                    "MinY = excluded.MinY, " +
+                    "DataChecksum = excluded.DataChecksum, " +
+                    "Data = excluded.Data, " +
+                    "ColumnGenerationStep = excluded.ColumnGenerationStep, " +
+                    "ColumnWorldCompressionMode = excluded.ColumnWorldCompressionMode, " +
+                    "Mapping = excluded.Mapping, " +
+                    "DataFormatVersion = excluded.DataFormatVersion, " +
+                    "CompressionMode = excluded.CompressionMode, " +
+                    "ApplyToParent = excluded.ApplyToParent, " +
+                    "LastModifiedUnixDateTime = excluded.LastModifiedUnixDateTime"
+            )) {
+                preparedStatement.setByte(1, (byte) (fullData.detailLevel - DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL));
+                preparedStatement.setInt(2, fullData.posX);
+                preparedStatement.setInt(3, fullData.posZ);
+                preparedStatement.setInt(4, fullData.minY);
+                preparedStatement.setInt(5, fullData.dataChecksum);
+                preparedStatement.setBinaryStream(6, new ByteArrayInputStream(fullData.data), fullData.data.length);
+                preparedStatement.setBinaryStream(7, new ByteArrayInputStream(fullData.columnGenerationStep), fullData.columnGenerationStep.length);
+                preparedStatement.setBinaryStream(8, new ByteArrayInputStream(fullData.columnWorldCompressionMode), fullData.columnWorldCompressionMode.length);
+                preparedStatement.setBinaryStream(9, new ByteArrayInputStream(fullData.mapping), fullData.mapping.length);
+                preparedStatement.setByte(10, fullData.dataFormatVersion);
+                preparedStatement.setByte(11, fullData.compressionMode);
+                preparedStatement.setBoolean(12, fullData.applyToParent);
+                preparedStatement.setTimestamp(13, Timestamp.from(Instant.now()));
+                preparedStatement.setTimestamp(14, Timestamp.from(Instant.now()));
+                return preparedStatement.executeUpdate();
+            }
+        });
+    }
+
+    @Override
+    public Optional<FullData> getFullData(int levelId, byte detailLevel, int posX, int posZ) {
+        return withConnection(levelId, connection -> {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "select " +
+                    "DetailLevel, " +
+                    "PosX, " +
+                    "PosZ, " +
+                    "MinY, " +
+                    "DataChecksum, " +
+                    "Data, " +
+                    "ColumnGenerationStep, " +
+                    "ColumnWorldCompressionMode, " +
+                    "Mapping, " +
+                    "DataFormatVersion, " +
+                    "CompressionMode, " +
+                    "ApplyToParent, " +
+                    "LastModifiedUnixDateTime, " +
+                    "CreatedUnixDateTime " +
+                    "from FullData where DetailLevel = ? and PosX = ? and PosZ = ?"
+            )) {
+                preparedStatement.setByte(1, (byte) (detailLevel - DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL));
+                preparedStatement.setInt(2, posX);
+                preparedStatement.setInt(3, posZ);
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    if (!resultSet.next())
+                        return Optional.empty();
+
+                    FullData data = new FullData();
+                    data.levelId = levelId;
+                    data.detailLevel = (byte) (resultSet.getByte("DetailLevel") + DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL);
+                    data.posX = resultSet.getInt("PosX");
+                    data.posZ = resultSet.getInt("PosZ");
+                    data.minY = resultSet.getInt("MinY");
+                    data.dataChecksum = resultSet.getInt("DataChecksum");
+                    data.data = resultSet.getBytes("Data");
+                    data.columnGenerationStep = resultSet.getBytes("ColumnGenerationStep");
+                    data.columnWorldCompressionMode = resultSet.getBytes("ColumnWorldCompressionMode");
+                    data.mapping = resultSet.getBytes("Mapping");
+                    data.dataFormatVersion = resultSet.getByte("DataFormatVersion");
+                    data.compressionMode = resultSet.getByte("CompressionMode");
+                    data.applyToParent = resultSet.getBoolean("ApplyToParent");
+                    data.lastModified = resultSet.getTimestamp("LastModifiedUnixDateTime");
+                    data.created = resultSet.getTimestamp("CreatedUnixDateTime");
+                    return Optional.of(data);
+                }
+            }
+        });
+    }
+
+    @Override
+    public Optional<FullDataMetadata> getFullDataMetadata(int levelId, byte detailLevel, int posX, int posZ) {
+        return withConnection(levelId, connection -> {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "select " +
+                    "DetailLevel, " +
+                    "PosX, " +
+                    "PosZ, " +
+                    "MinY, " +
+                    "DataChecksum, " +
+                    "ColumnGenerationStep, " +
+                    "ColumnWorldCompressionMode, " +
+                    "DataFormatVersion, " +
+                    "CompressionMode, " +
+                    "ApplyToParent, " +
+                    "LastModifiedUnixDateTime, " +
+                    "CreatedUnixDateTime " +
+                    "from FullData where DetailLevel = ? and PosX = ? and PosZ = ?"
+            )) {
+                preparedStatement.setByte(1, (byte) (detailLevel - DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL));
+                preparedStatement.setInt(2, posX);
+                preparedStatement.setInt(3, posZ);
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    if (!resultSet.next())
+                        return Optional.empty();
+
+                    FullDataMetadata data = new FullDataMetadata();
+                    data.levelId = levelId;
+                    data.detailLevel = (byte) (resultSet.getByte("DetailLevel") + DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL);
+                    data.posX = resultSet.getInt("PosX");
+                    data.posZ = resultSet.getInt("PosZ");
+                    data.minY = resultSet.getInt("MinY");
+                    data.dataChecksum = resultSet.getInt("DataChecksum");
+                    data.columnGenerationStep = resultSet.getBytes("ColumnGenerationStep");
+                    data.columnWorldCompressionMode = resultSet.getBytes("ColumnWorldCompressionMode");
+                    data.dataFormatVersion = resultSet.getByte("DataFormatVersion");
+                    data.compressionMode = resultSet.getByte("CompressionMode");
+                    data.applyToParent = resultSet.getBoolean("ApplyToParent");
+                    data.lastModified = resultSet.getTimestamp("LastModifiedUnixDateTime");
+                    data.created = resultSet.getTimestamp("CreatedUnixDateTime");
+                    return Optional.of(data);
+                }
+            }
+        });
+    }
+
+    @Override
+    public boolean setFullDataApplyToParent(int levelId, byte detailLevel, int posX, int posZ, boolean applyToParent) {
+        return withConnection(levelId, connection -> {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "update FullData set ApplyToParent = ? where DetailLevel = ? and PosX = ? and PosZ = ?"
+            )) {
+                preparedStatement.setBoolean(1, applyToParent);
+                preparedStatement.setByte(2, (byte) (detailLevel - DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL));
+                preparedStatement.setInt(3, posX);
+                preparedStatement.setInt(4, posZ);
+                return preparedStatement.executeUpdate() > 0;
+            }
+        });
+    }
+
+    @Override
+    public boolean deleteFullData(int levelId, byte detailLevel, int posX, int posZ) {
+        return withConnection(levelId, connection -> {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "delete from FullData where DetailLevel = ? and PosX = ? and PosZ = ?"
+            )) {
+                preparedStatement.setByte(1, (byte) (detailLevel - DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL));
+                preparedStatement.setInt(2, posX);
+                preparedStatement.setInt(3, posZ);
+                return preparedStatement.executeUpdate() > 0;
+            }
+        });
+    }
+
+    @Override
+    public List<FullDataPosition> getFullDataPositionsToUpdate(int levelId, int posX, int posZ, int returnCount) {
+        return withConnection(levelId, connection -> {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "select DetailLevel, PosX, PosZ, (pow(PosX - ?, 2) + pow(PosZ - ?, 2)) as Distance " +
+                    "from FullData where ApplyToParent = true order by Distance limit ?"
+            )) {
+                preparedStatement.setInt(1, posX);
+                preparedStatement.setInt(2, posZ);
+                preparedStatement.setInt(3, returnCount);
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    List<FullDataPosition> positions = new ArrayList<>();
+                    while (resultSet.next()) {
+                        FullDataPosition position = new FullDataPosition();
+                        position.levelId = levelId;
+                        position.detailLevel = (byte) (resultSet.getByte("DetailLevel") + DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL);
+                        position.posX = resultSet.getInt("PosX");
+                        position.posZ = resultSet.getInt("PosZ");
+                        positions.add(position);
+                    }
+                    return positions;
+                }
+            }
+        });
+    }
+
+    /**
+     * getAllFullDataPositions returns all FullData positions stored in the datastore.
+     * it is used by the compression test, and is nto part of the API.
+     *
+     * @param levelId unique id of the level. See {@link #ensureLevel}
+     * @return list of positions.
+     */
+    public List<FullDataPosition> getAllFullDataPositions(int levelId) {
+        return withConnection(levelId, connection -> {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "select DetailLevel, PosX, PosZ from FullData"
+            )) {
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    List<FullDataPosition> positions = new ArrayList<>();
+                    while (resultSet.next()) {
+                        FullDataPosition position = new FullDataPosition();
+                        position.levelId = levelId;
+                        position.detailLevel = (byte) (resultSet.getByte("DetailLevel") + DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL);
+                        position.posX = resultSet.getInt("PosX");
+                        position.posZ = resultSet.getInt("PosZ");
+                        positions.add(position);
+                    }
+                    return positions;
                 }
             }
         });

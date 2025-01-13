@@ -48,7 +48,7 @@ public class ServerLevelModule implements AutoCloseable
 	{
 		this.parentServerLevel = parentServerLevel;
 		this.saveStructure = saveStructure;
-		this.fullDataFileHandler = new GeneratedFullDataSourceProvider(parentServerLevel, saveStructure);
+		this.fullDataFileHandler = new GeneratedFullDataSourceProvider(parentServerLevel, saveStructure, null);
 		this.worldGenModule = new WorldGenModule(this.parentServerLevel, this.fullDataFileHandler, () -> new ServerLevelModule.WorldGenState(this.parentServerLevel));
 	}
 	

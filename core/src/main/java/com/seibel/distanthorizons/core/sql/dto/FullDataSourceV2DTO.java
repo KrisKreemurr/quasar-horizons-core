@@ -23,6 +23,7 @@ import com.google.common.base.MoreObjects;
 import com.seibel.distanthorizons.api.enums.config.EDhApiDataCompressionMode;
 import com.seibel.distanthorizons.api.enums.config.EDhApiWorldCompressionMode;
 import com.seibel.distanthorizons.api.enums.worldGeneration.EDhApiWorldGenerationStep;
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.core.dataObjects.fullData.FullDataPointIdMap;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.pooling.PhantomArrayListParent;
@@ -49,7 +50,6 @@ public class FullDataSourceV2DTO
 		implements IBaseDTO<Long>, INetworkObject, AutoCloseable
 {
 	public static final boolean VALIDATE_INPUT_DATAPOINTS = true;
-	
 	
 	public long pos;
 	
@@ -78,7 +78,44 @@ public class FullDataSourceV2DTO
 	
 	public static final PhantomArrayListPool ARRAY_LIST_POOL = new PhantomArrayListPool("V2DTO");
 	
+	public IDhApiDatastore.FullData toDatastoreFullData(int levelId) {
+		IDhApiDatastore.FullData datastoreFullData = new IDhApiDatastore.FullData();
+		
+		datastoreFullData.levelId = levelId;
+		datastoreFullData.detailLevel = DhSectionPos.getDetailLevel(pos);
+		datastoreFullData.posX = DhSectionPos.getX(pos);
+		datastoreFullData.posZ = DhSectionPos.getZ(pos);
+		datastoreFullData.minY = levelMinY;
+		datastoreFullData.dataChecksum = dataChecksum;
+		datastoreFullData.data = compressedDataByteArray.elements();
+		datastoreFullData.columnGenerationStep = compressedColumnGenStepByteArray.elements();
+		datastoreFullData.columnWorldCompressionMode = compressedWorldCompressionModeByteArray.elements();
+		datastoreFullData.mapping = compressedMappingByteArray.elements();
+		datastoreFullData.dataFormatVersion = dataFormatVersion;
+		datastoreFullData.compressionMode = compressionModeValue;
+		datastoreFullData.applyToParent = applyToParent;
+		
+		return datastoreFullData;
+	}
 	
+	public static FullDataSourceV2DTO fromDatastoreFullData(IDhApiDatastore.FullData datastoreFullData) {
+		FullDataSourceV2DTO dto = CreateEmptyDataSourceForDecoding();
+		
+		dto.pos = DhSectionPos.encode(datastoreFullData.detailLevel, datastoreFullData.posX, datastoreFullData.posZ);
+		dto.levelMinY = datastoreFullData.minY;
+		dto.dataChecksum = datastoreFullData.dataChecksum;;
+		dto.compressedDataByteArray.addAll(0, new ByteArrayList(datastoreFullData.data));
+		dto.compressedColumnGenStepByteArray.addAll(0, new ByteArrayList(datastoreFullData.columnGenerationStep));
+		dto.compressedWorldCompressionModeByteArray.addAll(0, new ByteArrayList(datastoreFullData.columnWorldCompressionMode));
+		dto.compressedMappingByteArray.addAll(0, new ByteArrayList(datastoreFullData.mapping));
+		dto.dataFormatVersion = datastoreFullData.dataFormatVersion;
+		dto.compressionModeValue = datastoreFullData.compressionMode;
+		dto.applyToParent = datastoreFullData.applyToParent;
+		dto.lastModifiedUnixDateTime = datastoreFullData.lastModified.getTime();
+		dto.createdUnixDateTime = datastoreFullData.created.getTime();
+		
+		return dto;
+	}
 	
 	//==============//
 	// constructors //

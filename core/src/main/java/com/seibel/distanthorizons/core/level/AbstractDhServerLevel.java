@@ -74,7 +74,8 @@ public abstract class AbstractDhServerLevel extends AbstractDhLevel implements I
 		}
 		this.serverLevelWrapper = serverLevelWrapper;
 		this.serverside = new ServerLevelModule(this, saveStructure);
-		this.createAndSetSupportingRepos(this.serverside.fullDataFileHandler.repo.databaseFile);
+		this.datastore = this.serverside.fullDataFileHandler.datastore;
+		this.levelId = this.serverside.fullDataFileHandler.levelId;
 		if (runRepoReliantSetup)
 		{
 			this.runRepoReliantSetup();

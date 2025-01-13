@@ -5,6 +5,7 @@ import com.seibel.distanthorizons.api.interfaces.override.IDhApiOverrideable;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /// IDhApiDatastore provides an interface which Distant Horizons uses to store LOD data.
 /// 
@@ -79,5 +80,106 @@ public interface IDhApiDatastore extends IDhApiOverrideable {
         public int colourB;
         public Timestamp lastModified;
         public Timestamp created;
+    }
+
+    /**
+     * setFullData sets FullData, updating if it already exists.
+     */
+    void setFullData(FullData fullData);
+
+    /**
+     * getFullData returns FullData for the given location.
+     *
+     * @param levelId unique id of the level. See {@link #ensureLevel}
+     * @return {@link FullData}
+     */
+    Optional<FullData> getFullData(int levelId, byte detailLevel, int posX, int posZ);
+
+    class FullData {
+        public int levelId;
+        public byte detailLevel;
+        public int posX;
+        public int posZ;
+        public int minY;
+        public int dataChecksum;
+        public byte[] data;
+        public byte[] columnGenerationStep;
+        public byte[] columnWorldCompressionMode;
+        public byte[] mapping;
+        public byte dataFormatVersion;
+        public byte compressionMode;
+        public boolean applyToParent;
+        public Timestamp lastModified;
+        public Timestamp created;
+    }
+
+    /**
+     * getFullDataMetadata returns FullData with the Data and Mapping fields left unpopulated.
+     * It is motivated by users that don't need all data and want to avoid the overhead of fetching it unnecessarily.
+     *
+     * @param levelId     unique id of the level. See {@link #ensureLevel}
+     * @param detailLevel detail level to get
+     * @param posX        section X position
+     * @param posZ        section Z position
+     * @return {@link FullDataMetadata}
+     */
+    Optional<FullDataMetadata> getFullDataMetadata(int levelId, byte detailLevel, int posX, int posZ);
+
+    class FullDataMetadata {
+        public int levelId;
+        public byte detailLevel;
+        public int posX;
+        public int posZ;
+        public int minY;
+        public int dataChecksum;
+        public byte[] columnGenerationStep;
+        public byte[] columnWorldCompressionMode;
+        public byte dataFormatVersion;
+        public byte compressionMode;
+        public boolean applyToParent;
+        public Timestamp lastModified;
+        public Timestamp created;
+    }
+
+    /**
+     * setFullDataApplyToParent sets the ApplyToParent field in FullData.
+     *
+     * @param levelId       unique id of the level. See {@link #ensureLevel}
+     * @param detailLevel   detail level to get
+     * @param posX          section X position
+     * @param posZ          section Z position
+     * @param applyToParent value to set ApplyToParent to
+     * @return true if FullData existed
+     */
+    boolean setFullDataApplyToParent(int levelId, byte detailLevel, int posX, int posZ, boolean applyToParent);
+
+    /**
+     * deleteFullData removes FullData from the datastore.
+     *
+     * @param levelId     unique id of the level. See {@link #ensureLevel}
+     * @param detailLevel detail level to get
+     * @param posX        section X position
+     * @param posZ        section Z position
+     * @return true if FullData existed
+     */
+    boolean deleteFullData(int levelId, byte detailLevel, int posX, int posZ);
+
+    /**
+     * getFullDataPositionsToUpdate returns the locations of FullData instances that are close to the given location,
+     * ordered by distance and where ApplyToParent is true.
+     *
+     * @param levelId     unique id of the level. See {@link #ensureLevel}
+     * @param posX        section X position
+     * @param posZ        section Z position
+     * @param returnCount number of results to return
+     * @return list of {@link FullDataPosition}
+     */
+    List<FullDataPosition> getFullDataPositionsToUpdate(int levelId, int posX, int posZ, int returnCount);
+
+    class FullDataPosition {
+        public int levelId;
+        public byte detailLevel;
+        public int posX;
+        public int posZ;
     }
 }

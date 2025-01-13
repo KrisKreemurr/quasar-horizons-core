@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@Deprecated
 public class FullDataSourceV1Repo extends AbstractDhRepo<Long, FullDataSourceV1DTO>
 {
 	public static final String TABLE_NAME = "Legacy_FullData_V1";
