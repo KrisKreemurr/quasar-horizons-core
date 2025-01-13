@@ -25,8 +25,8 @@ import com.seibel.distanthorizons.api.objects.data.DhApiTerrainDataPoint;
 import com.seibel.distanthorizons.api.objects.data.IDhApiFullDataSource;
 import com.seibel.distanthorizons.core.dataObjects.fullData.FullDataPointIdMap;
 import com.seibel.distanthorizons.core.dataObjects.transformers.LodDataBuilder;
-import com.seibel.distanthorizons.core.file.AbstractDataSourceHandler;
 import com.seibel.distanthorizons.core.file.IDataSource;
+import com.seibel.distanthorizons.core.file.fullDatafile.FullDataSourceProviderV2;
 import com.seibel.distanthorizons.core.level.IDhLevel;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.pooling.PhantomArrayListParent;
@@ -321,7 +321,7 @@ public class FullDataSourceV2
 		}
 		
 		// determine if this data source should be applied to its parent
-		this.applyToParent = (dataChanged && DhSectionPos.getDetailLevel(this.pos) < AbstractDataSourceHandler.TOP_SECTION_DETAIL_LEVEL);
+		this.applyToParent = (dataChanged && DhSectionPos.getDetailLevel(this.pos) < FullDataSourceProviderV2.TOP_SECTION_DETAIL_LEVEL);
 		
 		if (dataChanged)
 		{

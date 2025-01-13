@@ -24,7 +24,6 @@ import com.seibel.distanthorizons.api.methods.events.sharedParameterObjects.DhAp
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
-import com.seibel.distanthorizons.core.file.AbstractDataSourceHandler;
 import com.seibel.distanthorizons.core.file.fullDatafile.FullDataSourceProviderV2;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPos2D;
@@ -43,7 +42,7 @@ import java.io.Closeable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class ClientLevelModule implements Closeable, AbstractDataSourceHandler.IDataSourceUpdateFunc<FullDataSourceV2>
+public class ClientLevelModule implements Closeable
 {
 	private static final Logger LOGGER = DhLoggerBuilder.getLogger();
 	private static final IMinecraftClientWrapper MC_CLIENT = SingletonInjector.INSTANCE.get(IMinecraftClientWrapper.class);
@@ -73,7 +72,7 @@ public class ClientLevelModule implements Closeable, AbstractDataSourceHandler.I
 		this.clientLevel = clientLevel;
 		
 		this.fullDataSourceProvider = this.clientLevel.getFullDataProvider();
-		this.fullDataSourceProvider.dateSourceUpdateListeners.add(this);
+		this.fullDataSourceProvider.dateSourceUpdateListeners.add(this::OnDataSourceUpdated);
 	}
 	
 	
@@ -213,8 +212,11 @@ public class ClientLevelModule implements Closeable, AbstractDataSourceHandler.I
 	// data handling //
 	//===============//
 	
-	public CompletableFuture<Void> updateDataSourcesAsync(FullDataSourceV2 data) { return this.clientLevel.getFullDataProvider().updateDataSourceAsync(data); }
-	@Override
+	public CompletableFuture<Void> updateDataSourcesAsync(FullDataSourceV2 data) 
+	{ 
+		return this.clientLevel.getFullDataProvider().updateDataSourceAsync(data);
+	}
+	
 	public void OnDataSourceUpdated(FullDataSourceV2 updatedFullDataSource)
 	{
 		// if rendering, also update the render sources
