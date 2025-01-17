@@ -21,6 +21,7 @@ package tests;
 
 import com.seibel.distanthorizons.api.enums.config.EDhApiDataCompressionMode;
 import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
+import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.sql.SQLiteDatastore;
@@ -56,7 +57,7 @@ public class CompressionTest
 	/** -1 will test all of them */
 	public static int MAX_DTO_TEST_COUNT = -1;
 	
-	private SQLiteDatastore datastore = SQLiteDatastore.SINGLETON;
+	private final SQLiteDatastore datastore = new SQLiteDatastore(EDhApiDataCompressionMode.LZ4);
 	
 	//@Test
 	public void NoCompression()
@@ -293,8 +294,7 @@ public class CompressionTest
 					
 					IDhApiDatastore.FullData uncompressedFullData = datastore.getFullData(uncompressedLevelId, pos.detailLevel, pos.posX, pos.posZ)
 							.orElseThrow(NullPointerException::new);
-					FullDataSourceV2DTO uncompressedDto = FullDataSourceV2DTO.fromDatastoreFullData(uncompressedFullData);
-					Assert.assertEquals(uncompressedDto.compressionModeValue, EDhApiDataCompressionMode.UNCOMPRESSED.value);
+					FullDataSourceV2DTO uncompressedDto = new FullDataSourceV2DTO(uncompressedFullData);
 					FullDataSourceV2 uncompressedDataSource = uncompressedDto.createUnitTestDataSource();
 					
 					long uncompressedDtoSize = uncompressedFullData.data.length;
@@ -308,7 +308,8 @@ public class CompressionTest
 					
 					long startWriteNanoTime = System.nanoTime();
 					
-					FullDataSourceV2DTO compressedDto = FullDataSourceV2DTO.CreateFromDataSource(uncompressedDataSource, compressionMode);
+					Config.Common.LodBuilding.dataCompression.set(compressionMode);
+					FullDataSourceV2DTO compressedDto = FullDataSourceV2DTO.CreateFromDataSource(uncompressedDataSource);
 					IDhApiDatastore.FullData compressedFullData = compressedDto.toDatastoreFullData(compressedLevelId);
 					datastore.setFullData(compressedFullData);
 					compressedDto.close();
@@ -330,7 +331,7 @@ public class CompressionTest
 					
 					compressedFullData = datastore.getFullData(compressedFullData.levelId, compressedFullData.detailLevel, compressedFullData.posX, compressedFullData.posZ)
 							.orElseThrow(NullPointerException::new);
-					compressedDto = FullDataSourceV2DTO.fromDatastoreFullData(compressedFullData);
+					compressedDto = new FullDataSourceV2DTO(compressedFullData);
 					compressedDto.createUnitTestDataSource().close();
 					compressedDto.close();
 					

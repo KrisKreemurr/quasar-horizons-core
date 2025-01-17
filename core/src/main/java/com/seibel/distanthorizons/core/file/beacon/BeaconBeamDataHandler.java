@@ -74,7 +74,7 @@ public class BeaconBeamDataHandler
 			}
 			
 			// get existing beams
-			List<IDhApiDatastore.BeaconBeam> existingBeamList = this.datastore.getBeaconBeamsInArea(
+			List<IDhApiDatastore.BeaconBeam> existingBeamList = this.datastore.listBeaconBeamsInArea(
 					levelId,
 					DhSectionPos.getMinCornerBlockX(sectionPos),
 					DhSectionPos.getMinCornerBlockZ(sectionPos),
@@ -177,7 +177,7 @@ public class BeaconBeamDataHandler
 		}
 		
 		// get all beams in pos
-		List<IDhApiDatastore.BeaconBeam> existingBeamList = this.datastore.getBeaconBeamsInArea(
+		List<IDhApiDatastore.BeaconBeam> existingBeamList = this.datastore.listBeaconBeamsInArea(
 				levelId,
 				DhSectionPos.getMinCornerBlockX(pos),
 				DhSectionPos.getMinCornerBlockZ(pos),
@@ -198,7 +198,7 @@ public class BeaconBeamDataHandler
 		}
 		
 		// get all beams in pos
-		List<IDhApiDatastore.BeaconBeam> existingBeamList = this.datastore.getBeaconBeamsInArea(
+		List<IDhApiDatastore.BeaconBeam> existingBeamList = this.datastore.listBeaconBeamsInArea(
 				levelId,
 				DhSectionPos.getMinCornerBlockX(pos),
 				DhSectionPos.getMinCornerBlockZ(pos),

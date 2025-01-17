@@ -1,5 +1,6 @@
 package tests;
 
+import com.seibel.distanthorizons.api.enums.config.EDhApiDataCompressionMode;
 import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.core.sql.SQLiteDatastore;
 import org.junit.Assert;
@@ -7,7 +8,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,7 +18,7 @@ public class SQLiteDatastoreTest
 {
 	public static String DATABASE_TYPE = "jdbc:sqlite";
 	public static String LEVEL_NAME = new File("test.sqlite").getAbsolutePath();
-	private final SQLiteDatastore datastore = SQLiteDatastore.SINGLETON;
+	private final SQLiteDatastore datastore = new SQLiteDatastore(EDhApiDataCompressionMode.LZ4);
 	
 	@BeforeClass
 	public static void testSetup()
@@ -36,44 +36,49 @@ public class SQLiteDatastoreTest
 		int levelId = datastore.ensureLevel(LEVEL_NAME);
 		
 		datastore.setChunkHash(levelId, 1, 2, 20);
-		assert datastore.getChunkHash(levelId, 1, 2) == 20;
+		Assert.assertEquals(Optional.of(20), datastore.getChunkHash(levelId, 1, 2));
 	}
 	
-	@Test(expected = RuntimeException.class)
+	@Test
 	public void setChunkHashValidatesLevelId()
 	{
 		int levelId = datastore.ensureLevel(LEVEL_NAME);
 		
-		datastore.setChunkHash(levelId + 1, 1, 2, 20);
+		Assert.assertThrows(RuntimeException.class, () -> {
+			datastore.setChunkHash(levelId + 1, 1, 2, 20);
+		});
 	}
 	
-	@Test(expected = RuntimeException.class)
+	@Test
 	public void getChunkHashValidatesLevelId()
 	{
 		int levelId = datastore.ensureLevel(LEVEL_NAME);
 		
 		datastore.setChunkHash(levelId, 1, 2, 20);
-		datastore.getChunkHash(levelId + 1, 1, 2);
+		
+		Assert.assertThrows(RuntimeException.class, () -> {
+			datastore.getChunkHash(levelId + 1, 1, 2);
+		});
 	}
 	
 	@Test
-	public void canSetAndGetBeaconBeamsInArea()
+	public void canSetAndListBeaconBeamsInArea()
 	{
 		int levelId = datastore.ensureLevel(LEVEL_NAME);
 		
 		datastore.setBeaconBeam(levelId, -1, 200, 1, 255, 255, 0);
 		datastore.setBeaconBeam(levelId, 100, 1, 0, 255, 2, 0);
 		datastore.setBeaconBeam(levelId, 0, 1, -100, 255, 2, 0);
-		List<IDhApiDatastore.BeaconBeam> beams = datastore.getBeaconBeamsInArea(levelId, -1, 0, 99, 100);
-		assert beams.size() == 1;
+		List<IDhApiDatastore.BeaconBeam> beams = datastore.listBeaconBeamsInArea(levelId, -1, 0, 99, 100);
+		Assert.assertEquals(1, beams.size());
 		IDhApiDatastore.BeaconBeam beam = beams.get(0);
-		assert beam.levelId == levelId;
-		assert beam.blockPosX == -1;
-		assert beam.blockPosY == 200;
-		assert beam.blockPosZ == 1;
-		assert beam.colourR == 255;
-		assert beam.colourG == 255;
-		assert beam.colourB == 0;
+		Assert.assertEquals(levelId, beam.levelId);
+		Assert.assertEquals(-1, beam.blockPosX);
+		Assert.assertEquals(200, beam.blockPosY);
+		Assert.assertEquals(1, beam.blockPosZ);
+		Assert.assertEquals(255, beam.colourR);
+		Assert.assertEquals(255, beam.colourG);
+		Assert.assertEquals(0, beam.colourB);
 	}
 	
 	@Test
@@ -93,25 +98,23 @@ public class SQLiteDatastoreTest
 		fullData.columnWorldCompressionMode = new byte[]{2, 3, 1};
 		fullData.mapping = new byte[]{ };
 		fullData.dataFormatVersion = 1;
-		fullData.compressionMode = 2;
 		fullData.applyToParent = false;
 		datastore.setFullData(fullData);
 		
 		Optional<IDhApiDatastore.FullData> fetchedFullData = datastore.getFullData(levelId, (byte) 6, 4, 5);
-		assert fetchedFullData.isPresent();
-		assert fetchedFullData.get().levelId == fullData.levelId;
-		assert fetchedFullData.get().detailLevel == fullData.detailLevel;
-		assert fetchedFullData.get().posX == fullData.posX;
-		assert fetchedFullData.get().posZ == fullData.posZ;
-		assert fetchedFullData.get().minY == fullData.minY;
-		assert fetchedFullData.get().dataChecksum == fullData.dataChecksum;
-		assert Arrays.equals(fetchedFullData.get().data, fullData.data);
-		assert Arrays.equals(fetchedFullData.get().columnGenerationStep, fullData.columnGenerationStep);
-		assert Arrays.equals(fetchedFullData.get().columnWorldCompressionMode, fullData.columnWorldCompressionMode);
-		assert Arrays.equals(fetchedFullData.get().mapping, fullData.mapping);
-		assert fetchedFullData.get().dataFormatVersion == fullData.dataFormatVersion;
-		assert fetchedFullData.get().compressionMode == fullData.compressionMode;
-		assert fetchedFullData.get().applyToParent == fullData.applyToParent;
+		Assert.assertTrue(fetchedFullData.isPresent());
+		Assert.assertEquals(fullData.levelId, fetchedFullData.get().levelId);
+		Assert.assertEquals(fullData.detailLevel, fetchedFullData.get().detailLevel);
+		Assert.assertEquals(fullData.posX, fetchedFullData.get().posX);
+		Assert.assertEquals(fullData.posZ, fetchedFullData.get().posZ);
+		Assert.assertEquals(fullData.minY, fetchedFullData.get().minY);
+		Assert.assertEquals(fullData.dataChecksum, fetchedFullData.get().dataChecksum);
+		Assert.assertArrayEquals(fullData.data, fetchedFullData.get().data);
+		Assert.assertArrayEquals(fullData.columnGenerationStep, fetchedFullData.get().columnGenerationStep);
+		Assert.assertArrayEquals(fullData.columnWorldCompressionMode, fetchedFullData.get().columnWorldCompressionMode);
+		Assert.assertArrayEquals(fullData.mapping, fetchedFullData.get().mapping);
+		Assert.assertEquals(fullData.dataFormatVersion, fetchedFullData.get().dataFormatVersion);
+		Assert.assertEquals(fullData.applyToParent, fetchedFullData.get().applyToParent);
 	}
 	
 	@Test
@@ -131,23 +134,21 @@ public class SQLiteDatastoreTest
 		fullData.columnWorldCompressionMode = new byte[]{2, 3, 1};
 		fullData.mapping = new byte[]{ };
 		fullData.dataFormatVersion = 1;
-		fullData.compressionMode = 2;
 		fullData.applyToParent = false;
 		datastore.setFullData(fullData);
 		
 		Optional<IDhApiDatastore.FullDataMetadata> fetchedFullDataMetadata = datastore.getFullDataMetadata(levelId, (byte) 12, 5, 6);
-		assert fetchedFullDataMetadata.isPresent();
-		assert fetchedFullDataMetadata.get().levelId == fullData.levelId;
-		assert fetchedFullDataMetadata.get().detailLevel == fullData.detailLevel;
-		assert fetchedFullDataMetadata.get().posX == fullData.posX;
-		assert fetchedFullDataMetadata.get().posZ == fullData.posZ;
-		assert fetchedFullDataMetadata.get().minY == fullData.minY;
-		assert fetchedFullDataMetadata.get().dataChecksum == fullData.dataChecksum;
-		assert Arrays.equals(fetchedFullDataMetadata.get().columnGenerationStep, fullData.columnGenerationStep);
-		assert Arrays.equals(fetchedFullDataMetadata.get().columnWorldCompressionMode, fullData.columnWorldCompressionMode);
-		assert fetchedFullDataMetadata.get().dataFormatVersion == fullData.dataFormatVersion;
-		assert fetchedFullDataMetadata.get().compressionMode == fullData.compressionMode;
-		assert fetchedFullDataMetadata.get().applyToParent == fullData.applyToParent;
+		Assert.assertTrue(fetchedFullDataMetadata.isPresent());
+		Assert.assertEquals(fullData.levelId, fetchedFullDataMetadata.get().levelId);
+		Assert.assertEquals(fullData.detailLevel, fetchedFullDataMetadata.get().detailLevel);
+		Assert.assertEquals(fullData.posX, fetchedFullDataMetadata.get().posX);
+		Assert.assertEquals(fullData.posZ, fetchedFullDataMetadata.get().posZ);
+		Assert.assertEquals(fullData.minY, fetchedFullDataMetadata.get().minY);
+		Assert.assertEquals(fullData.dataChecksum, fetchedFullDataMetadata.get().dataChecksum);
+		Assert.assertArrayEquals(fullData.columnGenerationStep, fetchedFullDataMetadata.get().columnGenerationStep);
+		Assert.assertArrayEquals(fullData.columnWorldCompressionMode, fetchedFullDataMetadata.get().columnWorldCompressionMode);
+		Assert.assertEquals(fullData.dataFormatVersion, fetchedFullDataMetadata.get().dataFormatVersion);
+		Assert.assertEquals(fullData.applyToParent, fetchedFullDataMetadata.get().applyToParent);
 	}
 	
 	@Test
@@ -167,15 +168,14 @@ public class SQLiteDatastoreTest
 		fullData.columnWorldCompressionMode = new byte[]{2, 3, 1};
 		fullData.mapping = new byte[]{ };
 		fullData.dataFormatVersion = 1;
-		fullData.compressionMode = 2;
 		fullData.applyToParent = false;
 		datastore.setFullData(fullData);
 		
 		Optional<IDhApiDatastore.FullDataMetadata> fetchedFullDataMetadata = datastore.getFullDataMetadata(levelId, (byte) 12, -45, 6);
-		assert fetchedFullDataMetadata.isPresent();
-		assert datastore.deleteFullData(levelId, (byte) 12, -45, 6);
+		Assert.assertTrue(fetchedFullDataMetadata.isPresent());
+		Assert.assertTrue(datastore.deleteFullData(levelId, (byte) 12, -45, 6));
 		fetchedFullDataMetadata = datastore.getFullDataMetadata(levelId, (byte) 12, -45, 6);
-		assert !fetchedFullDataMetadata.isPresent();
+		Assert.assertFalse(fetchedFullDataMetadata.isPresent());
 	}
 	
 	
@@ -196,7 +196,6 @@ public class SQLiteDatastoreTest
 		fullData.columnWorldCompressionMode = new byte[]{2, 3, 1};
 		fullData.mapping = new byte[]{ };
 		fullData.dataFormatVersion = 1;
-		fullData.compressionMode = 2;
 		fullData.applyToParent = false;
 		datastore.setFullData(fullData);
 		
@@ -211,7 +210,6 @@ public class SQLiteDatastoreTest
 		fullData.columnWorldCompressionMode = new byte[]{2, 3, 1};
 		fullData.mapping = new byte[]{ };
 		fullData.dataFormatVersion = 1;
-		fullData.compressionMode = 2;
 		fullData.applyToParent = true;
 		datastore.setFullData(fullData);
 		
@@ -226,28 +224,27 @@ public class SQLiteDatastoreTest
 		fullData.columnWorldCompressionMode = new byte[]{2, 3, 1};
 		fullData.mapping = new byte[]{ };
 		fullData.dataFormatVersion = 1;
-		fullData.compressionMode = 2;
 		fullData.applyToParent = true;
 		datastore.setFullData(fullData);
 		
 		List<IDhApiDatastore.FullDataPosition> fullDataPositions = datastore.getFullDataPositionsToUpdate(levelId, 0, 2, 3);
-		assert fullDataPositions.stream().anyMatch(pos ->
+		Assert.assertTrue(fullDataPositions.stream().anyMatch(pos ->
 				pos.detailLevel == 11 &&
 						pos.posX == 576000 &&
 						pos.posZ == 4
-		);
+		));
 		
-		assert fullDataPositions.stream().anyMatch(pos ->
+		Assert.assertTrue(fullDataPositions.stream().anyMatch(pos ->
 				pos.detailLevel == 11 &&
 						pos.posX == 576000 &&
 						pos.posZ == 4
-		);
+		));
 		
-		assert fullDataPositions.stream().noneMatch(pos ->
+		Assert.assertTrue(fullDataPositions.stream().noneMatch(pos ->
 				pos.detailLevel == 12 &&
 						pos.posX == 576000 &&
 						pos.posZ == 2
-		);
+		));
 	}
 	
 }

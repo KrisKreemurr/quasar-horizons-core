@@ -159,7 +159,8 @@ public class FullDataSourceProviderV2
 	{
 		this.datastore = OverrideInjector.INSTANCE.get(IDhApiDatastore.class);
 		if (this.datastore == null) {
-			this.datastore = SQLiteDatastore.SINGLETON;
+			this.datastore = new SQLiteDatastore(Config.Common.LodBuilding.dataCompression.get());
+			OverrideInjector.INSTANCE.bind(IDhApiDatastore.class, this.datastore);
 		}
 		
 		this.level = level;
@@ -193,9 +194,7 @@ public class FullDataSourceProviderV2
 	{
 		try
 		{
-			// when creating new data use the compressor currently selected in the config
-			EDhApiDataCompressionMode compressionModeEnum = Config.Common.LodBuilding.dataCompression.get();
-			return FullDataSourceV2DTO.CreateFromDataSource(dataSource, compressionModeEnum);
+			return FullDataSourceV2DTO.CreateFromDataSource(dataSource);
 		}
 		catch (IOException e)
 		{
@@ -310,7 +309,7 @@ public class FullDataSourceProviderV2
 													if (dataSource != null)
 													{
 														this.updateDataSourceAtPos(parentUpdatePos, dataSource, false);
-														this.datastore.setFullDataApplyToParent(this.levelId, DhSectionPos.getDetailLevel(childPos), DhSectionPos.getX(childPos), DhSectionPos.getZ(childPos), false);
+														this.datastore.updateFullDataApplyToParent(this.levelId, DhSectionPos.getDetailLevel(childPos), DhSectionPos.getX(childPos), DhSectionPos.getZ(childPos), false);
 													}
 												}
 											}
@@ -461,7 +460,7 @@ public class FullDataSourceProviderV2
 				DhSectionPos.getDetailLevel(pos),
 				DhSectionPos.getX(pos),
 				DhSectionPos.getZ(pos)
-		).map(FullDataSourceV2DTO::fromDatastoreFullData);
+		).map(FullDataSourceV2DTO::new);
 		
 		if (!fullData.isPresent())
 			return this.makeEmptyDataSource(pos);

@@ -19,6 +19,7 @@
 package com.seibel.distanthorizons.core.jar;
 
 
+import com.seibel.distanthorizons.api.enums.config.EDhApiDataCompressionMode;
 import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.sql.SQLiteDatastore;
@@ -210,7 +211,7 @@ public class JarMain
 			logger.info("LOD data will be exported to ["+exportFile.getAbsolutePath()+"].");
 			
 			
-			IDhApiDatastore datastore = SQLiteDatastore.SINGLETON;
+			IDhApiDatastore datastore = new SQLiteDatastore(EDhApiDataCompressionMode.LZ4);
 			int	levelId = datastore.ensureLevel(dbFile.getAbsolutePath());
 			
 			if (exportPos != null)
@@ -235,7 +236,7 @@ public class JarMain
 				DhSectionPos.getDetailLevel(pos),
 				DhSectionPos.getX(pos),
 				DhSectionPos.getZ(pos)
-		).map(FullDataSourceV2DTO::fromDatastoreFullData);
+		).map(FullDataSourceV2DTO::new);
 		
 		if (!fullData.isPresent())
 		{

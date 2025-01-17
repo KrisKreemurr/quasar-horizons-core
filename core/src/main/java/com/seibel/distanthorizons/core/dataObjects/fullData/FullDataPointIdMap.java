@@ -293,7 +293,7 @@ public class FullDataPointIdMap
 	//=============//
 	
 	/** Serializes all contained entries into the given stream, formatted in UTF */
-	public void serialize(DhDataOutputStream outputStream) throws IOException
+	public void serialize(DataOutputStream outputStream) throws IOException
 	{
 		try
 		{
@@ -330,7 +330,7 @@ public class FullDataPointIdMap
 	}
 	
 	/** Creates a new IdBiomeBlockStateMap from the given UTF formatted stream */
-	public static FullDataPointIdMap deserialize(DhDataInputStream inputStream, long pos, ILevelWrapper levelWrapper) throws IOException, InterruptedException, DataCorruptedException
+	public static FullDataPointIdMap deserialize(DataInputStream inputStream, long pos, ILevelWrapper levelWrapper) throws IOException, InterruptedException, DataCorruptedException
 	{
 		int entityCount = inputStream.readInt();
 		if (entityCount < 0)

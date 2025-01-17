@@ -23,7 +23,6 @@ import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPos2D;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.math.Vec3d;
-import com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil;
 import com.seibel.distanthorizons.core.wrapperInterfaces.misc.IServerPlayerWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.ILevelWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.IServerLevelWrapper;
@@ -31,7 +30,6 @@ import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.*;
 
 public abstract class AbstractDhServerLevel extends AbstractDhLevel implements IDhServerLevel
@@ -252,7 +250,7 @@ public abstract class AbstractDhServerLevel extends AbstractDhLevel implements I
 				}
 				
 				LodUtil.assertTrue(this.datastore != null, "datastore should not be null");
-				try (FullDataPayload payload = new FullDataPayload(data, this.datastore.getBeaconBeamsInArea(
+				try (FullDataPayload payload = new FullDataPayload(data, this.datastore.listBeaconBeamsInArea(
 						levelId,
 						DhSectionPos.getMinCornerBlockX(data.getPos()),
 						DhSectionPos.getMinCornerBlockZ(data.getPos()),

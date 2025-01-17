@@ -67,7 +67,7 @@ public class DhFullDataSourceRepoTests
 	{
 		try
 		{
-			SQLiteDatastore datastore = new SQLiteDatastore();
+			SQLiteDatastore datastore = new SQLiteDatastore(EDhApiDataCompressionMode.LZ4);
 			int levelId = datastore.ensureLevel(new File(DB_FILE_NAME).getAbsolutePath());
 					
 			//========================//
@@ -97,7 +97,7 @@ public class DhFullDataSourceRepoTests
 			
 			
 			FullDataSourceV2 originalDataSource = FullDataSourceV2.createWithData(pos, dataMapping, fullDataArray, columnGenStep, columnWorldCompressionMode);
-			FullDataSourceV2DTO originalDto = FullDataSourceV2DTO.CreateFromDataSource(originalDataSource, EDhApiDataCompressionMode.LZMA2);
+			FullDataSourceV2DTO originalDto = FullDataSourceV2DTO.CreateFromDataSource(originalDataSource);
 			datastore.setFullData(originalDto.toDatastoreFullData(levelId));
 			
 			
@@ -107,14 +107,14 @@ public class DhFullDataSourceRepoTests
 			//=========================//
 			
 			FullDataSourceV2DTO savedDto = datastore.getFullData(levelId, (byte) 6, 1, 2)
-					.map(FullDataSourceV2DTO::fromDatastoreFullData)
+					.map(FullDataSourceV2DTO::new)
 					.orElseThrow(NullPointerException::new);
 			
 			Assert.assertNotNull("Failed to find DTO", savedDto);
 			Assert.assertEquals("Pos mismatch", originalDto.pos, savedDto.pos);
-			assertArraysAreEqual(originalDto.compressedDataByteArray, savedDto.compressedDataByteArray);
-			assertArraysAreEqual(originalDto.compressedColumnGenStepByteArray, savedDto.compressedColumnGenStepByteArray);
-			assertArraysAreEqual(originalDto.compressedWorldCompressionModeByteArray, savedDto.compressedWorldCompressionModeByteArray);
+			assertArraysAreEqual(originalDto.dataByteArray, savedDto.dataByteArray);
+			assertArraysAreEqual(originalDto.columnGenStepByteArray, savedDto.columnGenStepByteArray);
+			assertArraysAreEqual(originalDto.worldCompressionModeByteArray, savedDto.worldCompressionModeByteArray);
 			
 			
 			
@@ -133,8 +133,6 @@ public class DhFullDataSourceRepoTests
 			{
 				assertArraysAreEqual(originalDataSource.dataPoints[i], savedDataSource.dataPoints[i]);
 			}
-			
-			
 			
 			
 			//=========================//
@@ -162,7 +160,7 @@ public class DhFullDataSourceRepoTests
 						FullDataSourceV2DTO threadDto = null;
 						try
 						{
-							threadDto = FullDataSourceV2DTO.CreateFromDataSource(originalDataSource, EDhApiDataCompressionMode.LZMA2);
+							threadDto = FullDataSourceV2DTO.CreateFromDataSource(originalDataSource);
 						}
 						catch (IOException e)
 						{
@@ -180,15 +178,15 @@ public class DhFullDataSourceRepoTests
 							
 							try (
 									FullDataSourceV2DTO pooledDto = datastore.getFullData(levelId, (byte) 0, finalThreadIndex, 0)
-											.map(FullDataSourceV2DTO::fromDatastoreFullData)
+											.map(FullDataSourceV2DTO::new)
 											.orElseThrow(NullPointerException::new)
 							)
 							{
 								Assert.assertNotNull(threadDto);
 								Assert.assertEquals(pooledDto.pos, threadDto.pos);
-								assertArraysAreEqual(pooledDto.compressedDataByteArray, threadDto.compressedDataByteArray);
-								assertArraysAreEqual(pooledDto.compressedColumnGenStepByteArray, threadDto.compressedColumnGenStepByteArray);
-								assertArraysAreEqual(pooledDto.compressedWorldCompressionModeByteArray, threadDto.compressedWorldCompressionModeByteArray);
+								assertArraysAreEqual(pooledDto.dataByteArray, threadDto.dataByteArray);
+								assertArraysAreEqual(pooledDto.columnGenStepByteArray, threadDto.columnGenStepByteArray);
+								assertArraysAreEqual(pooledDto.worldCompressionModeByteArray, threadDto.worldCompressionModeByteArray);
 							}
 						}
 					}, pool);

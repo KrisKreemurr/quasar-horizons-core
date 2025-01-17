@@ -30,7 +30,7 @@ public class FullDataSourceRequestHandler
 	private String getLevelIdentifier() { return this.serverLevel.getLevelWrapper().getDhIdentifier(); }
 	private GeneratedFullDataSourceProvider fullDataSourceProvider() { return this.serverLevel.serverside.fullDataFileHandler; }
 	private List<IDhApiDatastore.BeaconBeam> getAllBeamsForPos(long pos) { 
-		return this.serverLevel.datastore.getBeaconBeamsInArea(
+		return this.serverLevel.datastore.listBeaconBeamsInArea(
 				this.serverLevel.levelId,
 				DhSectionPos.getMinCornerBlockX(pos),
 				DhSectionPos.getMinCornerBlockZ(pos),

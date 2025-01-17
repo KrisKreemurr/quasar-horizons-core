@@ -1,36 +1,34 @@
 package com.seibel.distanthorizons.core.sql;
 
+import com.seibel.distanthorizons.api.enums.config.EDhApiDataCompressionMode;
 import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.api.methods.events.DhApiEventRegister;
 import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiWorldUnloadEvent;
 import com.seibel.distanthorizons.api.methods.events.sharedParameterObjects.DhApiEventParam;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
+import com.seibel.distanthorizons.core.util.objects.dataStreams.DhDataInputStream;
+import com.seibel.distanthorizons.core.util.objects.dataStreams.DhDataOutputStream;
 import com.seibel.distanthorizons.coreapi.interfaces.dependencyInjection.IOverrideInjector;
 import org.apache.logging.log4j.Logger;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.sql.*;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.stream.BaseStream;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiDatastore {
     private static final Logger LOGGER = DhLoggerBuilder.getLogger();
-	
-    public static final SQLiteDatastore SINGLETON = new SQLiteDatastore();
 
+    private final EDhApiDataCompressionMode compressionMode;
     private final ReadWriteLock mutex = new ReentrantReadWriteLock();
     private final Map<Integer, Connection> connectionByLevelId = new HashMap<>();
     private final Map<Integer, String> databaseUrlByLevelId = new HashMap<>();
 
-    public SQLiteDatastore() {
+    public SQLiteDatastore(EDhApiDataCompressionMode compressionMode) {
+        this.compressionMode = compressionMode;
         try {
             // needed by Forge to load the Java database connection
             Class.forName("org.sqlite.JDBC");
@@ -104,7 +102,7 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
                 connectionByLevelId.remove(levelId);
                 connection.close();
             } catch (SQLException ignored) {
-                // we're closing this connection because trying to use it threw an error
+                // we're closing this connection because trying to use it threw an SQLException
                 // if closing also threw then the original error is almost certainly what we actually want to see and address.
             } finally {
                 mutex.writeLock().unlock();
@@ -205,7 +203,7 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
     }
 
     @Override
-    public int getChunkHash(int levelId, int posX, int posZ) {
+    public Optional<Integer> getChunkHash(int levelId, int posX, int posZ) {
         return withConnection(levelId, connection -> {
             try (PreparedStatement preparedStatement = connection.prepareStatement(
                     "select ChunkHash from ChunkHash where ChunkPosX = ? and ChunkPosZ = ?"
@@ -214,8 +212,9 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
                 preparedStatement.setInt(2, posZ);
                 try (ResultSet resultSet = preparedStatement.executeQuery()) {
                     if (!resultSet.next())
-                        return 0;
-                    return resultSet.getInt("ChunkHash");
+                        return Optional.empty();
+
+                    return Optional.of(resultSet.getInt("ChunkHash"));
                 }
             }
         });
@@ -261,7 +260,7 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
     }
 
     @Override
-    public List<BeaconBeam> getBeaconBeamsInArea(int levelId, int minBlockPosX, int minBlockPosZ, int maxBlockPosX, int maxBlockPosZ) {
+    public List<BeaconBeam> listBeaconBeamsInArea(int levelId, int minBlockPosX, int minBlockPosZ, int maxBlockPosX, int maxBlockPosZ) {
         return withConnection(levelId, connection -> {
             try (PreparedStatement preparedStatement = connection.prepareStatement(
                     "select * from BeaconBeam where " +
@@ -296,6 +295,35 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
 
     @Override
     public void setFullData(FullData fullData) {
+        ByteArrayOutputStream compressedData = new ByteArrayOutputStream();
+        ByteArrayOutputStream compressedColumnGenerationStep = new ByteArrayOutputStream();
+        ByteArrayOutputStream compressedColumnWorldCompressionMode = new ByteArrayOutputStream();
+        ByteArrayOutputStream compressedMapping = new ByteArrayOutputStream();
+
+        try {
+            try (OutputStream dataOutputStream = new DhDataOutputStream(compressedData, compressionMode)) {
+                dataOutputStream.write(fullData.data);
+            }
+            compressedData.close();
+
+            try (OutputStream dataOutputStream = new DhDataOutputStream(compressedColumnGenerationStep, compressionMode)) {
+                dataOutputStream.write(fullData.columnGenerationStep);
+            }
+            compressedColumnGenerationStep.close();
+
+            try (OutputStream dataOutputStream = new DhDataOutputStream(compressedColumnWorldCompressionMode, compressionMode)) {
+                dataOutputStream.write(fullData.columnWorldCompressionMode);
+            }
+            compressedColumnWorldCompressionMode.close();
+
+            try (OutputStream dataOutputStream = new DhDataOutputStream(compressedMapping, compressionMode)) {
+                dataOutputStream.write(fullData.mapping);
+            }
+            compressedMapping.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         withConnection(fullData.levelId, connection -> {
             try (PreparedStatement preparedStatement = connection.prepareStatement(
                     "insert into FullData (" +
@@ -330,12 +358,12 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
                 preparedStatement.setInt(3, fullData.posZ);
                 preparedStatement.setInt(4, fullData.minY);
                 preparedStatement.setInt(5, fullData.dataChecksum);
-                preparedStatement.setBinaryStream(6, new ByteArrayInputStream(fullData.data), fullData.data.length);
-                preparedStatement.setBinaryStream(7, new ByteArrayInputStream(fullData.columnGenerationStep), fullData.columnGenerationStep.length);
-                preparedStatement.setBinaryStream(8, new ByteArrayInputStream(fullData.columnWorldCompressionMode), fullData.columnWorldCompressionMode.length);
-                preparedStatement.setBinaryStream(9, new ByteArrayInputStream(fullData.mapping), fullData.mapping.length);
+                preparedStatement.setBytes(6, compressedData.toByteArray());
+                preparedStatement.setBytes(7, compressedColumnGenerationStep.toByteArray());
+                preparedStatement.setBytes(8, compressedColumnWorldCompressionMode.toByteArray());
+                preparedStatement.setBytes(9, compressedMapping.toByteArray());
                 preparedStatement.setByte(10, fullData.dataFormatVersion);
-                preparedStatement.setByte(11, fullData.compressionMode);
+                preparedStatement.setByte(11, compressionMode.value);
                 preparedStatement.setBoolean(12, fullData.applyToParent);
                 preparedStatement.setTimestamp(13, Timestamp.from(Instant.now()));
                 preparedStatement.setTimestamp(14, Timestamp.from(Instant.now()));
@@ -372,6 +400,14 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
                     if (!resultSet.next())
                         return Optional.empty();
 
+                    EDhApiDataCompressionMode compressionMode;
+                    try {
+                        compressionMode = EDhApiDataCompressionMode.getFromValue(resultSet.getByte("CompressionMode"));
+                    } catch (IllegalArgumentException e) {
+                        // Could happen if a compression mode is removed
+                        return Optional.empty();
+                    }
+
                     FullData data = new FullData();
                     data.levelId = levelId;
                     data.detailLevel = (byte) (resultSet.getByte("DetailLevel") + DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL);
@@ -379,19 +415,21 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
                     data.posZ = resultSet.getInt("PosZ");
                     data.minY = resultSet.getInt("MinY");
                     data.dataChecksum = resultSet.getInt("DataChecksum");
-                    data.data = resultSet.getBytes("Data");
-                    data.columnGenerationStep = resultSet.getBytes("ColumnGenerationStep");
-                    data.columnWorldCompressionMode = resultSet.getBytes("ColumnWorldCompressionMode");
-                    data.mapping = resultSet.getBytes("Mapping");
+                    data.data = readAllBytes(new DhDataInputStream(resultSet.getBinaryStream("Data"), compressionMode));
+                    data.columnGenerationStep = readAllBytes(new DhDataInputStream(resultSet.getBinaryStream("ColumnGenerationStep"), compressionMode));
+                    data.columnWorldCompressionMode = readAllBytes(new DhDataInputStream(resultSet.getBinaryStream("ColumnWorldCompressionMode"), compressionMode));
+                    data.mapping = readAllBytes(new DhDataInputStream(resultSet.getBinaryStream("Mapping"), compressionMode));
                     data.dataFormatVersion = resultSet.getByte("DataFormatVersion");
-                    data.compressionMode = resultSet.getByte("CompressionMode");
                     data.applyToParent = resultSet.getBoolean("ApplyToParent");
                     data.lastModified = resultSet.getTimestamp("LastModifiedUnixDateTime");
                     data.created = resultSet.getTimestamp("CreatedUnixDateTime");
                     return Optional.of(data);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
             }
         });
+
     }
 
     @Override
@@ -420,6 +458,14 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
                     if (!resultSet.next())
                         return Optional.empty();
 
+                    EDhApiDataCompressionMode compressionMode;
+                    try {
+                        compressionMode = EDhApiDataCompressionMode.getFromValue(resultSet.getByte("CompressionMode"));
+                    } catch (IllegalArgumentException e) {
+                        // Could happen if a compression mode is removed
+                        return Optional.empty();
+                    }
+
                     FullDataMetadata data = new FullDataMetadata();
                     data.levelId = levelId;
                     data.detailLevel = (byte) (resultSet.getByte("DetailLevel") + DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL);
@@ -427,21 +473,22 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
                     data.posZ = resultSet.getInt("PosZ");
                     data.minY = resultSet.getInt("MinY");
                     data.dataChecksum = resultSet.getInt("DataChecksum");
-                    data.columnGenerationStep = resultSet.getBytes("ColumnGenerationStep");
-                    data.columnWorldCompressionMode = resultSet.getBytes("ColumnWorldCompressionMode");
+                    data.columnGenerationStep = readAllBytes(new DhDataInputStream(resultSet.getBinaryStream("ColumnGenerationStep"), compressionMode));
+                    data.columnWorldCompressionMode = readAllBytes(new DhDataInputStream(resultSet.getBinaryStream("ColumnWorldCompressionMode"), compressionMode));
                     data.dataFormatVersion = resultSet.getByte("DataFormatVersion");
-                    data.compressionMode = resultSet.getByte("CompressionMode");
                     data.applyToParent = resultSet.getBoolean("ApplyToParent");
                     data.lastModified = resultSet.getTimestamp("LastModifiedUnixDateTime");
                     data.created = resultSet.getTimestamp("CreatedUnixDateTime");
                     return Optional.of(data);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
             }
         });
     }
 
     @Override
-    public boolean setFullDataApplyToParent(int levelId, byte detailLevel, int posX, int posZ, boolean applyToParent) {
+    public boolean updateFullDataApplyToParent(int levelId, byte detailLevel, int posX, int posZ, boolean applyToParent) {
         return withConnection(levelId, connection -> {
             try (PreparedStatement preparedStatement = connection.prepareStatement(
                     "update FullData set ApplyToParent = ? where DetailLevel = ? and PosX = ? and PosZ = ?"
@@ -522,4 +569,21 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
             }
         });
     }
+
+    @Deprecated /// replace with inputStream.readAllBytes() when java 8 support is dropped.
+    private byte[] readAllBytes(InputStream inputStream) throws IOException {
+        byte[] buff = new byte[8 * (1 << 10)];
+        int read;
+
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            while ((read = inputStream.read(buff, 0, buff.length)) >= 0) {
+                outputStream.write(buff, 0, read);
+            }
+
+            return outputStream.toByteArray();
+        } finally {
+            inputStream.close();
+        }
+    }
+
 }

@@ -5,19 +5,31 @@ import com.seibel.distanthorizons.api.interfaces.override.IDhApiOverrideable;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
-/// IDhApiDatastore provides an interface which Distant Horizons uses to store LOD data.
-/// 
-/// Traditionally an SQLite database. The motivation behind this API is dedicated database support
-/// with the hope that even more data storage methods would also be possible to add in the future.
-/// 
-/// Implementers should internally handle transient errors, and any quirks of the given storage method.
-/// 
-/// IDhApiDatastore is a singleton. I've gone back and forth on this a few times,
-/// and I've settled on the opinion that session management is out of scope for IDhApiDatastore.
-/// My primary justification is not wanting to have a IDhApiDatastoreFactory that inevitably fails to
-/// concisely cover all use cases and pollute the API with methods only used by a single concrete implementation.
+/**
+ * IDhApiDatastore provides an interface which Distant Horizons uses to store LOD data.
+ * <p>
+ * Traditionally an SQLite database. The motivation behind this API is dedicated database support
+ * with the hope that even more data storage methods would also be possible to add in the future.
+ * </p> <p>
+ * Implementers should internally handle transient errors, and any quirks of the given storage method.
+ * </p> <p>
+ * IDhApiDatastore is a singleton. I've gone back and forth on this a few times,
+ * and I've settled on the opinion that session management is out of scope for IDhApiDatastore.
+ * My primary justification is not wanting to have a IDhApiDatastoreFactory that inevitably fails to
+ * concisely cover all use cases and pollute the API with methods only used by a single concrete implementation.
+ * </p>
+ * Standard method prefixes are
+ * <ol>
+ * <li><code>ensure*</code> Creates the item if it does not exist, does nothing if the item already exists. Returns the item in either case.</li>
+ * <li><code>set*</code> Creates the item if it does not exist, updating it in place if it does not exist. Returns void.</li>
+ * <li><code>update*</code> Updates the item in place. Returns true if the item existed.</li>
+ * <li><code>get*</code> Fetches a single item. Returns an {@link Optional} with the result.</li>
+ * <li><code>list*</code> Fetches many items. Returns a {@link List} with results.</li>
+ * <li><code>delete*</code> Removes an item. Returns true if the item existed.</li>
+ * <li><code>purge*</code> Removes an item and all data associated with it. Returns true if the item existed.</li>
+ * </ol>
+ */
 public interface IDhApiDatastore extends IDhApiOverrideable {
     /**
      * ensureLevel creates the level if it does not already exist.
@@ -41,7 +53,7 @@ public interface IDhApiDatastore extends IDhApiOverrideable {
      * @param levelId unique id of the level. See {@link #ensureLevel}
      * @return hash value
      */
-    int getChunkHash(int levelId, int chunkPosX, int chunkPosZ);
+    Optional<Integer> getChunkHash(int levelId, int chunkPosX, int chunkPosZ);
 
     /**
      * setBeaconBeam sets the BeaconBeam, updating if it already exists.
@@ -59,7 +71,7 @@ public interface IDhApiDatastore extends IDhApiOverrideable {
     boolean deleteBeaconBeam(int levelId, int blockPosX, int blockPosY, int blockPosZ);
 
     /**
-     * getBeaconBeamsInArea returns the beacon beams that exist within the given X, Z area at any Y.
+     * listBeaconBeamsInArea returns the beacon beams that exist within the given X, Z area at any Y.
      *
      * @param levelId      unique id of the level. See {@link #ensureLevel}
      * @param minBlockPosX bounding box min X
@@ -68,7 +80,7 @@ public interface IDhApiDatastore extends IDhApiOverrideable {
      * @param maxBlockPosZ bounding box max Z
      * @return list of {@link BeaconBeam} within the given area
      */
-    List<BeaconBeam> getBeaconBeamsInArea(int levelId, int minBlockPosX, int minBlockPosZ, int maxBlockPosX, int maxBlockPosZ);
+    List<BeaconBeam> listBeaconBeamsInArea(int levelId, int minBlockPosX, int minBlockPosZ, int maxBlockPosX, int maxBlockPosZ);
 
     class BeaconBeam {
         public int levelId;
@@ -80,6 +92,7 @@ public interface IDhApiDatastore extends IDhApiOverrideable {
         public int colourB;
         public Timestamp lastModified;
         public Timestamp created;
+
     }
 
     /**
@@ -107,10 +120,10 @@ public interface IDhApiDatastore extends IDhApiOverrideable {
         public byte[] columnWorldCompressionMode;
         public byte[] mapping;
         public byte dataFormatVersion;
-        public byte compressionMode;
         public boolean applyToParent;
         public Timestamp lastModified;
         public Timestamp created;
+
     }
 
     /**
@@ -135,14 +148,14 @@ public interface IDhApiDatastore extends IDhApiOverrideable {
         public byte[] columnGenerationStep;
         public byte[] columnWorldCompressionMode;
         public byte dataFormatVersion;
-        public byte compressionMode;
         public boolean applyToParent;
         public Timestamp lastModified;
         public Timestamp created;
+
     }
 
     /**
-     * setFullDataApplyToParent sets the ApplyToParent field in FullData.
+     * updateFullDataApplyToParent sets the ApplyToParent field in FullData.
      *
      * @param levelId       unique id of the level. See {@link #ensureLevel}
      * @param detailLevel   detail level to get
@@ -151,7 +164,7 @@ public interface IDhApiDatastore extends IDhApiOverrideable {
      * @param applyToParent value to set ApplyToParent to
      * @return true if FullData existed
      */
-    boolean setFullDataApplyToParent(int levelId, byte detailLevel, int posX, int posZ, boolean applyToParent);
+    boolean updateFullDataApplyToParent(int levelId, byte detailLevel, int posX, int posZ, boolean applyToParent);
 
     /**
      * deleteFullData removes FullData from the datastore.
@@ -181,5 +194,7 @@ public interface IDhApiDatastore extends IDhApiOverrideable {
         public byte detailLevel;
         public int posX;
         public int posZ;
+
     }
+
 }

@@ -173,7 +173,7 @@ public abstract class AbstractDhLevel implements IDhLevel
 		if (this.datastore == null)
 			return 0;
 		
-		return this.datastore.getChunkHash(levelId, pos.getX(), pos.getZ());
+		return this.datastore.getChunkHash(levelId, pos.getX(), pos.getZ()).orElse(0);
 	}
 	
 	
