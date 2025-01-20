@@ -95,7 +95,7 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 	//==================//
 	
 	protected abstract int getRequestRateLimit();
-	protected abstract int getMaxRequestDistance();
+	protected abstract boolean isSectionAllowedToGenerate(long sectionPos, DhBlockPos2D targetPos);
 	
 	protected abstract String getQueueName();
 	
@@ -197,7 +197,7 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 		long sectionPos = mapEntry.getKey();
 		RequestQueueEntry entry = mapEntry.getValue();
 		
-		if (DhSectionPos.getChebyshevSignedBlockDistance(sectionPos, targetPos) > this.getMaxRequestDistance() * 16)
+		if (!this.isSectionAllowedToGenerate(sectionPos, targetPos))
 		{
 			entry.future.cancel(false);
 			this.pendingTasksSemaphore.release();
@@ -232,6 +232,7 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 					if (executor == null)
 					{
 						LOGGER.warn("Unable to handle FullDataPayload - getNetworkCompressionExecutor() is null");
+						dataSourceDto.close();
 						return null;
 					}
 					
@@ -239,7 +240,7 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 					{
 						try
 						{
-							this.level.getBeaconBeamDataHandler().setBeaconBeamsForPos(dataSourceDto.pos, response.payload.beaconBeams);
+							this.level.updateBeaconBeamsForSectionPos(dataSourceDto.pos, response.payload.beaconBeams);
 							try (FullDataSourceV2 fullDataSource = dataSourceDto.createDataSource(this.level.getLevelWrapper()))
 							{
 								entry.dataSourceConsumer.accept(fullDataSource);
@@ -248,6 +249,10 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 						catch (Exception e)
 						{
 							throw new RuntimeException(e);
+						}
+						finally
+						{
+							dataSourceDto.close();
 						}
 					}, executor);
 				}
@@ -271,7 +276,7 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 			}
 			catch (RateLimitedException e)
 			{
-				LOGGER.warn("Rate limited by server, re-queueing task [" + DhSectionPos.toString(sectionPos) + "]: " + e.getMessage());
+				LOGGER.info("Rate limited by server, re-queueing task [" + DhSectionPos.toString(sectionPos) + "]: " + e.getMessage());
 				
 				// Skip all requests for 1 second
 				this.rateLimiter.acquireAll();
@@ -401,7 +406,7 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 		{
 			renderer.renderBox(new DebugRenderer.Box(mapEntry.getKey(), -32f, 64f, 0.05f,
 					mapEntry.getValue().networkDataSourceFuture != null ? Color.red
-							: DhSectionPos.getChebyshevSignedBlockDistance(mapEntry.getKey(), Objects.requireNonNull(this.level.getTargetPosForGeneration())) <= this.getMaxRequestDistance() * 16 ? Color.gray
+							: this.isSectionAllowedToGenerate(mapEntry.getKey(), Objects.requireNonNull(this.level.getTargetPosForGeneration())) ? Color.gray
 							: Color.darkGray
 			));
 		}

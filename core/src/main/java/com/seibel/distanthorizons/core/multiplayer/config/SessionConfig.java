@@ -9,7 +9,7 @@ import io.netty.buffer.ByteBuf;
 
 import java.io.Closeable;
 import java.util.*;
-import java.util.function.BiFunction;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -33,6 +33,9 @@ public class SessionConfig implements INetworkObject
 		
 		registerConfigEntry(Config.Common.WorldGenerator.enableDistantGeneration, Boolean::logicalAnd);
 		registerConfigEntry(Config.Server.maxGenerationRequestDistance, Math::min);
+		registerConfigEntry(Config.Server.generationBoundsX, (x, y) -> x);
+		registerConfigEntry(Config.Server.generationBoundsZ, (x, y) -> x);
+		registerConfigEntry(Config.Server.generationBoundsRadius, (x, y) -> x);
 		registerConfigEntry(Config.Server.generationRequestRateLimit, Math::min);
 		
 		registerConfigEntry(Config.Server.enableRealTimeUpdates, Boolean::logicalAnd);
@@ -65,6 +68,9 @@ public class SessionConfig implements INetworkObject
 	
 	public boolean isDistantGenerationEnabled() { return this.getValue(Config.Common.WorldGenerator.enableDistantGeneration); }
 	public int getMaxGenerationRequestDistance() { return this.getValue(Config.Server.maxGenerationRequestDistance); }
+	public Integer getGenerationBoundsX() { return this.getValue(Config.Server.generationBoundsX); }
+	public Integer getGenerationBoundsZ() { return this.getValue(Config.Server.generationBoundsZ); }
+	public Integer getGenerationBoundsRadius() { return this.getValue(Config.Server.generationBoundsRadius); }
 	public int getGenerationRequestRateLimit() { return this.getValue(Config.Server.generationRequestRateLimit); }
 	
 	public boolean isRealTimeUpdatesEnabled() { return this.getValue(Config.Server.enableRealTimeUpdates); }
@@ -82,7 +88,7 @@ public class SessionConfig implements INetworkObject
 	// entry registration //
 	//====================//
 	
-	private static <T> void registerConfigEntry(ConfigEntry<T> configEntry, BiFunction<T, T, T> valueConstrainer)
+	private static <T> void registerConfigEntry(ConfigEntry<T> configEntry, BinaryOperator<T> valueConstrainer)
 	{
 		CONFIG_ENTRIES.compute(Objects.requireNonNull(configEntry.getChatCommandName()), (key, existingEntry) -> {
 			if (existingEntry != null)
@@ -170,13 +176,13 @@ public class SessionConfig implements INetworkObject
 	private static class Entry
 	{
 		public final ConfigEntry<Object> supplier;
-		public final BiFunction<Object, Object, Object> valueConstrainer;
+		public final BinaryOperator<Object> valueConstrainer;
 		
 		@SuppressWarnings("unchecked")
-		private <T> Entry(ConfigEntry<T> supplier, BiFunction<T, T, T> valueConstrainer)
+		private <T> Entry(ConfigEntry<T> supplier, BinaryOperator<T> valueConstrainer)
 		{
 			this.supplier = (ConfigEntry<Object>) supplier;
-			this.valueConstrainer = (BiFunction<Object, Object, Object>) valueConstrainer;
+			this.valueConstrainer = (BinaryOperator<Object>) valueConstrainer;
 		}
 		
 	}

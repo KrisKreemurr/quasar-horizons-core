@@ -24,7 +24,6 @@ import com.seibel.distanthorizons.core.config.AppliedConfigState;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
-import com.seibel.distanthorizons.core.file.beacon.BeaconBeamDataHandler;
 import com.seibel.distanthorizons.core.file.fullDatafile.FullDataSourceProviderV2;
 import com.seibel.distanthorizons.core.file.fullDatafile.RemoteFullDataSourceProvider;
 import com.seibel.distanthorizons.core.file.structure.ISaveStructure;
@@ -136,17 +135,18 @@ public class DhClientLevel extends AbstractDhLevel implements IDhClientLevel
 				return;
 			}
 			
-			try
+			try (FullDataSourceV2DTO dataSourceDto = this.networkState.fullDataPayloadReceiver.decodeDataSourceAndReleaseBuffer(message.payload))
 			{
-				FullDataSourceV2DTO dataSourceDto = this.networkState.fullDataPayloadReceiver.decodeDataSourceAndReleaseBuffer(message.payload);
-				
 				if (!message.isSameLevelAs(this.levelWrapper))
 				{
 					return;
 				}
 				
-				this.beaconBeamDataHandler.setBeaconBeamsForPos(dataSourceDto.pos, message.payload.beaconBeams);
-				this.updateDataSourcesAsync(dataSourceDto.createDataSource(this.levelWrapper));
+				this.updateBeaconBeamsForSectionPos(dataSourceDto.pos, message.payload.beaconBeams);
+				try (FullDataSourceV2 fullDataSource = dataSourceDto.createDataSource(this.levelWrapper))
+				{
+					this.updateDataSourcesAsync(fullDataSource);
+				}
 			}
 			catch (Exception e)
 			{
@@ -284,7 +284,6 @@ public class DhClientLevel extends AbstractDhLevel implements IDhClientLevel
 		ClientLevelModule.ClientRenderState renderState = this.clientside.ClientRenderStateRef.get();
 		return (renderState != null) ? renderState.renderBufferHandler : null;
 	}
-	public BeaconBeamDataHandler getBeaconBeamDataHandler() { return this.beaconBeamDataHandler; }
 	
 	
 	

@@ -21,6 +21,7 @@ package com.seibel.distanthorizons.core.render;
 
 import com.google.common.base.Suppliers;
 import com.google.common.cache.Cache;
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
@@ -32,12 +33,15 @@ import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.file.fullDatafile.FullDataSourceProviderV2;
 import com.seibel.distanthorizons.core.level.IDhClientLevel;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
+import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPos;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPos2D;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.render.glObject.GLProxy;
 import com.seibel.distanthorizons.core.render.renderer.IDebugRenderable;
 import com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding.ColumnRenderBuffer;
 import com.seibel.distanthorizons.core.render.renderer.DebugRenderer;
+import com.seibel.distanthorizons.core.render.renderer.generic.BeaconRenderHandler;
+import com.seibel.distanthorizons.core.sql.dto.BeaconBeamDTO;
 import com.seibel.distanthorizons.core.util.KeyedLockContainer;
 import com.seibel.distanthorizons.core.util.threading.PriorityTaskPicker;
 import com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil;
@@ -49,6 +53,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.annotation.WillNotClose;
 import java.awt.*;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
@@ -83,6 +88,13 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 	private final KeyedLockContainer<Long> renderLoadLockContainer;
 	private final Cache<Long, ColumnRenderSource> cachedRenderSourceByPos;
 	
+	/** 
+	 * contains the list of beacons currently being rendered in this section 
+	 * if this list is modified the {@link LodRenderSection#beaconRenderHandler} should be updated to match.
+	 */
+	private final List<IDhApiDatastore.BeaconBeam> activeBeaconList = new ArrayList<>();
+	@Nullable
+	public final BeaconRenderHandler beaconRenderHandler;
 	
 	
 	private boolean renderingEnabled = false;
@@ -139,6 +151,8 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 		this.level = level;
 		this.fullDataSourceProvider = fullDataSourceProvider;
 		
+		this.beaconRenderHandler = this.quadTree.beaconRenderHandler;
+		
 		DebugRenderer.register(this, Config.Client.Advanced.Debugging.DebugWireframe.showRenderSectionStatus);
 	}
 	
@@ -193,6 +207,7 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 			
 			this.getAndBuildRenderDataRunnable = () ->
 			{
+				this.getAndRefreshRenderingBeacons();
 				this.getAndUploadRenderDataToGpu();
 				
 				// the future is passed in separate to prevent any possible race condition null pointers
@@ -350,24 +365,23 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 	public void setRenderingEnabled(boolean enabled) { this.renderingEnabled = enabled;}
 	
 	/** @see LodRenderSection#setRenderingEnabled */
-	public void onRenderingEnabled() { this.level.loadBeaconBeamsInPos(this.pos); }
+	public void onRenderingEnabled() { this.startRenderingBeacons(); }
 	/** @see LodRenderSection#setRenderingEnabled */
 	public void onRenderingDisabled() 
 	{
-		this.level.unloadBeaconBeamsInPos(this.pos);
+		this.stopRenderingBeacons();
 		
 		if (Config.Client.Advanced.Debugging.DebugWireframe.showRenderSectionStatus.get())
 		{
 			// show that this position has just been disabled
 			DebugRenderer.makeParticle(
-					new DebugRenderer.BoxParticle(
-							new DebugRenderer.Box(this.pos, 128f, 156f, 0.09f, Color.CYAN.darker()),
-							0.2, 32f
-					)
+				new DebugRenderer.BoxParticle(
+					new DebugRenderer.Box(this.pos, 128f, 156f, 0.09f, Color.CYAN.darker()),
+					0.2, 32f
+				)
 			);
 		}
 	}
-	
 	
 	public boolean gpuUploadInProgress() { return this.getAndBuildRenderDataFuture != null; }
 	
@@ -471,6 +485,91 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 	
 	
 	
+	//=================//
+	// beacon handling //
+	//=================//
+	
+	/** gets the active beacon list and stops/starts beacon rendering as necessary */
+	private void getAndRefreshRenderingBeacons()
+	{
+		// do nothing if beacon rendering or repos are unavailable
+		if (this.beaconRenderHandler == null)
+		{
+			return;
+		}
+		
+		
+		// Synchronized to prevent two threads for starting/stopping rendering at once
+		// Shouldn't be necessary, but just in case.
+		synchronized (this.activeBeaconList)
+		{
+
+			List<IDhApiDatastore.BeaconBeam> activeBeacons = this.fullDataSourceProvider.datastore.listBeaconBeamsInArea(
+					this.fullDataSourceProvider.levelId,
+					DhSectionPos.getMinCornerBlockX(pos),
+					DhSectionPos.getMinCornerBlockZ(pos),
+					DhSectionPos.getMinCornerBlockX(pos) + DhSectionPos.getBlockWidth(pos),
+					DhSectionPos.getMinCornerBlockZ(pos) + DhSectionPos.getBlockWidth(pos)
+			);
+			
+			
+			// stop rendering current beacons
+			for (IDhApiDatastore.BeaconBeam beam : this.activeBeaconList)
+			{
+				this.beaconRenderHandler.stopRenderingBeaconAtPos(new DhBlockPos(beam.blockPosX, beam.blockPosY, beam.blockPosZ));
+			}
+			
+			// swap old and new active beacon list
+			this.activeBeaconList.clear();
+			this.activeBeaconList.addAll(activeBeacons);
+			
+			// start rendering new beacon list
+			for (IDhApiDatastore.BeaconBeam beam : this.activeBeaconList)
+			{
+				this.beaconRenderHandler.startRenderingBeacon(beam);
+			}
+		}
+	}
+	
+	private void stopRenderingBeacons()
+	{
+		// do nothing if beacon rendering is unavailable
+		if (this.beaconRenderHandler == null)
+		{
+			return;
+		}
+		
+		
+		synchronized (this.activeBeaconList)
+		{
+			for (IDhApiDatastore.BeaconBeam beam : this.activeBeaconList)
+			{
+				this.beaconRenderHandler.stopRenderingBeaconAtPos(new DhBlockPos(beam.blockPosX, beam.blockPosY, beam.blockPosZ));
+			}
+		}
+	}
+	
+	private void startRenderingBeacons()
+	{
+		// do nothing if beacon rendering is unavailable 
+		if (this.beaconRenderHandler == null)
+		{
+			return;
+		}
+		
+		
+		synchronized (this.activeBeaconList)
+		{
+			for (IDhApiDatastore.BeaconBeam beam : this.activeBeaconList)
+			{
+				this.beaconRenderHandler.startRenderingBeacon(beam);
+			}
+		}
+	}
+	
+	
+	
+	
 	//==============//
 	// base methods //
 	//==============//
@@ -520,7 +619,7 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 		}
 		
 		
-		this.level.unloadBeaconBeamsInPos(this.pos);
+		this.stopRenderingBeacons();
 		
 		if (this.renderBuffer != null)
 		{
@@ -557,6 +656,7 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 		// while this should generally be a fast operation 
 		// this is run on a separate thread to prevent lag on the render thread
 		executor.execute(() -> this.fullDataSourceProvider.removeRetrievalRequestIf((genPos) -> DhSectionPos.contains(this.pos, genPos)));
+		
 	}
 	
 	

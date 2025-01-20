@@ -1437,7 +1437,7 @@ public class Config
 					.build();
 			
 			public static ConfigEntry<EDhApiLoggerMode> logWorldGenLoadEvent = new ConfigEntry.Builder<EDhApiLoggerMode>()
-					.setChatCommandName("logging.logWorldGenPerformance")
+					.setChatCommandName("logging.logWorldGenLoadEvent")
 					.set(EDhApiLoggerMode.LOG_ERROR_TO_CHAT_AND_INFO_TO_FILE)
 					.comment(""
 							+ "If enabled, the mod will log information about the world generation process. \n"
@@ -1575,6 +1575,32 @@ public class Config
 				.comment(""
 						+ "Makes the server reject all generation requests for detail levels below the highest one.\n"
 						+ "")
+				.build();
+		
+		public static ConfigEntry<Integer> generationBoundsX = new ConfigEntry.Builder<Integer>()
+				.setChatCommandName("generation.bounds.x")
+				.setAppearance(EConfigEntryAppearance.ONLY_IN_FILE)
+				.setMinDefaultMax(Integer.MIN_VALUE, 0, Integer.MAX_VALUE)
+				.comment("" +
+						"Defines the X-coordinate of the central point for generation boundaries, in blocks. \n" +
+						"")
+				.build();
+		public static ConfigEntry<Integer> generationBoundsZ = new ConfigEntry.Builder<Integer>()
+				.setChatCommandName("generation.bounds.z")
+				.setAppearance(EConfigEntryAppearance.ONLY_IN_FILE)
+				.setMinDefaultMax(Integer.MIN_VALUE, 0, Integer.MAX_VALUE)
+				.comment("" +
+						"Defines the Z-coordinate of the central point for generation boundaries, in blocks. \n" +
+						"")
+				.build();
+		public static ConfigEntry<Integer> generationBoundsRadius = new ConfigEntry.Builder<Integer>()
+				.setChatCommandName("generation.bounds.radius")
+				.setAppearance(EConfigEntryAppearance.ONLY_IN_FILE)
+				.setMinDefaultMax(0, 0, Integer.MAX_VALUE)
+				.comment("" +
+						"Defines the radius around the central point within which generation is allowed, in blocks. \n" +
+						"If this value is set to 0, generation bounds are disabled." +
+						"")
 				.build();
 		
 		
