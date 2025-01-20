@@ -19,7 +19,7 @@ import java.util.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiDatastore {
+public class SQLiteDatastore implements IDhApiDatastore {
     private static final Logger LOGGER = DhLoggerBuilder.getLogger();
 
     private final EDhApiDataCompressionMode compressionMode;
@@ -36,28 +36,28 @@ public class SQLiteDatastore extends DhApiWorldUnloadEvent implements IDhApiData
             throw new RuntimeException(e);
         }
 
-        DhApiEventRegister.on(DhApiWorldUnloadEvent.class, this);
-    }
-
-    @Override
-    public void onWorldUnload(DhApiEventParam<EventParam> input) {
-        mutex.writeLock().lock();
-        try {
-            connectionByLevelId.forEach((levelId, connection) -> {
-                String databaseUrl = "unknown database url";
+        DhApiEventRegister.on(DhApiWorldUnloadEvent.class, new DhApiWorldUnloadEvent() {
+            @Override
+            public void onWorldUnload(DhApiEventParam<EventParam> input) {
+                mutex.writeLock().lock();
                 try {
-                    LOGGER.info("Closing connections to {}", connection.getMetaData().getURL());
-                    connection.close();
-                } catch (SQLException err) {
-                    LOGGER.error("Exception while closing database connection [{}]", databaseUrl, err);
-                }
-            });
+                    connectionByLevelId.forEach((levelId, connection) -> {
+                        String databaseUrl = "unknown database url";
+                        try {
+                            LOGGER.info("Closing connections to {}", connection.getMetaData().getURL());
+                            connection.close();
+                        } catch (SQLException err) {
+                            LOGGER.error("Exception while closing database connection [{}]", databaseUrl, err);
+                        }
+                    });
 
-            databaseUrlByLevelId.clear();
-            connectionByLevelId.clear();
-        } finally {
-            mutex.writeLock().unlock();
-        }
+                    databaseUrlByLevelId.clear();
+                    connectionByLevelId.clear();
+                } finally {
+                    mutex.writeLock().unlock();
+                }
+            }
+        });
     }
 
     @Override
