@@ -366,7 +366,7 @@ public class FullDataSourceV2DTO
 		out.writeBytes(this.columnGenStepByteArray.toByteArray());
 
 		out.writeInt(this.worldCompressionModeByteArray.size());
-		out.writeBytes(this.columnGenStepByteArray.toByteArray());
+		out.writeBytes(this.worldCompressionModeByteArray.toByteArray());
 
 		out.writeInt(this.mappingByteArray.size());
 		out.writeBytes(this.mappingByteArray.toByteArray());

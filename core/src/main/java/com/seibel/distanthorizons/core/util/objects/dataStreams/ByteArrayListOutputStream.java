@@ -16,12 +16,6 @@ public class ByteArrayListOutputStream extends OutputStream
 	}
 	
 	@Override
-	public void write(byte @NotNull [] b, int off, int len)
-	{
-		byteArray.addElements(0, b, off, len);
-	}
-	
-	@Override
 	public void write(int i) throws IOException
 	{
 		byteArray.add((byte) i);
