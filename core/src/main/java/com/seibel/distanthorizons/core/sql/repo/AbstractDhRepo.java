@@ -124,7 +124,7 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 		catch (SQLException | IOException e)
 		{
 			if (e instanceof SQLException 
-				&& DbConnectionClosedException.IsClosedException((SQLException)e))
+				&& DbConnectionClosedException.isClosedException((SQLException)e))
 			{
 				//LOGGER.warn("Attempted to get ["+this.dtoClass.getSimpleName()+"] with primary key ["+primaryKey+"] on closed repo ["+this.connectionString+"].");	
 			}
@@ -302,7 +302,7 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 			// SQL exceptions generally only happen when something is wrong with 
 			// the database or the query and should cause the system to blow up to notify the developer
 			
-			if (DbConnectionClosedException.IsClosedException(e))
+			if (DbConnectionClosedException.isClosedException(e))
 			{
 				throw new DbConnectionClosedException(e);
 			}
@@ -353,7 +353,7 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 			// SQL exceptions generally only happen when something is wrong with 
 			// the database or the query and should cause the system to blow up to notify the developer
 			
-			if (DbConnectionClosedException.IsClosedException(e))
+			if (DbConnectionClosedException.isClosedException(e))
 			{
 				return null;
 			}
@@ -383,7 +383,7 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 		}
 		catch(SQLException e)
 		{
-			if (DbConnectionClosedException.IsClosedException(e))
+			if (DbConnectionClosedException.isClosedException(e))
 			{
 				return null;
 			}
