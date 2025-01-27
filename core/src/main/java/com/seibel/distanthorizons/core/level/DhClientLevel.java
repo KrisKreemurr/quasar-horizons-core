@@ -143,10 +143,9 @@ public class DhClientLevel extends AbstractDhLevel implements IDhClientLevel
 				}
 				
 				this.updateBeaconBeamsForSectionPos(dataSourceDto.pos, message.payload.beaconBeams);
-				try (FullDataSourceV2 fullDataSource = dataSourceDto.createDataSource(this.levelWrapper))
-				{
-					this.updateDataSourcesAsync(fullDataSource);
-				}
+				
+				FullDataSourceV2 fullDataSource = dataSourceDto.createDataSource(this.levelWrapper);
+				this.updateDataSourcesAsync(fullDataSource).whenComplete((result, e) -> fullDataSource.close());
 			}
 			catch (Exception e)
 			{
@@ -283,6 +282,16 @@ public class DhClientLevel extends AbstractDhLevel implements IDhClientLevel
 	{
 		ClientLevelModule.ClientRenderState renderState = this.clientside.ClientRenderStateRef.get();
 		return (renderState != null) ? renderState.renderBufferHandler : null;
+	}
+	
+	public boolean shouldProcessLocalChunkUpdates()
+	{
+		if (this.networkState == null || !this.networkState.isReady())
+		{
+			return true;
+		}
+		
+		return !this.networkState.sessionConfig.isRealTimeUpdatesEnabled();
 	}
 	
 	

@@ -25,6 +25,7 @@ import com.seibel.distanthorizons.core.Initializer;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.generation.DhLightingEngine;
+import com.seibel.distanthorizons.core.level.DhClientLevel;
 import com.seibel.distanthorizons.core.level.IDhLevel;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.logging.f3.F3Screen;
@@ -49,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Contains code and variables used by both {@link ClientApi} and {@link ServerApi} */
 public class SharedApi
@@ -71,6 +72,12 @@ public class SharedApi
 	 * used to prevent updates from infinitely pilling up if the user flies around extremely fast 
 	 */
 	private static final int MAX_UPDATING_CHUNK_COUNT_PER_THREAD_AND_PLAYER = 1_000;
+	
+	/**
+	 * Used to limit how many tasks are queued at once.
+	 * This is done so the chunks nearest to the player will trigger first.
+	 */
+	private static final AtomicInteger GLOBAL_UPDATING_CHUNK_TASKS_COUNT_REF = new AtomicInteger(0);
 	
 	/** how many milliseconds must pass before an overloaded message can be sent in chat or the log */
 	private static final int MIN_MS_BETWEEN_OVERLOADED_LOG_MESSAGE = 30_000;
@@ -123,6 +130,7 @@ public class SharedApi
 			AbstractDhRepo.closeAllConnections();
 			// needs to be closed on world shutdown to clear out un-processed chunks
 			UPDATE_POS_MANAGER.clear();
+			GLOBAL_UPDATING_CHUNK_TASKS_COUNT_REF.set(0);
 			
 			// recommend that the garbage collector cleans up any objects from the old world and thread pools
 			System.gc();
@@ -229,6 +237,14 @@ public class SharedApi
 			}
 			
 			return;
+		}
+		
+		if (dhLevel instanceof DhClientLevel)
+		{
+			if (!((DhClientLevel) dhLevel).shouldProcessLocalChunkUpdates())
+			{
+				return;
+			}
 		}
 		
 		// shoudln't normally happen, but just in case
@@ -344,39 +360,54 @@ public class SharedApi
 		
 		
 		
+		tryStartNextQueuedChunk();
+	}
+	/** 
+	 * TODO this is bad logic. 
+	 *  This should be fired on a separate looping thread or something else.
+	 *  Only firing whenever a new chunk is added to the queue can cause the queue to miss things.
+	 */
+	private static void tryStartNextQueuedChunk()
+	{
 		// queue updates up to the number of CPU cores allocated for the job
 		// (this prevents doing extra work queuing tasks that may not be necessary)
 		// and makes sure the chunks closest to the player are updated first
 		PriorityTaskPicker.Executor executor = ThreadPoolUtil.getChunkToLodBuilderExecutor();
-		if (executor != null && executor.getQueueSize() < executor.getPoolSize())
+		if (executor == null
+			|| GLOBAL_UPDATING_CHUNK_TASKS_COUNT_REF.getAndIncrement() > executor.getPoolSize())
 		{
-			try
-			{
-				executor.execute(SharedApi::processQueuedChunkUpdate);
-			}
-			catch (RejectedExecutionException ignore)
-			{
-				// the executor was shut down, it should be back up shortly and able to accept new jobs
-			}
-		}
-	}
-	private static void processQueuedChunkUpdate()
-	{
-		//LOGGER.trace(chunkWrapper.getChunkPos() + " " + executor.getActiveCount() + " / " + executor.getQueue().size() + " - " + executor.getCompletedTaskCount());
-		
-		UpdateChunkData updateData = UPDATE_POS_MANAGER.popClosest();
-		if (updateData == null)
-		{
+			GLOBAL_UPDATING_CHUNK_TASKS_COUNT_REF.decrementAndGet();
 			return;
 		}
-		
-		IChunkWrapper chunkWrapper = updateData.chunkWrapper;
-		@Nullable ArrayList<IChunkWrapper> neighbourChunkList = updateData.neighbourChunkList;
-		IDhLevel dhLevel = updateData.dhLevel;
 		
 		
 		try
 		{
+			executor.execute(SharedApi::processQueuedChunkUpdate);
+		}
+		catch (RejectedExecutionException ignore)
+		{
+			// the executor was shut down, it should be back up shortly and able to accept new jobs
+			GLOBAL_UPDATING_CHUNK_TASKS_COUNT_REF.decrementAndGet();
+		}
+	}
+	private static void processQueuedChunkUpdate()
+	{
+		DhChunkPos updatingChunkPos = null;
+		try
+		{
+			UpdateChunkData updateData = UPDATE_POS_MANAGER.popClosest();
+			if (updateData == null)
+			{
+				return;
+			}
+			
+			IChunkWrapper chunkWrapper = updateData.chunkWrapper;
+			updatingChunkPos = chunkWrapper.getChunkPos();
+			@Nullable ArrayList<IChunkWrapper> neighbourChunkList = updateData.neighbourChunkList;
+			IDhLevel dhLevel = updateData.dhLevel;
+			
+			
 			boolean checkChunkHash = !Config.Common.LodBuilding.disableUnchangedChunkCheck.get();
 			
 			// check if this chunk has been converted into an LOD already
@@ -430,23 +461,12 @@ public class SharedApi
 		}
 		catch (Exception e)
 		{
-			LOGGER.error("Unexpected error when updating chunk at pos: [" + chunkWrapper.getChunkPos() + "]", e);
+			LOGGER.error("Unexpected error when updating chunk at pos: [" + updatingChunkPos + "]", e);
 		}
 		finally
 		{
-			// queue the next position if there are still positions to process
-			AbstractExecutorService executor = ThreadPoolUtil.getChunkToLodBuilderExecutor();
-			if (executor != null && !UPDATE_POS_MANAGER.updateDataByChunkPos.isEmpty())
-			{
-				try
-				{
-					executor.execute(SharedApi::processQueuedChunkUpdate);
-				}
-				catch (RejectedExecutionException ignore)
-				{
-					// the executor was shut down, it should be back up shortly and able to accept new jobs
-				}
-			}
+			GLOBAL_UPDATING_CHUNK_TASKS_COUNT_REF.decrementAndGet();
+			tryStartNextQueuedChunk();
 		}
 	}
 	
@@ -491,11 +511,9 @@ public class SharedApi
 	/** keeps track of which chunks need to be updated */
 	private static class UpdateChunkPosManager
 	{
-		private final PriorityQueue<DhChunkPos> closestQueue;
-		private final PriorityQueue<DhChunkPos> furthestQueue;
-		private final HashMap<DhChunkPos, UpdateChunkData> updateDataByChunkPos;
-		
-		private final ReentrantLock lock = new ReentrantLock();
+		private final PriorityBlockingQueue<DhChunkPos> closestQueue;
+		private final PriorityBlockingQueue<DhChunkPos> furthestQueue;
+		private final ConcurrentHashMap<DhChunkPos, UpdateChunkData> updateDataByChunkPos;
 		
 		private DhChunkPos center;
 		private int maxSize = 500;
@@ -508,9 +526,9 @@ public class SharedApi
 		
 		public UpdateChunkPosManager()
 		{
-			this.closestQueue = new PriorityQueue<>(Comparator.comparingDouble(pos -> pos.squaredDistance(this.center)));
-			this.furthestQueue = new PriorityQueue<>(Comparator.comparingDouble(pos -> ((DhChunkPos)pos).squaredDistance(this.center)).reversed());
-			this.updateDataByChunkPos = new HashMap<>();
+			this.closestQueue = new PriorityBlockingQueue<>(500, Comparator.comparingDouble(pos -> pos.squaredDistance(this.center)));
+			this.furthestQueue = new PriorityBlockingQueue<>(500, Comparator.comparingDouble(pos -> ((DhChunkPos)pos).squaredDistance(this.center)).reversed());
+			this.updateDataByChunkPos = new ConcurrentHashMap<>();
 			// defaulting to 0,0 is fine since it'll be updated once we start adding items 
 			this.center = new DhChunkPos(0, 0);
 		}
@@ -521,50 +539,20 @@ public class SharedApi
 		// list/set methods //
 		//==================//
 		
-		public boolean contains(DhChunkPos pos)
-		{
-			try
-			{
-				this.lock.lock();
-				
-				return this.updateDataByChunkPos.containsKey(pos);
-			}
-			finally
-			{
-				this.lock.unlock();
-			}
-		}
+		public boolean contains(DhChunkPos pos) { return this.updateDataByChunkPos.containsKey(pos); }
 		
 		public void clear()
 		{
-			try
-			{
-				this.lock.lock();
-				
-				this.updateDataByChunkPos.clear();
-				this.closestQueue.clear();
-				this.furthestQueue.clear();
-			}
-			finally
-			{
-				this.lock.unlock();
-			}
+			this.updateDataByChunkPos.clear();
+			this.closestQueue.clear();
+			this.furthestQueue.clear();
 		}
 		
 		public void removeItem(DhChunkPos pos)
 		{
-			try
-			{
-				this.lock.lock();
-				
-				this.updateDataByChunkPos.remove(pos);
-				this.closestQueue.remove(pos);
-				this.furthestQueue.remove(pos);
-			}
-			finally
-			{
-				this.lock.unlock();
-			}
+			this.updateDataByChunkPos.remove(pos);
+			this.closestQueue.remove(pos);
+			this.furthestQueue.remove(pos);
 		}
 		
 		/**
@@ -575,35 +563,26 @@ public class SharedApi
 		 */
 		public int addItem(DhChunkPos pos, UpdateChunkData updateData)
 		{
-			try
+			int remainingSlots = this.maxSize - this.updateDataByChunkPos.size();
+			if (this.updateDataByChunkPos.containsKey(pos))
 			{
-				this.lock.lock();
-				
-				int remainingSlots = this.maxSize - this.updateDataByChunkPos.size();
-				if (this.updateDataByChunkPos.containsKey(pos))
-				{
-					// Chunk is already present in queue, no need to insert
-					return remainingSlots;
-				}
-				
-				// If no slots are left, get one by removing the item furthest from the center
-				if (remainingSlots <= 0)
-				{
-					DhChunkPos furthest = this.furthestQueue.poll();
-					this.closestQueue.remove(furthest);
-					this.updateDataByChunkPos.remove(furthest);
-				}
-				
-				this.updateDataByChunkPos.put(pos, updateData);
-				this.closestQueue.add(pos);
-				this.furthestQueue.add(pos);
-				
+				// Chunk is already present in queue, no need to insert
 				return remainingSlots;
 			}
-			finally
+			
+			// If no slots are left, get one by removing the item furthest from the center
+			if (remainingSlots <= 0)
 			{
-				this.lock.unlock();
+				DhChunkPos furthest = this.furthestQueue.poll();
+				this.closestQueue.remove(furthest);
+				this.updateDataByChunkPos.remove(furthest);
 			}
+			
+			this.updateDataByChunkPos.put(pos, updateData);
+			this.closestQueue.add(pos);
+			this.furthestQueue.add(pos);
+			
+			return remainingSlots;
 		}
 		
 		
@@ -622,46 +601,33 @@ public class SharedApi
 				return;
 			}
 			
-			try
+			this.center = newCenter;
+			
+			// rebuild the priority queues to match the new center
+			this.closestQueue.clear();
+			this.furthestQueue.clear();
+			for (DhChunkPos pos : this.updateDataByChunkPos.keySet())
 			{
-				this.lock.lock();
-				
-				this.center = newCenter;
-				
-				// rebuild the priority queues to match the new center
-				this.closestQueue.clear();
-				this.furthestQueue.clear();
-				for (DhChunkPos pos : this.updateDataByChunkPos.keySet())
-				{
-					this.closestQueue.add(pos);
-					this.furthestQueue.add(pos);
-				}
-			}
-			finally
-			{
-				this.lock.unlock();
+				this.closestQueue.add(pos);
+				this.furthestQueue.add(pos);
 			}
 		}
 		
 		public UpdateChunkData popClosest()
 		{
-			try
+			if (this.closestQueue.isEmpty())
 			{
-				this.lock.lock();
-				
-				if (this.closestQueue.isEmpty())
-				{
-					return null;
-				}
-				
-				DhChunkPos closest = this.closestQueue.poll();
-				this.furthestQueue.remove(closest);
-				return this.updateDataByChunkPos.remove(closest);
+				return null;
 			}
-			finally
+			
+			DhChunkPos closest = this.closestQueue.poll();
+			if (closest == null)
 			{
-				this.lock.unlock();
+				return null;
 			}
+			
+			this.furthestQueue.remove(closest);
+			return this.updateDataByChunkPos.remove(closest);
 		}
 		
 	}

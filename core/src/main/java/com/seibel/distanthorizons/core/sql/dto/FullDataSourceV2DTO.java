@@ -163,8 +163,6 @@ public class FullDataSourceV2DTO
 		this.columnGenStepByteArray = this.pooledArraysCheckout.getByteArray(1, 0);
 		this.worldCompressionModeByteArray = this.pooledArraysCheckout.getByteArray(2, 0);
 		this.mappingByteArray = this.pooledArraysCheckout.getByteArray(3, 0);
-
-		this.pooledArraysCheckout = null;
 	}
 
 	//========================//
