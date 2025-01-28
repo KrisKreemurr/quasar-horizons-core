@@ -24,6 +24,7 @@ import com.seibel.distanthorizons.api.enums.config.EDhApiDataCompressionMode;
 import com.seibel.distanthorizons.api.enums.config.EDhApiWorldCompressionMode;
 import com.seibel.distanthorizons.api.enums.worldGeneration.EDhApiWorldGenerationStep;
 import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
+import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.FullDataPointIdMap;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.network.INetworkObject;
@@ -34,10 +35,11 @@ import com.seibel.distanthorizons.core.util.FullDataPointUtil;
 import com.seibel.distanthorizons.core.util.ListUtil;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.objects.DataCorruptedException;
-import com.seibel.distanthorizons.core.util.objects.dataStreams.ByteArrayListOutputStream;
 import com.seibel.distanthorizons.core.util.objects.dataStreams.DhDataInputStream;
+import com.seibel.distanthorizons.core.util.objects.dataStreams.DhDataOutputStream;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.ILevelWrapper;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufOutputStream;
 import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.jetbrains.annotations.NotNull;
@@ -357,20 +359,46 @@ public class FullDataSourceV2DTO
 		out.writeLong(this.pos);
 		out.writeInt(this.dataChecksum);
 
-		out.writeInt(this.dataByteArray.size());
-		out.writeBytes(this.dataByteArray.toByteArray());
+		EDhApiDataCompressionMode compressionMode = Config.Common.LodBuilding.dataCompression.get();
 
-		out.writeInt(this.columnGenStepByteArray.size());
-		out.writeBytes(this.columnGenStepByteArray.toByteArray());
+		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+		try (OutputStream outputStream = new DhDataOutputStream(buffer, compressionMode)) {
+			outputStream.write(this.dataByteArray.toByteArray());
+		} catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+		out.writeInt(buffer.size());
+		out.writeBytes(buffer.toByteArray());
 
-		out.writeInt(this.worldCompressionModeByteArray.size());
-		out.writeBytes(this.worldCompressionModeByteArray.toByteArray());
+		buffer.reset();
+		try (OutputStream outputStream = new DhDataOutputStream(buffer, compressionMode)) {
+			outputStream.write(this.columnGenStepByteArray.toByteArray());
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		out.writeInt(buffer.size());
+		out.writeBytes(buffer.toByteArray());
 
-		out.writeInt(this.mappingByteArray.size());
-		out.writeBytes(this.mappingByteArray.toByteArray());
+		buffer.reset();
+		try (OutputStream outputStream = new DhDataOutputStream(buffer, compressionMode)) {
+			outputStream.write(this.worldCompressionModeByteArray.toByteArray());
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		out.writeInt(buffer.size());
+		out.writeBytes(buffer.toByteArray());
+
+		buffer.reset();
+		try (OutputStream outputStream = new DhDataOutputStream(buffer, compressionMode)) {
+			outputStream.write(this.mappingByteArray.toByteArray());
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		out.writeInt(buffer.size());
+		out.writeBytes(buffer.toByteArray());
 
 		out.writeByte(this.dataFormatVersion);
-		out.writeByte(EDhApiDataCompressionMode.UNCOMPRESSED.value);
+		out.writeByte(compressionMode.value);
 
 		out.writeBoolean(this.applyToParent);
 
@@ -400,10 +428,10 @@ public class FullDataSourceV2DTO
 		EDhApiDataCompressionMode compressionMode = EDhApiDataCompressionMode.getFromValue(in.readByte());
 
 		try {
-			transferTo(new DhDataInputStream(new ByteArrayInputStream(compressedData), compressionMode), new ByteArrayListOutputStream(this.dataByteArray));
-			transferTo(new DhDataInputStream(new ByteArrayInputStream(compressedColumnGenStep), compressionMode), new ByteArrayListOutputStream(this.columnGenStepByteArray));
-			transferTo(new DhDataInputStream(new ByteArrayInputStream(compressedWorldCompressionMode), compressionMode), new ByteArrayListOutputStream(this.worldCompressionModeByteArray));
-			transferTo(new DhDataInputStream(new ByteArrayInputStream(compressedMapping), compressionMode), new ByteArrayListOutputStream(this.mappingByteArray));
+			transferTo(new DhDataInputStream(new ByteArrayInputStream(compressedData), compressionMode), this.dataByteArray);
+			transferTo(new DhDataInputStream(new ByteArrayInputStream(compressedColumnGenStep), compressionMode), this.columnGenStepByteArray);
+			transferTo(new DhDataInputStream(new ByteArrayInputStream(compressedWorldCompressionMode), compressionMode), this.worldCompressionModeByteArray);
+			transferTo(new DhDataInputStream(new ByteArrayInputStream(compressedMapping), compressionMode), this.mappingByteArray);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -448,14 +476,14 @@ public class FullDataSourceV2DTO
 
 
 	@Deprecated // copied straight out of InputStream because it's only java 9+ (we're java 8)
-	public long transferTo(InputStream in, OutputStream out) throws IOException {
+	public long transferTo(InputStream in, ByteArrayList out) throws IOException {
 		try {
 			long transferred = 0L;
 			byte[] buffer = new byte[16384];
 
 			int read;
 			while ((read = in.read(buffer, 0, 16384)) >= 0) {
-				out.write(buffer, 0, read);
+				out.addElements((int) transferred, buffer, 0, read);
 				if (transferred < Long.MAX_VALUE) {
 					try {
 						transferred = Math.addExact(transferred, read);
@@ -468,7 +496,6 @@ public class FullDataSourceV2DTO
 			return transferred;
 		} finally {
 			in.close();
-			out.close();
 		}
 	}
 }
