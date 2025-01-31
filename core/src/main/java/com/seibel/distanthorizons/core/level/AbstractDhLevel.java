@@ -178,8 +178,8 @@ public abstract class AbstractDhLevel implements IDhLevel {
 
 		this.updateBeaconBeamsBetweenBlockPos(
 				sectionPos,
-				minBlockX, minBlockZ,
-				maxBlockX, maxBlockZ,
+				minBlockX, maxBlockX,
+				minBlockZ, maxBlockZ,
 				activeBeamList
 		);
 	}

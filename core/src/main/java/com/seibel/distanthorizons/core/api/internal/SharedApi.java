@@ -233,7 +233,7 @@ public class SharedApi
 		
 		if (dhLevel instanceof DhClientLevel)
 		{
-			if (!((DhClientLevel) dhLevel).shouldProcessLocalChunkUpdates())
+			if (!((DhClientLevel) dhLevel).shouldProcessChunkUpdate(chunkWrapper.getChunkPos()))
 			{
 				return;
 			}
@@ -609,6 +609,11 @@ public class SharedApi
 			}
 			
 			DhChunkPos closest = this.closestQueue.poll();
+			if (closest == null)
+			{
+				return null;
+			}
+			
 			this.furthestQueue.remove(closest);
 			return this.updateDataByChunkPos.remove(closest);
 		}
