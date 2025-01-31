@@ -80,6 +80,17 @@ public class SQLiteDatastoreTest
 		Assert.assertEquals(255, beam.colourG);
 		Assert.assertEquals(0, beam.colourB);
 	}
+
+	@Test
+	public void canDeleteBeaconBeam() {
+		int levelId = datastore.ensureLevel("canDeleteBeaconBeam");
+
+		datastore.setBeaconBeam(levelId, -1, 200, 1, 255, 255, 0);
+		Assert.assertTrue(datastore.deleteBeaconBeam(levelId, -1, 200, 1));
+
+		List<IDhApiDatastore.BeaconBeam> beaconBeam = datastore.listBeaconBeamsInArea(levelId, -1, 0, 99, 100);
+		Assert.assertTrue(beaconBeam.isEmpty());
+	}
 	
 	@Test
 	public void canGetAndSetFullData()
@@ -149,6 +160,31 @@ public class SQLiteDatastoreTest
 		Assert.assertArrayEquals(fullData.columnWorldCompressionMode, fetchedFullDataMetadata.get().columnWorldCompressionMode);
 		Assert.assertEquals(fullData.dataFormatVersion, fetchedFullDataMetadata.get().dataFormatVersion);
 		Assert.assertEquals(fullData.applyToParent, fetchedFullDataMetadata.get().applyToParent);
+	}
+
+	@Test
+	public void canUpdateFullDataApplyToParent() {
+		int levelId = datastore.ensureLevel("canUpdateFullDataApplyToParent");
+
+		IDhApiDatastore.FullData fullData = new IDhApiDatastore.FullData();
+		fullData.levelId = levelId;
+		fullData.detailLevel = 13;
+		fullData.posX = 1;
+		fullData.posZ = 2;
+		fullData.minY = 0;
+		fullData.dataChecksum = 1234;
+		fullData.data = new byte[]{1, 2, 3, 5, 7, 23, 7, 1, 6, 12, 76, 35, 1, 65};
+		fullData.columnGenerationStep = new byte[]{1, 2, 3};
+		fullData.columnWorldCompressionMode = new byte[]{2, 3, 1};
+		fullData.mapping = new byte[]{};
+		fullData.dataFormatVersion = 1;
+		fullData.applyToParent = false;
+		datastore.setFullData(fullData);
+
+		Assert.assertTrue(datastore.updateFullDataApplyToParent(levelId, (byte) 13, 1, 2, true));
+		Optional<IDhApiDatastore.FullDataMetadata> fullDataMetadata = datastore.getFullDataMetadata(levelId, (byte) 13, 1, 2);
+		Assert.assertTrue(fullDataMetadata.isPresent());
+		Assert.assertTrue(fullDataMetadata.get().applyToParent);
 	}
 	
 	@Test

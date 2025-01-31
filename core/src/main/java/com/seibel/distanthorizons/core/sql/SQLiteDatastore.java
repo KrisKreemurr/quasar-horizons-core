@@ -544,7 +544,7 @@ public class SQLiteDatastore implements IDhApiDatastore {
 
     /**
      * getAllFullDataPositions returns all FullData positions stored in the datastore.
-     * it is used by the compression test, and is nto part of the API.
+     * it is used by the compression test, and is not part of the API.
      *
      * @param levelId unique id of the level. See {@link #ensureLevel}
      * @return list of positions.
