@@ -31,6 +31,8 @@ import com.seibel.distanthorizons.core.network.INetworkObject;
 import com.seibel.distanthorizons.core.pooling.PhantomArrayListParent;
 import com.seibel.distanthorizons.core.pooling.PhantomArrayListPool;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
+import com.seibel.distanthorizons.core.network.INetworkObject;
+import com.seibel.distanthorizons.core.util.BoolUtil;
 import com.seibel.distanthorizons.core.util.FullDataPointUtil;
 import com.seibel.distanthorizons.core.util.ListUtil;
 import com.seibel.distanthorizons.core.util.LodUtil;
@@ -43,6 +45,7 @@ import io.netty.buffer.ByteBufOutputStream;
 import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 
@@ -77,9 +80,14 @@ public class FullDataSourceV2DTO
 	public ByteArrayList mappingByteArray;
 
 	public byte dataFormatVersion;
-
-	public boolean applyToParent;
-
+	
+	/** Will be null if we don't want to update this value in the DB */
+	@Nullable
+	public Boolean applyToParent;
+	/** Will be null if we don't want to update this value in the DB */
+	@Nullable
+	public Boolean applyToChildren;
+	
 	public long lastModifiedUnixDateTime;
 	public long createdUnixDateTime;
 
@@ -143,6 +151,7 @@ public class FullDataSourceV2DTO
 			dto.lastModifiedUnixDateTime = dataSource.lastModifiedUnixDateTime;
 			dto.createdUnixDateTime = dataSource.createdUnixDateTime;
 			dto.applyToParent = dataSource.applyToParent;
+			dto.applyToChildren = dataSource.applyToChildren;
 			dto.levelMinY = dataSource.levelMinY;
 		}
 
@@ -216,6 +225,16 @@ public class FullDataSourceV2DTO
 
 		dataSource.isEmpty = false;
 
+		
+		if (this.applyToParent != null)
+		{
+			dataSource.applyToParent = this.applyToParent;
+		}
+		if (this.applyToChildren != null)
+		{
+			dataSource.applyToChildren = this.applyToChildren;
+		}
+		
 		return dataSource;
 	}
 
@@ -399,9 +418,10 @@ public class FullDataSourceV2DTO
 
 		out.writeByte(this.dataFormatVersion);
 		out.writeByte(compressionMode.value);
-
-		out.writeBoolean(this.applyToParent);
-
+		
+		out.writeBoolean(BoolUtil.falseIfNull(this.applyToParent));
+		out.writeBoolean(BoolUtil.falseIfNull(this.applyToChildren));
+		
 		out.writeLong(this.lastModifiedUnixDateTime);
 		out.writeLong(this.createdUnixDateTime);
 	}
@@ -438,6 +458,8 @@ public class FullDataSourceV2DTO
 
 		this.applyToParent = in.readBoolean();
 
+		this.applyToChildren = in.readBoolean();
+		
 		this.lastModifiedUnixDateTime = in.readLong();
 		this.createdUnixDateTime = in.readLong();
 	}
@@ -469,6 +491,7 @@ public class FullDataSourceV2DTO
 				.add("mappingByteArray length", this.mappingByteArray.size())
 				.add("dataFormatVersion", this.dataFormatVersion)
 				.add("applyToParent", this.applyToParent)
+				.add("applyToChildren", this.applyToChildren)
 				.add("lastModifiedUnixDateTime", this.lastModifiedUnixDateTime)
 				.add("createdUnixDateTime", this.createdUnixDateTime)
 				.toString();

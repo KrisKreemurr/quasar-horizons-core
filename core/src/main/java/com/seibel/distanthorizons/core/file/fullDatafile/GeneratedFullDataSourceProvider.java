@@ -211,7 +211,7 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 		
 		
 		PriorityTaskPicker.Executor updateExecutor = ThreadPoolUtil.getUpdatePropagatorExecutor();
-		if (updateExecutor == null || updateExecutor.getQueueSize() >= MAX_UPDATE_TASK_COUNT / 2)
+		if (updateExecutor == null || updateExecutor.getQueueSize() >= getMaxUpdateTaskCount() / 2)
 		{
 			// don't queue additional world gen requests if the updater is behind
 			return false;
@@ -219,7 +219,7 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 		
 		
 		PriorityTaskPicker.Executor fileExecutor = ThreadPoolUtil.getFileHandlerExecutor();
-		if (fileExecutor == null || fileExecutor.getQueueSize() >= MAX_UPDATE_TASK_COUNT / 2)
+		if (fileExecutor == null || fileExecutor.getQueueSize() >= getMaxUpdateTaskCount() / 2)
 		{
 			// don't queue additional world gen requests if the file handler is overwhelmed,
 			// otherwise LODs may not load in properly
@@ -313,7 +313,12 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 	public boolean isFullyGenerated(ByteArrayList columnGenerationSteps)
 	{
 		return IntStream.range(0, columnGenerationSteps.size())
-				.noneMatch(i -> columnGenerationSteps.getByte(i) == EDhApiWorldGenerationStep.EMPTY.value);
+				.noneMatch(i ->
+				{
+					byte value = columnGenerationSteps.getByte(i);
+					return value == EDhApiWorldGenerationStep.EMPTY.value
+							|| value == EDhApiWorldGenerationStep.DOWN_SAMPLED.value;
+				});
 	}
 	
 	public static final PhantomArrayListPool ARRAY_LIST_POOL = new PhantomArrayListPool("Generated Provider");
@@ -328,27 +333,32 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 			return null;
 		}
 		
-		Optional<IDhApiDatastore.FullDataMetadata> metadata = this.datastore.getFullDataMetadata(this.levelId, DhSectionPos.getDetailLevel(pos), DhSectionPos.getX(pos), DhSectionPos.getZ(pos));
-		if (metadata.isPresent())
+		
+		// don't check any child positions if this position is already fully generated
+		Optional<IDhApiDatastore.FullDataMetadata> fullDataMetadata = this.datastore.getFullDataMetadata(levelId, DhSectionPos.getDetailLevel(pos), DhSectionPos.getX(pos), DhSectionPos.getZ(pos));
+		if (fullDataMetadata.isPresent())
 		{
-			ByteArrayList columnGenStepArray = new ByteArrayList(metadata.get().columnGenerationStep);
-			if (!columnGenStepArray.isEmpty())
+			try(PhantomArrayListCheckout checkout = ARRAY_LIST_POOL.checkoutArrays(1, 0, 0))
 			{
-				boolean positionFullyGenerated = true;
-				
-				// check if any positions are ungenerated
-				for (int i = 0; i < columnGenStepArray.size(); i++)
+				if (fullDataMetadata.get().columnGenerationStep.length > 0)
 				{
-					if (columnGenStepArray.getByte(i) == EDhApiWorldGenerationStep.EMPTY.value)
+					boolean positionFullyGenerated = true;
+					
+					// check if any positions are ungenerated
+					for (int i = 0; i < fullDataMetadata.get().columnGenerationStep.length; i++)
 					{
-						positionFullyGenerated = false;
-						break;
+						if (fullDataMetadata.get().columnGenerationStep[i] == EDhApiWorldGenerationStep.EMPTY.value
+							|| fullDataMetadata.get().columnGenerationStep[i] == EDhApiWorldGenerationStep.DOWN_SAMPLED.value)
+						{
+							positionFullyGenerated = false;
+							break;
+						}
 					}
-				}
-				
-				if (positionFullyGenerated)
-				{
-					return new LongArrayList();
+					
+					if (positionFullyGenerated)
+					{
+						return new LongArrayList();
+					}
 				}
 			}
 		}
@@ -359,59 +369,67 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 		LongArrayList generationList = new LongArrayList();
 		
 		byte lowestGeneratorDetailLevel = (byte) Math.min(
-				worldGenQueue.lowestDataDetail() + DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL,
+				worldGenQueue.lowestDataDetail()  + DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL,
 				DhSectionPos.getDetailLevel(pos));
 		
 		DhSectionPos.forEachChildAtDetailLevel(pos, lowestGeneratorDetailLevel, (genPos) ->
 		{
-			Optional<IDhApiDatastore.FullDataMetadata> genMetadata = this.datastore.getFullDataMetadata(this.levelId, DhSectionPos.getDetailLevel(genPos), DhSectionPos.getX(genPos), DhSectionPos.getZ(genPos));
-			if (!genMetadata.isPresent())
+			Optional<IDhApiDatastore.FullDataMetadata> childFullDataMetadata = this.datastore.getFullDataMetadata(levelId, DhSectionPos.getDetailLevel(genPos), DhSectionPos.getX(genPos), DhSectionPos.getZ(genPos));
+			if (!childFullDataMetadata.isPresent())
 			{
+				// nothing exists for this position, it needs generation
 				generationList.add(genPos);
-				return;
 			}
-			
-			EDhApiWorldGenerationStep currentMinWorldGenStep = EDhApiWorldGenerationStep.LIGHT;
-			ByteArrayList columnGenerationSteps = new ByteArrayList(genMetadata.get().columnGenerationStep);
-			
-			if (columnGenerationSteps.isEmpty())
+			else
 			{
-				// shouldn't happen, but just in case
-				return;
-			}
-			
-			checkWorldGenLoop:
-			for (int x = 0; x < FullDataSourceV2.WIDTH; x++)
-			{
-				for (int z = 0; z < FullDataSourceV2.WIDTH; z++)
+				
+				EDhApiWorldGenerationStep currentMinWorldGenStep = EDhApiWorldGenerationStep.LIGHT;
+				try(PhantomArrayListCheckout checkout = ARRAY_LIST_POOL.checkoutArrays(1, 0, 0))
 				{
-					int index = FullDataSourceV2.relativePosToIndex(x, z);
-					byte genStepValue = columnGenerationSteps.getByte(index);
-					
-					if (genStepValue < currentMinWorldGenStep.value)
+					if (childFullDataMetadata.get().columnGenerationStep.length == 0)
 					{
-						EDhApiWorldGenerationStep newWorldGenStep = EDhApiWorldGenerationStep.fromValue(genStepValue);
-						if (newWorldGenStep != null && newWorldGenStep.value < currentMinWorldGenStep.value)
+						// shouldn't happen, but just in case
+						return;
+					}
+					
+					
+					
+					checkWorldGenLoop:
+					for (int x = 0; x < FullDataSourceV2.WIDTH; x++)
+					{
+						for (int z = 0; z < FullDataSourceV2.WIDTH; z++)
 						{
-							currentMinWorldGenStep = newWorldGenStep;
+							int index = FullDataSourceV2.relativePosToIndex(x, z);
+							byte genStepValue = childFullDataMetadata.get().columnGenerationStep[index];
+							
+							if (genStepValue < currentMinWorldGenStep.value)
+							{
+								EDhApiWorldGenerationStep newWorldGenStep = EDhApiWorldGenerationStep.fromValue(genStepValue);
+								if (newWorldGenStep != null && newWorldGenStep.value < currentMinWorldGenStep.value)
+								{
+									currentMinWorldGenStep = newWorldGenStep;
+								}
+							}
+							
+							if (currentMinWorldGenStep == EDhApiWorldGenerationStep.EMPTY 
+								|| currentMinWorldGenStep == EDhApiWorldGenerationStep.DOWN_SAMPLED)
+							{
+								// queue the task
+								break checkWorldGenLoop;
+							}
 						}
 					}
-					
-					if (currentMinWorldGenStep == EDhApiWorldGenerationStep.EMPTY)
-					{
-						// queue the task
-						break checkWorldGenLoop;
-					}
 				}
+				
+				if (currentMinWorldGenStep != EDhApiWorldGenerationStep.EMPTY
+					&& currentMinWorldGenStep != EDhApiWorldGenerationStep.DOWN_SAMPLED)
+				{
+					// no world gen needed for this position
+					return;
+				}
+				
+				generationList.add(genPos);
 			}
-			
-			if (currentMinWorldGenStep != EDhApiWorldGenerationStep.EMPTY)
-			{
-				// no world gen needed for this position
-				return;
-			}
-			
-			generationList.add(genPos);
 		});
 		
 		return generationList;

@@ -62,12 +62,22 @@ public class DhApiFilterDatastore implements IDhApiDatastore {
 	}
 
 	@Override
+	public boolean updateFullDataApplyToChildren(int levelId, byte detailLevel, int posX, int posZ, boolean applyToChildren) {
+		return datastore.updateFullDataApplyToChildren(levelId, detailLevel, posX, posZ, applyToChildren);
+	}
+
+	@Override
 	public boolean deleteFullData(int levelId, byte detailLevel, int posX, int posZ) {
 		return datastore.deleteFullData(levelId, detailLevel, posX, posZ);
 	}
 
 	@Override
-	public List<FullDataPosition> getFullDataPositionsToUpdate(int levelId, int posX, int posZ, int returnCount) {
-		return datastore.getFullDataPositionsToUpdate(levelId, posX, posZ, returnCount);
+	public List<FullDataPosition> getFullDataParentPositionsToUpdate(int levelId, int posX, int posZ, int returnCount) {
+		return datastore.getFullDataParentPositionsToUpdate(levelId, posX, posZ, returnCount);
+	}
+
+	@Override
+	public List<FullDataPosition> getFullDataChildrenPositionsToUpdate(int levelId, int posX, int posZ, int returnCount) {
+		return datastore.getFullDataChildrenPositionsToUpdate(levelId, posX, posZ, returnCount);
 	}
 }

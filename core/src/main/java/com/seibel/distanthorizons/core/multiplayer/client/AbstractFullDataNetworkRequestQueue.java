@@ -1,6 +1,7 @@
 package com.seibel.distanthorizons.core.multiplayer.client;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.cache.CacheBuilder;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.config.types.ConfigEntry;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
@@ -71,6 +72,11 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 	
 	private final SupplierBasedRateLimiter<Void> rateLimiter = new SupplierBasedRateLimiter<>(this::getRequestRateLimit);
 	
+	private final Set<Long> visitedPositions = Collections.newSetFromMap(CacheBuilder.newBuilder()
+			.expireAfterWrite(20, TimeUnit.MINUTES)
+			.<Long, Boolean>build()
+			.asMap());
+	
 	
 	
 	//=============//
@@ -105,12 +111,17 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 	// request submitting //
 	//====================//
 	
-	public CompletableFuture<RequestResult> submitRequest(long sectionPos, Consumer<FullDataSourceV2> dataSourceConsumer)
+	public CompletableFuture<ERequestResult> submitRequest(long sectionPos, Consumer<FullDataSourceV2> dataSourceConsumer)
 	{ return this.submitRequest(sectionPos, null, dataSourceConsumer); }
-	public CompletableFuture<RequestResult> submitRequest(long sectionPos, @Nullable Long clientTimestamp, Consumer<FullDataSourceV2> dataSourceConsumer)
+	public CompletableFuture<ERequestResult> submitRequest(long sectionPos, @Nullable Long clientTimestamp, Consumer<FullDataSourceV2> dataSourceConsumer)
 	{
+		if (this.visitedPositions.contains(sectionPos))
+		{
+			return CompletableFuture.completedFuture(ERequestResult.FAILED);
+		}
+		
 		AtomicBoolean added = new AtomicBoolean(false);
-		RequestQueueEntry entry = this.waitingTasksBySectionPos.compute(sectionPos, (k, existingQueueEntry) ->
+		RequestQueueEntry entry = this.waitingTasksBySectionPos.compute(sectionPos, (pos, existingQueueEntry) ->
 		{
 			if (existingQueueEntry != null)
 			{
@@ -126,6 +137,7 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 				{
 					case SUCCEEDED:
 						this.finishedRequests.incrementAndGet();
+						this.visitedPositions.add(pos);
 						return;
 					case REQUIRES_SPLITTING:
 						return;
@@ -147,7 +159,7 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 		
 		if (!added.get())
 		{
-			return CompletableFuture.completedFuture(RequestResult.FAILED);
+			return CompletableFuture.completedFuture(ERequestResult.FAILED);
 		}
 		
 		return entry.future;
@@ -228,6 +240,11 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 				{
 					FullDataSourceV2DTO dataSourceDto = this.networkState.fullDataPayloadReceiver.decodeDataSourceAndReleaseBuffer(response.payload);
 					
+					// set application flags based on the received detail level,
+					// this is needed so the data sources propagate correctly
+					dataSourceDto.applyToChildren = DhSectionPos.getDetailLevel(dataSourceDto.pos) > DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL;
+					dataSourceDto.applyToParent = DhSectionPos.getDetailLevel(dataSourceDto.pos) < DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL + 12;
+					
 					AbstractExecutorService executor = ThreadPoolUtil.getNetworkCompressionExecutor();
 					if (executor == null)
 					{
@@ -262,7 +279,7 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 			}
 			catch (SectionRequiresSplittingException ignored)
 			{
-				return entry.future.complete(RequestResult.REQUIRES_SPLITTING);
+				return entry.future.complete(ERequestResult.REQUIRES_SPLITTING);
 			}
 			catch (SessionClosedException | CancellationException ignored)
 			{
@@ -271,7 +288,7 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 			catch (RequestRejectedException e)
 			{
 				LOGGER.info("Request rejected by the server: " + e.getMessage());
-				return entry.future.complete(RequestResult.FAILED);
+				return entry.future.complete(ERequestResult.FAILED);
 			}
 			catch (RateLimitedException e)
 			{
@@ -303,11 +320,11 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 				}
 				else
 				{
-					return entry.future.complete(RequestResult.FAILED);
+					return entry.future.complete(ERequestResult.FAILED);
 				}
 			}
 			
-			return entry.future.complete(RequestResult.SUCCEEDED);
+			return entry.future.complete(ERequestResult.SUCCEEDED);
 		});
 	}
 	
@@ -420,7 +437,7 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 	protected static class RequestQueueEntry
 	{
 		/** encapsulates the entire request, including client side queuing and the actual server request */
-		public final CompletableFuture<RequestResult> future = new CompletableFuture<>();
+		public final CompletableFuture<ERequestResult> future = new CompletableFuture<>();
 		public final Consumer<FullDataSourceV2> dataSourceConsumer;
 		/** will be null if we want to retrieve the LOD regardless of when it was last updated */
 		@Nullable
@@ -450,7 +467,7 @@ public abstract class AbstractFullDataNetworkRequestQueue implements IDebugRende
 		
 	}
 	
-	public enum RequestResult
+	public enum ERequestResult
 	{
 		SUCCEEDED,
 		REQUIRES_SPLITTING,

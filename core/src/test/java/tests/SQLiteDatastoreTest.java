@@ -263,7 +263,7 @@ public class SQLiteDatastoreTest
 		fullData.applyToParent = true;
 		datastore.setFullData(fullData);
 		
-		List<IDhApiDatastore.FullDataPosition> fullDataPositions = datastore.getFullDataPositionsToUpdate(levelId, 0, 2, 3);
+		List<IDhApiDatastore.FullDataPosition> fullDataPositions = datastore.getFullDataParentPositionsToUpdate(levelId, 0, 2, 3);
 		Assert.assertTrue(fullDataPositions.stream().anyMatch(pos ->
 				pos.detailLevel == 11 &&
 						pos.posX == 576000 &&

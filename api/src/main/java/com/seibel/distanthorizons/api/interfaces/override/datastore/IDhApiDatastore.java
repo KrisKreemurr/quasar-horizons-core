@@ -31,170 +31,195 @@ import java.util.Optional;
  * </ol>
  */
 public interface IDhApiDatastore extends IDhApiOverrideable {
-    /**
-     * ensureLevel creates the level if it does not already exist.
-     *
-     * @param uniqueLevelName is a human-readable string that is unique to the level.
-     * @return the levelId used by the datastore.
-     */
-    int ensureLevel(String uniqueLevelName);
+	/**
+	 * ensureLevel creates the level if it does not already exist.
+	 *
+	 * @param uniqueLevelName is a human-readable string that is unique to the level.
+	 * @return the levelId used by the datastore.
+	 */
+	int ensureLevel(String uniqueLevelName);
 
-    /**
-     * setChunkHash sets the chunkHash for the given level and position, updating if it already exists.
-     *
-     * @param levelId   unique id of the level. See {@link #ensureLevel}
-     * @param chunkHash hash value
-     */
-    void setChunkHash(int levelId, int chunkPosX, int chunkPosZ, int chunkHash);
+	/**
+	 * setChunkHash sets the chunkHash for the given level and position, updating if it already exists.
+	 *
+	 * @param levelId   unique id of the level. See {@link #ensureLevel}
+	 * @param chunkHash hash value
+	 */
+	void setChunkHash(int levelId, int chunkPosX, int chunkPosZ, int chunkHash);
 
-    /**
-     * getChunkHash returns the hash for the chunk at the given position, returning 0 if it doesn't exist.
-     *
-     * @param levelId unique id of the level. See {@link #ensureLevel}
-     * @return hash value
-     */
-    Optional<Integer> getChunkHash(int levelId, int chunkPosX, int chunkPosZ);
+	/**
+	 * getChunkHash returns the hash for the chunk at the given position, returning 0 if it doesn't exist.
+	 *
+	 * @param levelId unique id of the level. See {@link #ensureLevel}
+	 * @return hash value
+	 */
+	Optional<Integer> getChunkHash(int levelId, int chunkPosX, int chunkPosZ);
 
-    /**
-     * setBeaconBeam sets the BeaconBeam, updating if it already exists.
-     *
-     * @param levelId unique id of the level. See {@link #ensureLevel}
-     */
-    void setBeaconBeam(int levelId, int blockPosX, int blockPosY, int blockPosZ, int colourR, int colourG, int colourB);
+	/**
+	 * setBeaconBeam sets the BeaconBeam, updating if it already exists.
+	 *
+	 * @param levelId unique id of the level. See {@link #ensureLevel}
+	 */
+	void setBeaconBeam(int levelId, int blockPosX, int blockPosY, int blockPosZ, int colourR, int colourG, int colourB);
 
-    /**
-     * deleteBeaconBeam removed the given BeaconBeam.
-     *
-     * @param levelId unique id of the level. See {@link #ensureLevel}
-     * @return true if the BeaconBeam existed
-     */
-    boolean deleteBeaconBeam(int levelId, int blockPosX, int blockPosY, int blockPosZ);
+	/**
+	 * deleteBeaconBeam removed the given BeaconBeam.
+	 *
+	 * @param levelId unique id of the level. See {@link #ensureLevel}
+	 * @return true if the BeaconBeam existed
+	 */
+	boolean deleteBeaconBeam(int levelId, int blockPosX, int blockPosY, int blockPosZ);
 
-    /**
-     * listBeaconBeamsInArea returns the beacon beams that exist within the given X, Z area at any Y.
-     *
-     * @param levelId      unique id of the level. See {@link #ensureLevel}
-     * @param minBlockPosX bounding box min X
-     * @param minBlockPosZ bounding box min Z
-     * @param maxBlockPosX bounding box max X
-     * @param maxBlockPosZ bounding box max Z
-     * @return list of {@link BeaconBeam} within the given area
-     */
-    List<BeaconBeam> listBeaconBeamsInArea(int levelId, int minBlockPosX, int minBlockPosZ, int maxBlockPosX, int maxBlockPosZ);
+	/**
+	 * listBeaconBeamsInArea returns the beacon beams that exist within the given X, Z area at any Y.
+	 *
+	 * @param levelId      unique id of the level. See {@link #ensureLevel}
+	 * @param minBlockPosX bounding box min X
+	 * @param minBlockPosZ bounding box min Z
+	 * @param maxBlockPosX bounding box max X
+	 * @param maxBlockPosZ bounding box max Z
+	 * @return list of {@link BeaconBeam} within the given area
+	 */
+	List<BeaconBeam> listBeaconBeamsInArea(int levelId, int minBlockPosX, int minBlockPosZ, int maxBlockPosX, int maxBlockPosZ);
 
-    class BeaconBeam {
-        public int levelId;
-        public int blockPosX;
-        public int blockPosY;
-        public int blockPosZ;
-        public int colourR;
-        public int colourG;
-        public int colourB;
-        public Timestamp lastModified;
-        public Timestamp created;
+	class BeaconBeam {
+		public int levelId;
+		public int blockPosX;
+		public int blockPosY;
+		public int blockPosZ;
+		public int colourR;
+		public int colourG;
+		public int colourB;
+		public Timestamp lastModified;
+		public Timestamp created;
 
-    }
+	}
 
-    /**
-     * setFullData sets FullData, updating if it already exists.
-     */
-    void setFullData(FullData fullData);
+	/**
+	 * setFullData sets FullData, updating if it already exists.
+	 */
+	void setFullData(FullData fullData);
 
-    /**
-     * getFullData returns FullData for the given location.
-     *
-     * @param levelId unique id of the level. See {@link #ensureLevel}
-     * @return {@link FullData}
-     */
-    Optional<FullData> getFullData(int levelId, byte detailLevel, int posX, int posZ);
+	/**
+	 * getFullData returns FullData for the given location.
+	 *
+	 * @param levelId unique id of the level. See {@link #ensureLevel}
+	 * @return {@link FullData}
+	 */
+	Optional<FullData> getFullData(int levelId, byte detailLevel, int posX, int posZ);
 
-    class FullData {
-        public int levelId;
-        public byte detailLevel;
-        public int posX;
-        public int posZ;
-        public int minY;
-        public int dataChecksum;
-        public byte[] data;
-        public byte[] columnGenerationStep;
-        public byte[] columnWorldCompressionMode;
-        public byte[] mapping;
-        public byte dataFormatVersion;
-        public boolean applyToParent;
-        public Timestamp lastModified;
-        public Timestamp created;
+	class FullData {
+		public int levelId;
+		public byte detailLevel;
+		public int posX;
+		public int posZ;
+		public int minY;
+		public int dataChecksum;
+		public byte[] data;
+		public byte[] columnGenerationStep;
+		public byte[] columnWorldCompressionMode;
+		public byte[] mapping;
+		public byte dataFormatVersion;
+		public Boolean applyToParent; // nullable
+		public Boolean applyToChildren; // nullable
+		public Timestamp lastModified;
+		public Timestamp created;
 
-    }
+	}
 
-    /**
-     * getFullDataMetadata returns FullData with the Data and Mapping fields left unpopulated.
-     * It is motivated by users that don't need all data and want to avoid the overhead of fetching it unnecessarily.
-     *
-     * @param levelId     unique id of the level. See {@link #ensureLevel}
-     * @param detailLevel detail level to get
-     * @param posX        section X position
-     * @param posZ        section Z position
-     * @return {@link FullDataMetadata}
-     */
-    Optional<FullDataMetadata> getFullDataMetadata(int levelId, byte detailLevel, int posX, int posZ);
+	/**
+	 * getFullDataMetadata returns FullData with the Data and Mapping fields left unpopulated.
+	 * It is motivated by users that don't need all data and want to avoid the overhead of fetching it unnecessarily.
+	 *
+	 * @param levelId     unique id of the level. See {@link #ensureLevel}
+	 * @param detailLevel detail level to get
+	 * @param posX        section X position
+	 * @param posZ        section Z position
+	 * @return {@link FullDataMetadata}
+	 */
+	Optional<FullDataMetadata> getFullDataMetadata(int levelId, byte detailLevel, int posX, int posZ);
 
-    class FullDataMetadata {
-        public int levelId;
-        public byte detailLevel;
-        public int posX;
-        public int posZ;
-        public int minY;
-        public int dataChecksum;
-        public byte[] columnGenerationStep;
-        public byte[] columnWorldCompressionMode;
-        public byte dataFormatVersion;
-        public boolean applyToParent;
-        public Timestamp lastModified;
-        public Timestamp created;
+	class FullDataMetadata {
+		public int levelId;
+		public byte detailLevel;
+		public int posX;
+		public int posZ;
+		public int minY;
+		public int dataChecksum;
+		public byte[] columnGenerationStep;
+		public byte[] columnWorldCompressionMode;
+		public byte dataFormatVersion;
+		public Boolean applyToParent; // nullable
+		public Boolean applyToChildren; // nullable
+		public Timestamp lastModified;
+		public Timestamp created;
 
-    }
+	}
 
-    /**
-     * updateFullDataApplyToParent sets the ApplyToParent field in FullData.
-     *
-     * @param levelId       unique id of the level. See {@link #ensureLevel}
-     * @param detailLevel   detail level to get
-     * @param posX          section X position
-     * @param posZ          section Z position
-     * @param applyToParent value to set ApplyToParent to
-     * @return true if FullData existed
-     */
-    boolean updateFullDataApplyToParent(int levelId, byte detailLevel, int posX, int posZ, boolean applyToParent);
+	/**
+	 * updateFullDataApplyToParent sets the ApplyToParent field in FullData.
+	 *
+	 * @param levelId       unique id of the level. See {@link #ensureLevel}
+	 * @param detailLevel   detail level to get
+	 * @param posX          section X position
+	 * @param posZ          section Z position
+	 * @param applyToParent value to set ApplyToParent to
+	 * @return true if FullData existed
+	 */
+	boolean updateFullDataApplyToParent(int levelId, byte detailLevel, int posX, int posZ, boolean applyToParent);
 
-    /**
-     * deleteFullData removes FullData from the datastore.
-     *
-     * @param levelId     unique id of the level. See {@link #ensureLevel}
-     * @param detailLevel detail level to get
-     * @param posX        section X position
-     * @param posZ        section Z position
-     * @return true if FullData existed
-     */
-    boolean deleteFullData(int levelId, byte detailLevel, int posX, int posZ);
+	/**
+	 * updateFullDataApplyToChildren sets the ApplyToChild field in FullData.
+	 *
+	 * @param levelId         unique id of the level. See {@link #ensureLevel}
+	 * @param detailLevel     detail level to get
+	 * @param posX            section X position
+	 * @param posZ            section Z position
+	 * @param applyToChildren value to set ApplyToChild to
+	 * @return true if FullData existed
+	 */
+	boolean updateFullDataApplyToChildren(int levelId, byte detailLevel, int posX, int posZ, boolean applyToChildren);
 
-    /**
-     * getFullDataPositionsToUpdate returns the locations of FullData instances that are close to the given location,
-     * ordered by distance and where ApplyToParent is true.
-     *
-     * @param levelId     unique id of the level. See {@link #ensureLevel}
-     * @param posX        section X position
-     * @param posZ        section Z position
-     * @param returnCount number of results to return
-     * @return list of {@link FullDataPosition}
-     */
-    List<FullDataPosition> getFullDataPositionsToUpdate(int levelId, int posX, int posZ, int returnCount);
+	/**
+	 * deleteFullData removes FullData from the datastore.
+	 *
+	 * @param levelId     unique id of the level. See {@link #ensureLevel}
+	 * @param detailLevel detail level to get
+	 * @param posX        section X position
+	 * @param posZ        section Z position
+	 * @return true if FullData existed
+	 */
+	boolean deleteFullData(int levelId, byte detailLevel, int posX, int posZ);
 
-    class FullDataPosition {
-        public int levelId;
-        public byte detailLevel;
-        public int posX;
-        public int posZ;
+	class FullDataPosition {
+		public int levelId;
+		public byte detailLevel;
+		public int posX;
+		public int posZ;
 
-    }
+	}
 
+	/**
+	 * getFullDataParentPositionsToUpdate returns the locations of FullData instances that are close to the given location,
+	 * ordered by distance and where ApplyToParent is true.
+	 *
+	 * @param levelId     unique id of the level. See {@link #ensureLevel}
+	 * @param posX        section X position
+	 * @param posZ        section Z position
+	 * @param returnCount number of results to return
+	 * @return list of {@link FullDataPosition}
+	 */
+	List<FullDataPosition> getFullDataParentPositionsToUpdate(int levelId, int posX, int posZ, int returnCount);
+
+	/**
+	 * getFullDataChildrenPositionsToUpdate returns the locations of FullData instances that are close to the given location,
+	 * ordered by distance and where ApplyToChild is true.
+	 *
+	 * @param levelId     unique id of the level. See {@link #ensureLevel}
+	 * @param posX        section X position
+	 * @param posZ        section Z position
+	 * @param returnCount number of results to return
+	 * @return list of {@link FullDataPosition}
+	 */
+	List<FullDataPosition> getFullDataChildrenPositionsToUpdate(int levelId, int posX, int posZ, int returnCount);
 }
