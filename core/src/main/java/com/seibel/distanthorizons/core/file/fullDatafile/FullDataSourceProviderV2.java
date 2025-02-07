@@ -69,19 +69,12 @@ public class FullDataSourceProviderV2
 		implements IDebugRenderable {
 	private static final Logger LOGGER = DhLoggerBuilder.getLogger();
 	private static final IMinecraftClientWrapper MC_CLIENT = SingletonInjector.INSTANCE.get(IMinecraftClientWrapper.class);
-
+	
 	protected static final int NUMBER_OF_PARENT_UPDATE_TASKS_PER_THREAD = 5;
-
-	/**
-	 * how many parent update tasks can be in the queue at once
-	 */
-	protected static int getMaxUpdateTaskCount() {
-		return NUMBER_OF_PARENT_UPDATE_TASKS_PER_THREAD * Config.Common.MultiThreading.numberOfThreads.get();
-	}
-
-	/**
-	 * indicates how long the update queue thread should wait between queuing ticks
-	 */
+	/** how many parent update tasks can be in the queue at once */
+	protected static int getMaxUpdateTaskCount() { return NUMBER_OF_PARENT_UPDATE_TASKS_PER_THREAD* Config.Common.MultiThreading.numberOfThreads.get(); } 
+	
+	/** indicates how long the update queue thread should wait between queuing ticks */
 	protected static final int UPDATE_QUEUE_THREAD_DELAY_IN_MS = 250;
 
 	/**
@@ -378,13 +371,20 @@ public class FullDataSourceProviderV2
 			for (IDhApiDatastore.FullDataPosition parentUpdateFullDataPos : childUpdatePosList) {
 				final long parentUpdatePos = DhSectionPos.encode(parentUpdateFullDataPos.detailLevel, parentUpdateFullDataPos.posX, parentUpdateFullDataPos.posZ);
 				// stop if there are already a bunch of updates queued
-				if (this.updatingPosSet.size() > maxUpdateTaskCount
-					|| executor.getQueueSize() > maxUpdateTaskCount
-					|| !this.updatingPosSet.add(parentUpdatePos)) {
+ 				if (this.updatingPosSet.size() > maxUpdateTaskCount
+					    || executor.getQueueSize() > maxUpdateTaskCount)
+				{
 					break;
 				}
-
-				try {
+				
+				// skip already updating positions
+				if (!this.updatingPosSet.add(parentUpdatePos))
+				{
+					continue;
+				}
+				
+				try
+				{
 					executor.execute(() ->
 					{
 						ReentrantLock parentReadLock = this.updateLockProvider.getLock(parentUpdatePos);

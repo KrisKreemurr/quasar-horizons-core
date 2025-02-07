@@ -543,7 +543,7 @@ public class SQLiteDatastore implements IDhApiDatastore {
 		return withConnection(levelId, connection -> {
 			try (PreparedStatement preparedStatement = connection.prepareStatement(
 					"select DetailLevel, PosX, PosZ, abs((PosX << (6 + DetailLevel)) - ?) + abs((PosZ << (6 + DetailLevel)) - ?) as Distance " +
-					"from FullData where ApplyToParent = true order by Distance limit ?"
+					"from FullData where ApplyToParent = true order by DetailLevel ASC, Distance limit ?"
 			)) {
 				preparedStatement.setInt(1, posX);
 				preparedStatement.setInt(2, posZ);
@@ -569,7 +569,7 @@ public class SQLiteDatastore implements IDhApiDatastore {
 		return withConnection(levelId, connection -> {
 			try (PreparedStatement preparedStatement = connection.prepareStatement(
 					"select DetailLevel, PosX, PosZ, abs((PosX << (6 + DetailLevel)) - ?) + abs((PosZ << (6 + DetailLevel)) - ?) as Distance " +
-					"from FullData where ApplyToChildren = true order by Distance limit ?"
+					"from FullData where ApplyToChildren = true order by DetailLevel ASC, Distance limit ?"
 			)) {
 				preparedStatement.setInt(1, posX);
 				preparedStatement.setInt(2, posZ);
