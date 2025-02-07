@@ -83,4 +83,15 @@ public class DhDataOutputStream extends DataOutputStream
 				throw e;
 			}
 	}
+
+	public void writeVarUInt(int n) throws IOException {
+		do {
+			if ((n & ~0b01111111) == 0)
+				write((n & 0b01111111));
+			else
+				write(n | 0b10000000);
+
+			n >>>= 7;
+		} while (n != 0);
+	}
 }

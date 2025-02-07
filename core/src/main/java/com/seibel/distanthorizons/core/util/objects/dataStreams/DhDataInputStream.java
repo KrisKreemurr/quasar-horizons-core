@@ -81,6 +81,23 @@ public class DhDataInputStream extends DataInputStream
 			throw e;
 		}
 	}
+
+	public int readVarUint() throws IOException, DataCorruptedException {
+		int n = 0, off = 0, d;
+		do {
+			d = read();
+			if (d < 0)
+				throw new EOFException();
+
+			n |= (d & 0b01111111) << off;
+
+			off += 7;
+			if (off > 32)
+				throw new DataCorruptedException("varint too long");
+
+		} while ((d & 0b10000000) != 0);
+		return n;
+	}
 	
 	@Override 
 	public int read() throws IOException
