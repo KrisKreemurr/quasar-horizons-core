@@ -542,7 +542,7 @@ public class SQLiteDatastore implements IDhApiDatastore {
 	public List<FullDataPosition> getFullDataParentPositionsToUpdate(int levelId, int posX, int posZ, int returnCount) {
 		return withConnection(levelId, connection -> {
 			try (PreparedStatement preparedStatement = connection.prepareStatement(
-					"select DetailLevel, PosX, PosZ, (pow(PosX - ?, 2) + pow(PosZ - ?, 2)) as Distance " +
+					"select DetailLevel, PosX, PosZ, abs((PosX << (6 + DetailLevel)) - ?) + abs((PosZ << (6 + DetailLevel)) - ?) as Distance " +
 					"from FullData where ApplyToParent = true order by Distance limit ?"
 			)) {
 				preparedStatement.setInt(1, posX);
@@ -568,7 +568,7 @@ public class SQLiteDatastore implements IDhApiDatastore {
 	public List<FullDataPosition> getFullDataChildrenPositionsToUpdate(int levelId, int posX, int posZ, int returnCount) {
 		return withConnection(levelId, connection -> {
 			try (PreparedStatement preparedStatement = connection.prepareStatement(
-					"select DetailLevel, PosX, PosZ, (pow(PosX - ?, 2) + pow(PosZ - ?, 2)) as Distance " +
+					"select DetailLevel, PosX, PosZ, abs((PosX << (6 + DetailLevel)) - ?) + abs((PosZ << (6 + DetailLevel)) - ?) as Distance " +
 					"from FullData where ApplyToChildren = true order by Distance limit ?"
 			)) {
 				preparedStatement.setInt(1, posX);
