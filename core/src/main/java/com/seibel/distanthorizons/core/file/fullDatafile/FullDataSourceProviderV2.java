@@ -228,9 +228,15 @@ public class FullDataSourceProviderV2
 				}
 
 				this.runParentUpdates(executor, targetBlockPos);
-				this.runChildUpdates(executor, targetBlockPos);
-
-			} catch (InterruptedException ignored) {
+				
+				if (Config.Common.LodBuilding.Experimental.upsampleLowerDetailLodsToFillHoles.get())
+				{
+					this.runChildUpdates(executor, targetBlockPos);
+				}
+				
+			}
+			catch (InterruptedException ignored)
+			{
 				Thread.currentThread().interrupt();
 			} catch (Exception e) {
 				LOGGER.error("Unexpected error in the parent update queue thread. Error: " + e.getMessage(), e);
