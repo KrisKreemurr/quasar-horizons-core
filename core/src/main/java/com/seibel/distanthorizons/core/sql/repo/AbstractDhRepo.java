@@ -45,6 +45,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @param <TDTO> DTO stands for "Data Transfer Object"
  */
+@Deprecated
 public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implements AutoCloseable
 {
 	private static final Logger LOGGER = DhLoggerBuilder.getLogger();
@@ -94,8 +95,12 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
         else
             sqliteDatastore = new SQLiteDatastore(Config.Common.LodBuilding.dataCompression.get());
 
-        this.connection = sqliteDatastore.getConnection(sqliteDatastore.ensureLevel(databaseFile.getAbsolutePath()));
-        this.connectionString = this.connection.toString();
+		try {
+			this.connection = sqliteDatastore.getConnection(sqliteDatastore.ensureLevel(databaseFile.getAbsolutePath()));
+		} catch (SQLException e) {
+			throw new RuntimeException(e);
+		}
+		this.connectionString = this.connection.toString();
     }
 	
 	
