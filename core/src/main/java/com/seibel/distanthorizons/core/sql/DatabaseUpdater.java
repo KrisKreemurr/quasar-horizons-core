@@ -96,64 +96,64 @@ public class DatabaseUpdater
 					}
 			}
 
-            LOGGER.info("Running SQL update script: ["+resource.name+"], for database: ["+connection.getMetaData().getURL() +"]");
+			LOGGER.info("Running SQL update script: ["+resource.name+"], for database: ["+connection.getMetaData().getURL() +"]");
 				
 				
-            int sqlIndex = 0;
-            try
-            {
-                // split up each individual statement so Java can handle the script as a whole
-                String[] fileUpdateSqlArray = resource.queryString.split(UPDATE_SCRIPT_BATCH_SEPARATOR);
+			int sqlIndex = 0;
+			try
+			{
+				// split up each individual statement so Java can handle the script as a whole
+				String[] fileUpdateSqlArray = resource.queryString.split(UPDATE_SCRIPT_BATCH_SEPARATOR);
 					
-                boolean transactScript = !resource.queryString.contains(UPDATE_SCRIPT_NO_TRANSACTION_FLAG);
+				boolean transactScript = !resource.queryString.contains(UPDATE_SCRIPT_NO_TRANSACTION_FLAG);
 					
-                connection.setAutoCommit(!transactScript);
+				connection.setAutoCommit(!transactScript);
 					
-                try (Statement statement = connection.createStatement())
-                {
-                    statement.setQueryTimeout(AbstractDhRepo.TIMEOUT_SECONDS);
+				try (Statement statement = connection.createStatement())
+				{
+					statement.setQueryTimeout(AbstractDhRepo.TIMEOUT_SECONDS);
 						
-                    // adding the scripts to a batched statement allows them to execute together and rollback together if there are any issues
-                    for (String updateSql : fileUpdateSqlArray)
-                    {
-                        statement.execute(updateSql);
-                    }
+					// adding the scripts to a batched statement allows them to execute together and rollback together if there are any issues
+					for (String updateSql : fileUpdateSqlArray)
+					{
+						statement.execute(updateSql);
+					}
 						
-                    if (transactScript)
-                    {
-                        connection.commit();
-                    }
-                }
-                catch (SQLException e)
-                {
-                    LOGGER.error("Unexpected SQL Error: ["+e.getMessage()+"] \n" +
+					if (transactScript)
+					{
+						connection.commit();
+					}
+				}
+				catch (SQLException e)
+				{
+					LOGGER.error("Unexpected SQL Error: ["+e.getMessage()+"] \n" +
 							"returned for auto update script: [" + resource.name + "], \n" +
 							"query: [" + fileUpdateSqlArray[sqlIndex] + "]. \n" +
 							"Changes should have been rolled back.",
 							new SQLException()
-                    );
+					);
 						
-                    if (transactScript)
-                    {
-                        connection.rollback();
-                    }
-                    throw e;
-                }
-                
-                if (transactScript)
-                { 
-                    // revert to default setting
-                    connection.setAutoCommit(true);
-                }
-            }
-            catch (RuntimeException e)
-            {
-                // updating needs to stop to prevent data corruption
-                LOGGER.error("Unexpected error running database update script ["+resource.name+"] on database ["+connection.getMetaData().getURL() +"], stopping database update. Database reading/writing may fail if you continue. \n" +
+					if (transactScript)
+					{
+						connection.rollback();
+					}
+					throw e;
+				}
+
+				if (transactScript)
+				{
+					// revert to default setting
+					connection.setAutoCommit(true);
+				}
+			}
+			catch (RuntimeException e)
+			{
+				// updating needs to stop to prevent data corruption
+				LOGGER.error("Unexpected error running database update script ["+resource.name+"] on database ["+connection.getMetaData().getURL() +"], stopping database update. Database reading/writing may fail if you continue. \n" +
 							"Error: ["+e.getMessage()+"]. \n" +
 							"Sql Script:["+resource.queryString+"]", e);
 					throw e;
-            }
+			}
 
 			try (Statement statement = connection.createStatement())
 			{
