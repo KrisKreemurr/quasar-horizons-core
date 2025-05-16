@@ -557,33 +557,23 @@ public class LodRenderer
 		activeFrameBuffer.bind();
 		
 		
-		boolean clearTextures = !ApiEventInjector.INSTANCE.fireAllEvents(DhApiBeforeTextureClearEvent.class, renderEventParam);
-		if (clearTextures)
-		{
-			if (this.usingMcFrameBuffer && framebufferOverride == null)
-			{
-				// Due to using MC/Optifine's framebuffer we need to re-bind the depth texture,
-				// otherwise we'll be writing to MC/Optifine's depth texture which causes rendering issues
-				activeFrameBuffer.addDepthAttachment(this.depthTexture.getTextureId(), EDhDepthBufferFormat.DEPTH32F.isCombinedStencil());
-				
-				
-				// don't clear the color texture, that removes the sky 
-				GL32.glClear(GL32.GL_DEPTH_BUFFER_BIT);
-			}
-			else if (firstPass)
-			{
-				GL32.glClear(GL32.GL_COLOR_BUFFER_BIT | GL32.GL_DEPTH_BUFFER_BIT);
-			}
-		}
-		
 		// by default draw everything as triangles
 		GL32.glPolygonMode(GL32.GL_FRONT_AND_BACK, GL32.GL_FILL);
 		GLMC.enableFaceCulling();
+		
+		GLMC.glBlendFunc(GL32.GL_SRC_ALPHA, GL32.GL_ONE_MINUS_SRC_ALPHA);
+		GLMC.glBlendFuncSeparate(GL32.GL_SRC_ALPHA, GL32.GL_ONE_MINUS_SRC_ALPHA, GL32.GL_ONE, GL32.GL_ZERO);
+		
+		GL32.glDisable(GL32.GL_SCISSOR_TEST);
 		
 		// Enable depth test and depth mask
 		GLMC.enableDepthTest();
 		GLMC.glDepthFunc(GL32.GL_LESS);
 		GLMC.enableDepthMask();
+		
+		// This is required for MC versions 1.21.5+
+		// due to MC updating the lightmap by changing the viewport size
+		GL32.glViewport(0, 0, this.cachedWidth, this.cachedHeight);
 		
 		/*---------Bind required objects--------*/
 		// Setup LodRenderProgram and the LightmapTexture if it has not yet been done
@@ -605,6 +595,33 @@ public class LodRenderer
 		}
 		
 		this.lodRenderProgram.fillUniformData(renderEventParam);
+		
+		
+		// needs to be fired after all the textures have been created/bound
+		boolean clearTextures = !ApiEventInjector.INSTANCE.fireAllEvents(DhApiBeforeTextureClearEvent.class, renderEventParam);
+		if (clearTextures)
+		{
+			GL32.glClearDepth(1.0);
+			
+			float[] clearColorValues = new float[4];
+			GL32.glGetFloatv(GL32.GL_COLOR_CLEAR_VALUE, clearColorValues);
+			GL32.glClearColor(clearColorValues[0], clearColorValues[1], clearColorValues[2], 1.0f);
+			
+			if (this.usingMcFrameBuffer && framebufferOverride == null)
+			{
+				// Due to using MC/Optifine's framebuffer we need to re-bind the depth texture,
+				// otherwise we'll be writing to MC/Optifine's depth texture which causes rendering issues
+				activeFrameBuffer.addDepthAttachment(this.depthTexture.getTextureId(), EDhDepthBufferFormat.DEPTH32F.isCombinedStencil());
+				
+				
+				// don't clear the color texture, that removes the sky 
+				GL32.glClear(GL32.GL_DEPTH_BUFFER_BIT);
+			}
+			else if (firstPass)
+			{
+				GL32.glClear(GL32.GL_COLOR_BUFFER_BIT | GL32.GL_DEPTH_BUFFER_BIT);
+			}
+		}
 	}
 	
 	/** Setup all render objects - MUST be called on the render thread */
@@ -656,7 +673,7 @@ public class LodRenderer
 			if(this.framebuffer.getStatus() != GL32.GL_FRAMEBUFFER_COMPLETE)
 			{
 				// This generally means something wasn't bound, IE missing either the color or depth texture
-				SPAM_LOGGER.warn("FrameBuffer ["+this.framebuffer.getId()+"] isn't complete.");
+				EVENT_LOGGER.warn("FrameBuffer ["+this.framebuffer.getId()+"] isn't complete.");
 			}
 			
 			
@@ -716,25 +733,6 @@ public class LodRenderer
 	
 	
 	
-	private Color getFogColor(float partialTicks)
-	{
-		Color fogColor;
-		
-		if (Config.Client.Advanced.Graphics.Fog.colorMode.get() == EDhApiFogColorMode.USE_SKY_COLOR)
-		{
-			fogColor = MC_RENDER.getSkyColor();
-		}
-		else
-		{
-			fogColor = MC_RENDER.getFogColor(partialTicks);
-		}
-		
-		return fogColor;
-	}
-	private Color getSpecialFogColor(float partialTicks) { return MC_RENDER.getSpecialFogColor(partialTicks); }
-	
-	
-	
 	//===============//
 	// API functions //
 	//===============//
@@ -748,7 +746,10 @@ public class LodRenderer
 	public static int getActiveColorTextureId() { return activeColorTextureId; }
 	
 	private void setActiveDepthTextureId(int depthTextureId) { activeDepthTextureId = depthTextureId; }
-	/** Returns -1 if no texture has been bound yet */
+	/**
+	 * FIXME it's possible for this to return an invalid texture ID if the renderer is being re-built at the same time 
+	 * Returns -1 if no texture has been bound yet 
+	 */
 	public static int getActiveDepthTextureId() { return activeDepthTextureId; }
 	
 	

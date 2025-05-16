@@ -477,7 +477,11 @@
   "distanthorizons.config.client.advanced.debugging.openGl.overrideVanillaGLLogger":
     "Override Vanilla GL Logger",
   "distanthorizons.config.client.advanced.debugging.openGl.overrideVanillaGLLogger.@tooltip":
-    "Defines how OpenGL errors are handled. \n Requires rebooting Minecraft to apply. \nMay incorrectly catch OpenGL errors thrown by other mods.",
+    "Defines how OpenGL errors are handled. \nRequires rebooting Minecraft to change. \nWill catch OpenGL errors thrown by other mods.",
+  "distanthorizons.config.client.advanced.debugging.openGl.onlyLogGlErrorsOnce":
+    "Only Log GL Errors Once",
+  "distanthorizons.config.client.advanced.debugging.openGl.onlyLogGlErrorsOnce.@tooltip":
+    "If true each Open GL error will only be logged once. \nTEnabling this may cause some error logs to be missed. \nDoes nothing if overrideVanillaGLLogger is set to false. \n\nGenerally this can be kept as 'true' to prevent log spam. \nHowever, Please set this to 'false' if a developer needs your log to debug a GL issue. \n",
   "distanthorizons.config.client.advanced.debugging.openGl.glErrorHandlingMode":
     "OpenGL Error Handling Mode",
   "distanthorizons.config.client.advanced.debugging.openGl.glErrorHandlingMode.@tooltip":
@@ -742,6 +746,10 @@
     "Maximum Data Transfer Speed, KB/s",
   "distanthorizons.config.server.maxDataTransferSpeed.@tooltip":
     "Maximum speed for uploading LODs to the clients, in KB/s.\nValue of 0 disables the limit.",
+  "distanthorizons.config.server.enableAdaptiveTransferSpeed":
+    "Enable Adaptive Transfer Speed",
+  "distanthorizons.config.server.enableAdaptiveTransferSpeed.@tooltip":
+    "Enables adaptive transfer speed based on client performance.\nIf true, DH will automatically adjust transfer rate to minimize connection lag.\nIf false, transfer speed will remain fixed.",
 
 
   "distanthorizons.config.server.experimental":

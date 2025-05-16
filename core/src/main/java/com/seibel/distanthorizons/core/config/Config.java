@@ -1015,9 +1015,23 @@ public class Config
 				public static class OpenGl
 				{
 					public static ConfigEntry<Boolean> overrideVanillaGLLogger = new ConfigEntry.Builder<Boolean>()
-							.set(ModInfo.IS_DEV_BUILD)
+							.set(true)
 							.comment(""
-									+ "Requires a reboot to change. \n"
+									+ "Defines how OpenGL errors are handled. \n "
+									+ "Requires rebooting Minecraft to change. \n"
+									+ "Will catch OpenGL errors thrown by other mods. \n"
+									+ "")
+							.build();
+					
+					public static ConfigEntry<Boolean> onlyLogGlErrorsOnce = new ConfigEntry.Builder<Boolean>()
+							.set(true)
+							.comment(""
+									+ "If true each Open GL error will only be logged once. \n"
+									+ "Enabling this may cause some error logs to be missed. \n"
+									+ "Does nothing if overrideVanillaGLLogger is set to false. \n"
+									+ " \n"
+									+ "Generally this can be kept as 'true' to prevent log spam. \n"
+									+ "However, Please set this to 'false' if a developer needs your log to debug a GL issue. \n"
 									+ "")
 							.build();
 					
@@ -1281,7 +1295,7 @@ public class Config
 			
 			public static ConfigEntry<Integer> generationProgressDisplayIntervalInSeconds = new ConfigEntry.Builder<Integer>()
 					.setChatCommandName("generation.logInterval")
-					.setMinDefaultMax(1, 5, 60 * 60 * 4) // max = 4 hours
+					.setMinDefaultMax(1, 2, 60 * 60 * 4) // max = 4 hours
 					.comment(""
 							+ "How often should the distant generator progress be displayed? \n"
 							+ "")
@@ -1699,6 +1713,15 @@ public class Config
 						+ "Value of 0 disables the limit."
 						+ "")
 				.build();
+		public static ConfigEntry<Boolean> enableAdaptiveTransferSpeed = new ConfigEntry.Builder<Boolean>()
+				.set(true)
+				.comment(""
+						+ "Enables adaptive transfer speed based on client performance.\n"
+						+ "If true, DH will automatically adjust transfer rate to minimize connection lag.\n"
+						+ "If false, transfer speed will remain fixed.\n"
+						+ "")
+				.build();
+		
 		
 		public static ConfigCategory experimental = new ConfigCategory.Builder().set(Experimental.class).build();
 		

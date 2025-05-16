@@ -483,7 +483,7 @@ public class FullDataSourceV2DTO
 	public String toString() {
 		return MoreObjects.toStringHelper(this)
 				.add("levelMinY", this.levelMinY)
-				.add("pos", this.pos)
+				.add("pos", DhSectionPos.toString(this.pos))
 				.add("dataChecksum", this.dataChecksum)
 				.add("dataByteArray length", this.dataByteArray.size())
 				.add("columnGenStepByteArray length", this.columnGenStepByteArray.size())
