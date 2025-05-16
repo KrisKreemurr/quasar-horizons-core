@@ -84,7 +84,7 @@ public class DhFullDataSourceRepoTests
 				
 				for (int j = 0; j < 32; j++)
 				{
-					fullDataArray[i].add(FullDataPointUtil.encode(j, 1, 320-j, LodUtil.MAX_MC_LIGHT, LodUtil.MAX_MC_LIGHT));
+					fullDataArray[i].add(FullDataPointUtil.encode(j, 1, j, LodUtil.MAX_MC_LIGHT, LodUtil.MAX_MC_LIGHT));
 				}
 			}
 			

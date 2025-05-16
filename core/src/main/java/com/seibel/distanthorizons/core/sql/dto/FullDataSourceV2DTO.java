@@ -31,6 +31,7 @@ import com.seibel.distanthorizons.core.network.INetworkObject;
 import com.seibel.distanthorizons.core.pooling.PhantomArrayListParent;
 import com.seibel.distanthorizons.core.pooling.PhantomArrayListPool;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
+import com.seibel.distanthorizons.core.network.INetworkObject;
 import com.seibel.distanthorizons.core.util.BoolUtil;
 import com.seibel.distanthorizons.core.util.FullDataPointUtil;
 import com.seibel.distanthorizons.core.util.ListUtil;
@@ -47,7 +48,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
-import java.util.Arrays;
 
 /**
  * handles storing {@link FullDataSourceV2}'s in the database.
@@ -246,13 +246,25 @@ public class FullDataSourceV2DTO
 	private static void writeDataSourceDataArrayToBlob(LongArrayList[] inputDataArray, ByteArrayList outputByteArray) throws IOException {
 		// write the outputs to a stream to prep for writing to the database
 		ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-		
-		// normally a DhStream should be the topmost stream to prevent closing the stream accidentally, 
-		// but since this stream will be closed immediately after writing anyway, it won't be an issue
-		DhDataOutputStream outputStream = new DhDataOutputStream(byteArrayOutputStream, EDhApiDataCompressionMode.UNCOMPRESSED);
+		DataOutputStream outputStream = new DataOutputStream(byteArrayOutputStream);
 
-		outputStream.writeShort(-1);
-		encodeFullDataPoints(outputStream, inputDataArray);
+		// write the data
+		int dataArrayLength = FullDataSourceV2.WIDTH * FullDataSourceV2.WIDTH;
+		for (int xz = 0; xz < dataArrayLength; xz++) {
+			LongArrayList dataColumn = inputDataArray[xz];
+
+			// write column length
+			short columnLength = (dataColumn != null) ? (short) dataColumn.size() : 0;
+			// a short is used instead of an int because at most we store 4096 vertical slices and a
+			// short fits that with less wasted spaces vs an int (short has max value of 32,767 vs int's max of 2 billion)
+			outputStream.writeShort(columnLength);
+
+			// write column data (will be skipped if no data was present)
+			for (int y = 0; y < columnLength; y++) {
+				outputStream.writeLong(dataColumn.getLong(y));
+			}
+		}
+
 
 		// generate the checksum
 		outputStream.flush();
@@ -260,78 +272,9 @@ public class FullDataSourceV2DTO
 		outputByteArray.addElements(0, byteArrayOutputStream.toByteArray());
 	}
 
-	public static void encodeFullDataPoints(DhDataOutputStream out, LongArrayList[] inputDataArray) throws IOException {
-		assert inputDataArray.length == FullDataSourceV2.WIDTH * FullDataSourceV2.WIDTH;
-
-		// get all unique block states and send them.
-		// then, when sending data points, we can send the index of this array instead.
-		// this is not necessarily a helpful method for reducing serialized size,
-		// but it does seem to be effective in this case, and
-		// I put that down to the fact that block states can be fairly large numbers,
-		// while also containing only a smaller subset of possible block states in any given section.
-		int[] ids = Arrays.stream(inputDataArray).flatMapToInt(l -> l.stream().mapToInt(Long::intValue)).toArray();
-		int uniqueIds = getOrderedUniques(ids);
-		out.writeVarUInt(uniqueIds);
-		for (int i = 0; i < uniqueIds; i++) out.writeVarUInt(ids[i]);
-
-		for (int i = 0; i < inputDataArray.length; i++) {
-			LongArrayList array = inputDataArray[i];
-			if (array == null || array.isEmpty()) {
-				out.writeVarUInt(0);
-
-				// if there's a bunch of empty arrays, just write how many empty arrays there are
-				int emptyCount = 0;
-				while (array == null || array.isEmpty()) {
-					emptyCount++;
-					i++;
-
-					if (i >= inputDataArray.length) {
-						out.writeVarUInt(emptyCount);
-						return;
-					}
-					array = inputDataArray[i];
-				}
-				out.writeVarUInt(emptyCount);
-			}
-
-			// write the size of this array
-			out.writeVarUInt(array.size());
-
-			// bottom y always decreases by height for each subsequent full data point.
-			// so write the starting value and let the deserializer decrement it as it goes.
-			out.writeVarUInt(FullDataPointUtil.getBottomY(array.getLong(0)) + FullDataPointUtil.getHeight(array.getLong(0)));
-
-			int last_light = 0;
-			for (long data : array) {
-				// get light and height
-				int height = FullDataPointUtil.getHeight(data);
-				int light = FullDataPointUtil.getBlockLight(data) | FullDataPointUtil.getSkyLight(data) << 4;
-				int light_delta = last_light ^ light;
-				last_light = light;
-
-				// no-as-dumb-as-it-looks method for finding the block state id.
-				// this array is ordered from most common to least common, and is not particularly long.
-				// while this is done for each datapoint, it uses no memory and the JVM and branch predictor will love it.
-				// this is fast (source: trust me)
-				int id_index = 0;
-				while (ids[id_index] != FullDataPointUtil.getId(data)) id_index++;
-				out.writeVarUInt(id_index << 2 | (light_delta == 0 ? 0 : (1<<1)) | (height == 1 ? 0 : 1));
-
-				// write height - only if it's not 1
-				if (height != 1)
-					out.writeVarUInt(height);
-
-				// write light - only if it's changed
-				// only write the delta of light - the compression algorithms like it.
-				if (light_delta != 0)
-					out.write(light_delta);
-			}
-		}
-	}
-
 	private static void readBlobToDataSourceDataArray(ByteArrayList inputCompressedDataByteArray, LongArrayList[] outputDataLongArray) throws IOException, DataCorruptedException {
 		ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(inputCompressedDataByteArray.elements());
-		DhDataInputStream inputStream = new DhDataInputStream(byteArrayInputStream,EDhApiDataCompressionMode.UNCOMPRESSED);
+		DataInputStream inputStream = new DataInputStream(byteArrayInputStream);
 
 
 		// read the data
@@ -340,10 +283,6 @@ public class FullDataSourceV2DTO
 			// read the column length
 			short dataColumnLength = inputStream.readShort(); // separate variables are used for debugging and in case validation wants to be added later
 			if (dataColumnLength < 0) {
-				if (xz == 0 && dataColumnLength == -1) {
-					decodeFullDataPoints(inputStream, outputDataLongArray);
-					return;
-				}
 				throw new DataCorruptedException("Read DataSource Blob data at index [" + xz + "], column length [" + dataColumnLength + "] should be greater than zero.");
 			}
 
@@ -361,62 +300,8 @@ public class FullDataSourceV2DTO
 		}
 	}
 
-	public static void decodeFullDataPoints(DhDataInputStream in, LongArrayList[] outputDataLongArray) throws IOException, DataCorruptedException {
-		assert outputDataLongArray.length == FullDataSourceV2.WIDTH * FullDataSourceV2.WIDTH;
 
-		// read the block states
-		int[] ids = new int[in.readVarUint()];
-		for (int i = 0; i < ids.length; i++) ids[i] = in.readVarUint();
-
-		for (int i = 0; i < outputDataLongArray.length; i++) {
-			int size = in.readVarUint();
-			if (size == 0) {
-				i += in.readVarUint();
-				if (i >= outputDataLongArray.length)
-					return;
-
-				size = in.readVarUint();
-			}
-
-			LongArrayList array = outputDataLongArray[i];
-			array.size(size);
-
-			int light = 0;
-			int min_y = in.readVarUint();
-			for (int arrayIndex = 0; arrayIndex < array.size(); arrayIndex++) {
-				long data = 0;
-
-				// read the block state and light flag
-				int id_index = in.readVarUint();
-				data = FullDataPointUtil.setId(data, ids[id_index >> 2]);
-
-				// read height and bottom y
-				int height;
-				if ((id_index&1) != 0)
-					height = in.readVarUint();
-				else
-					height = 1;
-
-				data = FullDataPointUtil.setHeight(data, height);
-				data = FullDataPointUtil.setBottomY(data, min_y -= height);
-
-				// read light
-				// need to keep track of it since we encode the delta
-				if ((id_index & (1<<1)) > 0)
-					light ^= in.read();
-				data = FullDataPointUtil.setBlockLight(data, light);
-				data = FullDataPointUtil.setSkyLight(data, light >> 4);
-
-				// done!
-				if (VALIDATE_INPUT_DATAPOINTS) FullDataPointUtil.validateDatapoint(data);
-				array.set(arrayIndex, data);
-			}
-		}
-	}
-
-	
-	private static void writeGenerationStepsToBlob(ByteArrayList inputColumnGenStepByteArray, ByteArrayList outputByteArray) throws IOException
-	{
+	private static void writeGenerationStepsToBlob(ByteArrayList inputColumnGenStepByteArray, ByteArrayList outputByteArray) throws IOException {
 		ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 		DataOutputStream outputStream = new DataOutputStream(byteArrayOutputStream);
 
@@ -578,61 +463,8 @@ public class FullDataSourceV2DTO
 		this.lastModifiedUnixDateTime = in.readLong();
 		this.createdUnixDateTime = in.readLong();
 	}
-	
-	
-	
-	//================//
-	// helper methods //
-	//================//
 
-	// getOrderedUniques mutates the array and returns the number of unique elements,
-	// which is also the size of the portion of the array that it sorts.
-	// this portion contains no duplicates, and is ordered from most-duplicated to least-duplicated.
-	//
-	// e.g. [1,3,5,2,2,2,7,3,5,3,2] -> [2,3,5,1,7...] (returning 5)
-	private static int getOrderedUniques(int[] values) {
-		if (values.length <= 2) return values.length;
 
-		int uc = 0, dc = values.length - 1, tmp;
-		int[] counts = new int[values.length];
-
-		// general idea here is have a unique and duplicate counter/index.
-		// unique counter starts at the beginning of the array and duplicate counter starts at the end.
-		// when a unique element is found we increment the unique counter,
-		// when a duplicate element is found we move it to the end of the array
-		// and make sure its partner inside the unique portion of the array is ordered.
-
-		outer:
-		while (uc <= dc) {
-			for (int i = 0; i < uc; i++)
-				if (values[i] == values[uc]) {
-					// this value already exists in our unique section.
-					// swap with duplicate cursor and increment duplicate cursor.
-					tmp = values[dc];
-					values[dc] = values[uc];
-					values[uc] = tmp;
-					dc--;
-
-					// and maintain order
-					counts[i]++;
-					while (i > 0 && counts[i - 1] < counts[i]) {
-						tmp = values[i];
-						values[i] = values[i - 1];
-						values[i - 1] = tmp;
-
-						tmp = counts[i];
-						counts[i] = counts[i - 1];
-						counts[i - 1] = tmp;
-						i--;
-					}
-					continue outer;
-				}
-			uc++;
-		}
-
-		return uc;
-	}
-	
 	//===========//
 	// overrides //
 	//===========//

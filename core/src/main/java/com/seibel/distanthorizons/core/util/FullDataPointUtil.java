@@ -43,34 +43,34 @@ import org.jetbrains.annotations.Contract;
 public class FullDataPointUtil
 {
 	public static final boolean RUN_VALIDATION = ModInfo.IS_DEV_BUILD;
-
+	
 	/** Represents the data held by an empty data point */
 	public static final int EMPTY_DATA_POINT = 0;
-
+	
 	public static final int ID_WIDTH = 32;
 	public static final int HEIGHT_WIDTH = 12;
 	public static final int MIN_Y_WIDTH = 12;
 	public static final int SKY_LIGHT_WIDTH = 4;
 	public static final int BLOCK_LIGHT_WIDTH = 4;
-
+	
 	public static final int ID_OFFSET = 0;
 	public static final int HEIGHT_OFFSET = ID_OFFSET + ID_WIDTH;
 	/** indicates the Y position where the LOD starts relative to the level's minimum height */
 	public static final int MIN_Y_OFFSET = HEIGHT_OFFSET + HEIGHT_WIDTH;
 	public static final int SKY_LIGHT_OFFSET = MIN_Y_OFFSET + MIN_Y_WIDTH;
 	public static final int BLOCK_LIGHT_OFFSET = SKY_LIGHT_OFFSET + SKY_LIGHT_WIDTH;
-
-
-	public static final long ID_MASK = (1L << 32) - 1;
+	
+	
+	public static final long ID_MASK = Integer.MAX_VALUE;
 	public static final long INVERSE_ID_MASK = ~ID_MASK;
 	public static final int HEIGHT_MASK = (int) Math.pow(2, HEIGHT_WIDTH) - 1;
 	public static final int MIN_Y_MASK = (int) Math.pow(2, MIN_Y_WIDTH) - 1;
 	public static final int SKY_LIGHT_MASK = (int) Math.pow(2, SKY_LIGHT_WIDTH) - 1;
 	public static final int BLOCK_LIGHT_MASK = (int) Math.pow(2, BLOCK_LIGHT_WIDTH) - 1;
-
-
+	
+	
 	/**
-	 * creates a new datapoint with the given values
+	 * creates a new datapoint with the given values 
 	 * @param relMinY relative to the minimum level Y value
 	 */
 	public static long encode(int id, int height, int relMinY, byte blockLight, byte skyLight) throws DataCorruptedException
@@ -79,16 +79,16 @@ public class FullDataPointUtil
 		{
 			validateData(id, height, relMinY, blockLight, skyLight);
 		}
-
-
+		
+		
 		long data = 0;
 		data |= id & ID_MASK;
 		data |= (long) (height & HEIGHT_MASK) << HEIGHT_OFFSET;
 		data |= (long) (relMinY & MIN_Y_MASK) << MIN_Y_OFFSET;
 		data |= (long) blockLight << BLOCK_LIGHT_OFFSET;
 		data |= (long) skyLight << SKY_LIGHT_OFFSET;
-
-
+		
+		
 		if (RUN_VALIDATION)
 		{
 			if (getId(data) != id || getHeight(data) != height || getBottomY(data) != relMinY
@@ -101,14 +101,14 @@ public class FullDataPointUtil
 								"id[" + getId(data) + "], height[" + getHeight(data) + "], minY[" + getBottomY(data) + "], blockLight[" + getBlockLight(data) + "], skyLight[" + getSkyLight(data) + "]!");
 			}
 		}
-
+		
 		return data;
 	}
-
+	
 	public static void validateDatapoint(long datapoint) throws DataCorruptedException { validateData(getId(datapoint), getHeight(datapoint), getBottomY(datapoint), (byte)getBlockLight(datapoint), (byte)getSkyLight(datapoint)); }
 	/**
 	 * Throws {@link DataCorruptedException} if any of the given values are outside
-	 * their expected range.
+	 * their expected range. 
 	 */
 	public static void validateData(int id, int height, int relMinY, byte blockLight, byte skyLight) throws DataCorruptedException
 	{
@@ -117,7 +117,7 @@ public class FullDataPointUtil
 		{
 			throw new DataCorruptedException("Full datapoint ID [" + relMinY + "] must be greater than zero.");
 		}
-
+		
 		// height
 		if (relMinY < 0 || relMinY >= RenderDataPointUtil.MAX_WORLD_Y_SIZE)
 		{
@@ -131,7 +131,7 @@ public class FullDataPointUtil
 		{
 			throw new DataCorruptedException("Full datapoint y+depth [" + (relMinY + height) + "] is higher than the maximum world Y height ["+RenderDataPointUtil.MAX_WORLD_Y_SIZE+"].");
 		}
-
+		
 		// lighting
 		if (blockLight < LodUtil.MIN_MC_LIGHT || blockLight > LodUtil.MAX_MC_LIGHT)
 		{
@@ -142,32 +142,30 @@ public class FullDataPointUtil
 			throw new DataCorruptedException("Full datapoint sky light [" + skyLight + "] must be in the range ["+LodUtil.MIN_MC_LIGHT+" - "+LodUtil.MAX_MC_LIGHT+"] (inclusive).");
 		}
 	}
-
-
+	
+	
 	/** Returns the BlockState/Biome pair ID used to identify this LOD's color */
 	public static int getId(long data) { return (int) (data & ID_MASK); }
-
-	public static long setId(long data, int id) { return (data&~ID_MASK) | (long) id; }
 	/** Returns how many blocks tall this LOD is. */
 	public static int getHeight(long data) { return (int) ((data >> HEIGHT_OFFSET) & HEIGHT_MASK); }
 	/**
-	 * Returns the unsigned block position of the bottom vertices for this LOD relative to the level's minimum height.
+	 * Returns the unsigned block position of the bottom vertices for this LOD relative to the level's minimum height. 
 	 * Should be between 0 and {@link RenderDataPointUtil#MAX_WORLD_Y_SIZE}
 	 */
 	public static int getBottomY(long data) { return (int) ((data >> MIN_Y_OFFSET) & MIN_Y_MASK); }
 	public static int getBlockLight(long data) { return (int) ((data >> BLOCK_LIGHT_OFFSET) & BLOCK_LIGHT_MASK); }
 	public static int getSkyLight(long data) { return (int) ((data >> SKY_LIGHT_OFFSET) & SKY_LIGHT_MASK); }
-
-	public static long setBlockLight(long data, int blockLight) { return (data & ~((long) BLOCK_LIGHT_MASK << BLOCK_LIGHT_OFFSET) | ((long) blockLight & BLOCK_LIGHT_MASK) << BLOCK_LIGHT_OFFSET); }
-	public static long setSkyLight(long data, int skyLight) { return (data & ~((long) SKY_LIGHT_MASK << SKY_LIGHT_OFFSET) | ((long) skyLight & SKY_LIGHT_MASK) << SKY_LIGHT_OFFSET); }
-
+	
+	public static long setBlockLight(long data, byte blockLight) { return (data & ~((long) BLOCK_LIGHT_MASK << BLOCK_LIGHT_OFFSET) | (long) blockLight << BLOCK_LIGHT_OFFSET); }
+	public static long setSkyLight(long data, int skyLight) { return (data & ~((long) SKY_LIGHT_MASK << SKY_LIGHT_OFFSET) | (long) skyLight << SKY_LIGHT_OFFSET); }
+	
 	public static long setBottomY(long data, int bottomY) { return (data & ~(((long)(MIN_Y_MASK)) << MIN_Y_OFFSET)) | (((long)(bottomY)) << MIN_Y_OFFSET); }
 	public static long setHeight(long data, int height) { return (data & ~(((long)(HEIGHT_MASK)) << HEIGHT_OFFSET)) | (((long)(height)) << HEIGHT_OFFSET); }
-
+	
 	public static String toString(long data) { return "[ID:" + getId(data) + ",Y:" + getBottomY(data) + ",Height:" + getHeight(data) + ",BlockLight:" + getBlockLight(data) + ",SkyLight:" + getSkyLight(data) + "]"; }
-
-
-
+	
+	
+	
 	/** Remaps the biome/blockState ID of the given datapoint */
 	@Contract(pure = true)
 	public static long remap(int[] newIdMapping, long data) throws IndexOutOfBoundsException
@@ -182,11 +180,11 @@ public class FullDataPointUtil
 		{
 			// this try-catch is present to fix an issue where the stack trace is missing
 			// and to allow for easily attaching a debugger
-
+			
 			// if this was thrown that probably means the datasource has been
 			// re-mapped multiple times, causing the ID's to go out of their expected bounds.
 			throw new RuntimeException(e);
 		}
 	}
-
+	
 }
