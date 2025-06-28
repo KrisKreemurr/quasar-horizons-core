@@ -20,6 +20,7 @@
 package com.seibel.distanthorizons.core.render.renderer.generic;
 
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiBlockMaterial;
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.api.interfaces.render.IDhApiRenderableBoxGroup;
 import com.seibel.distanthorizons.api.methods.events.sharedParameterObjects.DhApiRenderParam;
 import com.seibel.distanthorizons.api.objects.math.DhApiVec3d;
@@ -29,7 +30,6 @@ import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPos;
-import com.seibel.distanthorizons.core.sql.dto.BeaconBeamDTO;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.RenderUtil;
 import com.seibel.distanthorizons.core.util.math.Vec3d;
@@ -39,6 +39,7 @@ import com.seibel.distanthorizons.coreapi.ModInfo;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.concurrent.RejectedExecutionException;
@@ -89,19 +90,19 @@ public class BeaconRenderHandler
 	// render handling //
 	//=================//
 	
-	public void startRenderingBeacon(BeaconBeamDTO beacon)
+	public void startRenderingBeacon(IDhApiDatastore.BeaconBeam beacon)
 	{
 		try
 		{
 			this.updateLock.lock();
 			
-			if (this.beaconBlockPosSet.add(beacon.blockPos))
+			if (this.beaconBlockPosSet.add(new DhBlockPos(beacon.blockPosX, beacon.blockPosY, beacon.blockPosZ)))
 			{
 				int maxBeaconBeamHeight = Config.Client.Advanced.Graphics.GenericRendering.beaconRenderHeight.get();
 				DhApiRenderableBox beaconBox = new DhApiRenderableBox(
-						new DhApiVec3d(beacon.blockPos.getX(), beacon.blockPos.getY() + 1, beacon.blockPos.getZ()),
-						new DhApiVec3d(beacon.blockPos.getX() + 1, maxBeaconBeamHeight, beacon.blockPos.getZ() + 1),
-						beacon.color,
+						new DhApiVec3d(beacon.blockPosX, beacon.blockPosY + 1, beacon.blockPosZ),
+						new DhApiVec3d(beacon.blockPosX + 1, maxBeaconBeamHeight, beacon.blockPosZ + 1),
+						new Color(beacon.colourR, beacon.colourG, beacon.colourB),
 						EDhApiBlockMaterial.ILLUMINATED
 				);
 				
@@ -142,13 +143,13 @@ public class BeaconRenderHandler
 		}
 	}
 	
-	public void updateBeaconColor(BeaconBeamDTO newBeam)
+	public void updateBeaconColor(IDhApiDatastore.BeaconBeam newBeam)
 	{
 		try
 		{
 			this.updateLock.lock();
 			
-			DhBlockPos pos = newBeam.blockPos;
+			DhBlockPos pos = new DhBlockPos(newBeam.blockPosX, newBeam.blockPosY, newBeam.blockPosZ);
 			for (int i = 0; i < this.fullBeaconBoxList.size(); i++)
 			{
 				DhApiRenderableBox box = this.fullBeaconBoxList.get(i);
@@ -156,7 +157,7 @@ public class BeaconRenderHandler
 						&& box.minPos.y == pos.getY() + 1 // plus 1 because the beam starts above the beacon
 						&& box.minPos.z == pos.getZ())
 				{
-					box.color = newBeam.color;
+					box.color = new Color(newBeam.colourR, newBeam.colourG, newBeam.colourB);
 					this.beaconBoxGroup.triggerBoxChange();
 					break;
 				}

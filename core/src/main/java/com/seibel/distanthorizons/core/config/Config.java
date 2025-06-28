@@ -171,7 +171,7 @@ public class Config
 				public static class Quality
 				{
 					public static ConfigEntry<Integer> lodChunkRenderDistanceRadius = new ConfigEntry.Builder<Integer>()
-							.setMinDefaultMax(32, 256, 4096)
+							.setMinDefaultMax(32, 64, 4096)
 							.comment("" +
 									"The radius of the mod's render distance. (measured in chunks)\n" +
 									"")

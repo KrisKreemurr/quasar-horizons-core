@@ -189,7 +189,6 @@ public class FullDataSourceProviderV1<TDhLevel extends IDhLevel>
 			this.isShutdown = true;
 			
 			LOGGER.info("Closing [" + this.getClass().getSimpleName() + "] for level: [" + this.level + "].");
-			this.repo.close();
 		}
 		finally
 		{

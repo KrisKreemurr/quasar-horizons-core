@@ -20,6 +20,7 @@
 package com.seibel.distanthorizons.core.file.fullDatafile;
 
 import com.seibel.distanthorizons.api.enums.worldGeneration.EDhApiWorldGenerationStep;
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.core.api.internal.SharedApi;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
@@ -78,7 +79,6 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 	// constructor //
 	//=============//
 	
-	public GeneratedFullDataSourceProvider(IDhLevel level, ISaveStructure saveStructure) { super(level, saveStructure); }
 	public GeneratedFullDataSourceProvider(IDhLevel level, ISaveStructure saveStructure, @Nullable File saveDirOverride) { super(level, saveStructure, saveDirOverride); }
 	
 	
@@ -331,22 +331,21 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 		}
 		
 		
-		// don't check any child positions if this position is already fully generated 
-		if (this.repo.existsWithKey(pos))
+		// don't check any child positions if this position is already fully generated
+		Optional<IDhApiDatastore.FullDataMetadata> fullDataMetadata = this.datastore.getFullDataMetadata(levelId, DhSectionPos.getDetailLevel(pos), DhSectionPos.getX(pos), DhSectionPos.getZ(pos));
+		if (fullDataMetadata.isPresent())
 		{
 			try(PhantomArrayListCheckout checkout = ARRAY_LIST_POOL.checkoutArrays(1, 0, 0))
 			{
-				ByteArrayList columnGenStepArray = checkout.getByteArray(0, FullDataSourceV2.WIDTH*FullDataSourceV2.WIDTH);
-				this.repo.getColumnGenerationStepForPos(pos, columnGenStepArray);
-				if (!columnGenStepArray.isEmpty())
+				if (fullDataMetadata.get().columnGenerationStep.length > 0)
 				{
 					boolean positionFullyGenerated = true;
 					
 					// check if any positions are ungenerated
-					for (int i = 0; i < columnGenStepArray.size(); i++)
+					for (int i = 0; i < fullDataMetadata.get().columnGenerationStep.length; i++)
 					{
-						if (columnGenStepArray.getByte(i) == EDhApiWorldGenerationStep.EMPTY.value
-							|| columnGenStepArray.getByte(i) == EDhApiWorldGenerationStep.DOWN_SAMPLED.value)
+						if (fullDataMetadata.get().columnGenerationStep[i] == EDhApiWorldGenerationStep.EMPTY.value
+							|| fullDataMetadata.get().columnGenerationStep[i] == EDhApiWorldGenerationStep.DOWN_SAMPLED.value)
 						{
 							positionFullyGenerated = false;
 							break;
@@ -362,7 +361,6 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 		}
 		
 		
-		
 		// this section is missing one or more columns, queue the missing ones for generation.
 		// TODO speed up this logic by only checking ungenerated columns
 		LongArrayList generationList = new LongArrayList();
@@ -373,7 +371,8 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 		
 		DhSectionPos.forEachChildAtDetailLevel(pos, lowestGeneratorDetailLevel, (genPos) ->
 		{
-			if (!this.repo.existsWithKey(genPos))
+			Optional<IDhApiDatastore.FullDataMetadata> childFullDataMetadata = this.datastore.getFullDataMetadata(levelId, DhSectionPos.getDetailLevel(genPos), DhSectionPos.getX(genPos), DhSectionPos.getZ(genPos));
+			if (!childFullDataMetadata.isPresent())
 			{
 				// nothing exists for this position, it needs generation
 				generationList.add(genPos);
@@ -384,9 +383,7 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 				EDhApiWorldGenerationStep currentMinWorldGenStep = EDhApiWorldGenerationStep.LIGHT;
 				try(PhantomArrayListCheckout checkout = ARRAY_LIST_POOL.checkoutArrays(1, 0, 0))
 				{
-					ByteArrayList columnGenerationSteps = checkout.getByteArray(0, FullDataSourceV2.WIDTH*FullDataSourceV2.WIDTH);
-					this.repo.getColumnGenerationStepForPos(genPos, columnGenerationSteps);
-					if (columnGenerationSteps.isEmpty())
+					if (childFullDataMetadata.get().columnGenerationStep.length == 0)
 					{
 						// shouldn't happen, but just in case
 						return;
@@ -400,7 +397,7 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 						for (int z = 0; z < FullDataSourceV2.WIDTH; z++)
 						{
 							int index = FullDataSourceV2.relativePosToIndex(x, z);
-							byte genStepValue = columnGenerationSteps.getByte(index);
+							byte genStepValue = childFullDataMetadata.get().columnGenerationStep[index];
 							
 							if (genStepValue < currentMinWorldGenStep.value)
 							{

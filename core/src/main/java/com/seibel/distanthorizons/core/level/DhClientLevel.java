@@ -141,7 +141,8 @@ public class DhClientLevel extends AbstractDhLevel implements IDhClientLevel
 		
 		this.clientside = new ClientLevelModule(this);
 		
-		this.createAndSetSupportingRepos(this.dataFileHandler.repo.databaseFile);
+		this.datastore = this.dataFileHandler.datastore;
+		this.levelId = this.dataFileHandler.levelId;
 		this.runRepoReliantSetup();
 		
 		if (enableRendering)
@@ -393,7 +394,6 @@ public class DhClientLevel extends AbstractDhLevel implements IDhClientLevel
 		
 		this.levelWrapper.setParentLevel(null);
 		this.clientside.close();
-		super.close();
 		this.dataFileHandler.close();
 		LOGGER.info("Closed [" + DhClientLevel.class.getSimpleName() + "] for [" + this.levelWrapper + "]");
 	}

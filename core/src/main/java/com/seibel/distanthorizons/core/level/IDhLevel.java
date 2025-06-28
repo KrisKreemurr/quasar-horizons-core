@@ -19,6 +19,7 @@
 
 package com.seibel.distanthorizons.core.level;
 
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.file.fullDatafile.FullDataSourceProviderV2;
 import com.seibel.distanthorizons.core.file.fullDatafile.GeneratedFullDataSourceProvider;
@@ -27,7 +28,6 @@ import com.seibel.distanthorizons.core.pos.DhChunkPos;
 import com.seibel.distanthorizons.core.render.RenderBufferHandler;
 import com.seibel.distanthorizons.core.render.renderer.generic.GenericObjectRenderer;
 import com.seibel.distanthorizons.core.sql.dto.BeaconBeamDTO;
-import com.seibel.distanthorizons.core.sql.repo.BeaconBeamRepo;
 import com.seibel.distanthorizons.core.wrapperInterfaces.chunk.IChunkWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.ILevelWrapper;
 import org.jetbrains.annotations.Nullable;
@@ -54,14 +54,11 @@ public interface IDhLevel extends AutoCloseable, GeneratedFullDataSourceProvider
 	
 	default void updateBeaconBeamsForChunk(IChunkWrapper chunkToUpdate, ArrayList<IChunkWrapper> nearbyChunkList)
 	{
-		List<BeaconBeamDTO> activeBeamList = chunkToUpdate.getAllActiveBeacons(nearbyChunkList);
+		List<IDhApiDatastore.BeaconBeam> activeBeamList = chunkToUpdate.getAllActiveBeacons(nearbyChunkList);
 		this.updateBeaconBeamsForChunkPos(chunkToUpdate.getChunkPos(), activeBeamList);
 	}
-	void updateBeaconBeamsForChunkPos(DhChunkPos chunkPos, List<BeaconBeamDTO> activeBeamList);
-	void updateBeaconBeamsForSectionPos(long sectionPos, List<BeaconBeamDTO> activeBeamList);
-	
-	@Nullable
-	BeaconBeamRepo getBeaconBeamRepo();
+	void updateBeaconBeamsForChunkPos(DhChunkPos chunkPos, List<IDhApiDatastore.BeaconBeam> activeBeamList);
+	void updateBeaconBeamsForSectionPos(long sectionPos, List<IDhApiDatastore.BeaconBeam> activeBeamList);
 	
 	FullDataSourceProviderV2 getFullDataProvider();
 	

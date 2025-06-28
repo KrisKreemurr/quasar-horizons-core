@@ -23,8 +23,8 @@ import com.seibel.distanthorizons.api.enums.config.EDhApiDataCompressionMode;
 import com.seibel.distanthorizons.core.dataObjects.fullData.FullDataPointIdMap;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
+import com.seibel.distanthorizons.core.sql.SQLiteDatastore;
 import com.seibel.distanthorizons.core.sql.dto.FullDataSourceV2DTO;
-import com.seibel.distanthorizons.core.sql.repo.FullDataSourceV2Repo;
 import com.seibel.distanthorizons.core.util.FullDataPointUtil;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.ThreadUtil;
@@ -46,7 +46,6 @@ import java.util.concurrent.ThreadPoolExecutor;
  */
 public class DhFullDataSourceRepoTests
 {
-	public static String DATABASE_TYPE = "jdbc:sqlite";
 	public static String DB_FILE_NAME = "test.sqlite";
 	
 	
@@ -66,11 +65,11 @@ public class DhFullDataSourceRepoTests
 	@Test
 	public void test()
 	{
-		try (final FullDataSourceV2Repo repo = new FullDataSourceV2Repo(DATABASE_TYPE, new File(DB_FILE_NAME)))
+		try
 		{
-			
-			
-			
+			SQLiteDatastore datastore = new SQLiteDatastore(EDhApiDataCompressionMode.LZ4);
+			int levelId = datastore.ensureLevel(new File(DB_FILE_NAME).getAbsolutePath());
+					
 			//========================//
 			// create test datasource //
 			//========================//
@@ -98,8 +97,8 @@ public class DhFullDataSourceRepoTests
 			
 			
 			FullDataSourceV2 originalDataSource = FullDataSourceV2.createWithData(pos, dataMapping, fullDataArray, columnGenStep, columnWorldCompressionMode);
-			FullDataSourceV2DTO originalDto = FullDataSourceV2DTO.CreateFromDataSource(originalDataSource, EDhApiDataCompressionMode.LZMA2);
-			repo.save(originalDto);
+			FullDataSourceV2DTO originalDto = FullDataSourceV2DTO.CreateFromDataSource(originalDataSource);
+			datastore.setFullData(originalDto.toDatastoreFullData(levelId));
 			
 			
 			
@@ -107,13 +106,15 @@ public class DhFullDataSourceRepoTests
 			// assert DTO data is the same //
 			//=========================//
 			
-			FullDataSourceV2DTO savedDto = repo.getByKey(pos);
+			FullDataSourceV2DTO savedDto = datastore.getFullData(levelId, (byte) 6, 1, 2)
+					.map(FullDataSourceV2DTO::new)
+					.orElseThrow(NullPointerException::new);
 			
 			Assert.assertNotNull("Failed to find DTO", savedDto);
 			Assert.assertEquals("Pos mismatch", originalDto.pos, savedDto.pos);
-			assertArraysAreEqual(originalDto.compressedDataByteArray, savedDto.compressedDataByteArray);
-			assertArraysAreEqual(originalDto.compressedColumnGenStepByteArray, savedDto.compressedColumnGenStepByteArray);
-			assertArraysAreEqual(originalDto.compressedWorldCompressionModeByteArray, savedDto.compressedWorldCompressionModeByteArray);
+			assertArraysAreEqual(originalDto.dataByteArray, savedDto.dataByteArray);
+			assertArraysAreEqual(originalDto.columnGenStepByteArray, savedDto.columnGenStepByteArray);
+			assertArraysAreEqual(originalDto.worldCompressionModeByteArray, savedDto.worldCompressionModeByteArray);
 			
 			
 			
@@ -132,8 +133,6 @@ public class DhFullDataSourceRepoTests
 			{
 				assertArraysAreEqual(originalDataSource.dataPoints[i], savedDataSource.dataPoints[i]);
 			}
-			
-			
 			
 			
 			//=========================//
@@ -161,7 +160,7 @@ public class DhFullDataSourceRepoTests
 						FullDataSourceV2DTO threadDto = null;
 						try
 						{
-							threadDto = FullDataSourceV2DTO.CreateFromDataSource(originalDataSource, EDhApiDataCompressionMode.LZMA2);
+							threadDto = FullDataSourceV2DTO.CreateFromDataSource(originalDataSource);
 						}
 						catch (IOException e)
 						{
@@ -175,15 +174,19 @@ public class DhFullDataSourceRepoTests
 						// run for a long time
 						for (int j = 0; j < 1_000_000; j++)
 						{
-							repo.save(threadDto); // runs significantly faster if we don't save
+							datastore.setFullData(threadDto.toDatastoreFullData(levelId));
 							
-							try (FullDataSourceV2DTO pooledDto = repo.getByKey(threadPos))
+							try (
+									FullDataSourceV2DTO pooledDto = datastore.getFullData(levelId, (byte) 0, finalThreadIndex, 0)
+											.map(FullDataSourceV2DTO::new)
+											.orElseThrow(NullPointerException::new)
+							)
 							{
 								Assert.assertNotNull(threadDto);
 								Assert.assertEquals(pooledDto.pos, threadDto.pos);
-								assertArraysAreEqual(pooledDto.compressedDataByteArray, threadDto.compressedDataByteArray);
-								assertArraysAreEqual(pooledDto.compressedColumnGenStepByteArray, threadDto.compressedColumnGenStepByteArray);
-								assertArraysAreEqual(pooledDto.compressedWorldCompressionModeByteArray, threadDto.compressedWorldCompressionModeByteArray);
+								assertArraysAreEqual(pooledDto.dataByteArray, threadDto.dataByteArray);
+								assertArraysAreEqual(pooledDto.columnGenStepByteArray, threadDto.columnGenStepByteArray);
+								assertArraysAreEqual(pooledDto.worldCompressionModeByteArray, threadDto.worldCompressionModeByteArray);
 							}
 						}
 					}, pool);

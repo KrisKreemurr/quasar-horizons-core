@@ -82,7 +82,6 @@ public class DhDataInputStream extends DataInputStream
 		}
 	}
 	
-	
 	@Override 
 	public int read() throws IOException
 	{
@@ -111,8 +110,4 @@ public class DhDataInputStream extends DataInputStream
 			}
 		}
 	}
-	
-	@Override
-	public void close() throws IOException { /* Do nothing. */ }
-	
 }

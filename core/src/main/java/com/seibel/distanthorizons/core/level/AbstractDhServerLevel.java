@@ -72,7 +72,8 @@ public abstract class AbstractDhServerLevel extends AbstractDhLevel implements I
 		}
 		this.serverLevelWrapper = serverLevelWrapper;
 		this.serverside = new ServerLevelModule(this, saveStructure);
-		this.createAndSetSupportingRepos(this.serverside.fullDataFileHandler.repo.databaseFile);
+		this.datastore = this.serverside.fullDataFileHandler.datastore;
+		this.levelId = this.serverside.fullDataFileHandler.levelId;
 		if (runRepoReliantSetup)
 		{
 			this.runRepoReliantSetup();
@@ -260,8 +261,14 @@ public abstract class AbstractDhServerLevel extends AbstractDhLevel implements I
 					return;
 				}
 				
-				LodUtil.assertTrue(this.beaconBeamRepo != null, "beaconBeamRepo should not be null");
-				try (FullDataPayload payload = new FullDataPayload(data, this.beaconBeamRepo.getAllBeamsForPos(data.getPos())))
+				LodUtil.assertTrue(this.datastore != null, "datastore should not be null");
+				try (FullDataPayload payload = new FullDataPayload(data, this.datastore.listBeaconBeamsInArea(
+						levelId,
+						DhSectionPos.getMinCornerBlockX(data.getPos()),
+						DhSectionPos.getMinCornerBlockZ(data.getPos()),
+						DhSectionPos.getMinCornerBlockX(data.getPos()) + DhSectionPos.getBlockWidth(data.getPos()),
+						DhSectionPos.getMinCornerBlockZ(data.getPos()) + DhSectionPos.getBlockWidth(data.getPos())
+				)))
 				{
 					for (ServerPlayerState serverPlayerState : this.serverPlayerStateManager.getReadyPlayers())
 					{
@@ -355,7 +362,6 @@ public abstract class AbstractDhServerLevel extends AbstractDhLevel implements I
 	@Override
 	public void close()
 	{
-		super.close();
 		this.serverside.close();
 		LOGGER.info("Closed DHLevel for [" + this.getLevelWrapper() + "].");
 	}

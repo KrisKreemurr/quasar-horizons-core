@@ -25,8 +25,8 @@ import com.seibel.distanthorizons.api.objects.data.DhApiTerrainDataPoint;
 import com.seibel.distanthorizons.api.objects.data.IDhApiFullDataSource;
 import com.seibel.distanthorizons.core.dataObjects.fullData.FullDataPointIdMap;
 import com.seibel.distanthorizons.core.dataObjects.transformers.LodDataBuilder;
-import com.seibel.distanthorizons.core.file.AbstractDataSourceHandler;
 import com.seibel.distanthorizons.core.file.IDataSource;
+import com.seibel.distanthorizons.core.file.fullDatafile.FullDataSourceProviderV2;
 import com.seibel.distanthorizons.core.level.IDhLevel;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.pooling.PhantomArrayListParent;
@@ -314,7 +314,7 @@ public class FullDataSourceV2
 						// copy over application flag if either are set to continue propagating
 						(BoolUtil.falseIfNull(this.applyToParent) || BoolUtil.falseIfNull(inputDataSource.applyToParent))
 						// don't propagate past the top of the tree
-						&& (DhSectionPos.getDetailLevel(this.pos) < AbstractDataSourceHandler.TOP_SECTION_DETAIL_LEVEL);
+						&& (DhSectionPos.getDetailLevel(this.pos) < FullDataSourceProviderV2.TOP_SECTION_DETAIL_LEVEL);
 			}
 			
 			// null check to prevent setting a flag we don't want to save in the DB
@@ -323,7 +323,7 @@ public class FullDataSourceV2
 				this.applyToChildren =
 						(BoolUtil.falseIfNull(this.applyToChildren) || BoolUtil.falseIfNull(inputDataSource.applyToChildren))
 						// don't propagate past the bottom of the tree
-						&& (DhSectionPos.getDetailLevel(this.pos) > AbstractDataSourceHandler.MIN_SECTION_DETAIL_LEVEL);
+						&& (DhSectionPos.getDetailLevel(this.pos) > FullDataSourceProviderV2.MIN_SECTION_DETAIL_LEVEL);
 			}
 		}
 		else if (inputDetailLevel + 1 == thisDetailLevel)
@@ -334,7 +334,7 @@ public class FullDataSourceV2
 			this.applyToParent =
 					dataChanged
 					&& (BoolUtil.falseIfNull(this.applyToParent) || BoolUtil.falseIfNull(inputDataSource.applyToParent))
-					&& (DhSectionPos.getDetailLevel(this.pos) < AbstractDataSourceHandler.TOP_SECTION_DETAIL_LEVEL);
+					&& (DhSectionPos.getDetailLevel(this.pos) < FullDataSourceProviderV2.TOP_SECTION_DETAIL_LEVEL);
 			
 		}
 		else if (inputDetailLevel - 1 == thisDetailLevel)
@@ -346,7 +346,7 @@ public class FullDataSourceV2
 			this.applyToChildren =
 					dataChanged
 					&& (BoolUtil.falseIfNull(this.applyToChildren) || BoolUtil.falseIfNull(inputDataSource.applyToChildren))
-					&& (DhSectionPos.getDetailLevel(this.pos) > AbstractDataSourceHandler.MIN_SECTION_DETAIL_LEVEL);
+					&& (DhSectionPos.getDetailLevel(this.pos) > FullDataSourceProviderV2.MIN_SECTION_DETAIL_LEVEL);
 		}
 		else
 		{

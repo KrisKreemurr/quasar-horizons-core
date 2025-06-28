@@ -83,8 +83,4 @@ public class DhDataOutputStream extends DataOutputStream
 				throw e;
 			}
 	}
-	
-	@Override
-	public void close() throws IOException { /* Do nothing. */ }
-	
 }

@@ -21,6 +21,7 @@ package com.seibel.distanthorizons.core.render;
 
 import com.google.common.base.Suppliers;
 import com.google.common.cache.Cache;
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.dataObjects.render.CachedColumnRenderSource;
@@ -33,6 +34,7 @@ import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.file.fullDatafile.FullDataSourceProviderV2;
 import com.seibel.distanthorizons.core.level.IDhClientLevel;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
+import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPos;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPos2D;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.render.glObject.GLProxy;
@@ -41,7 +43,6 @@ import com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding.ColumnR
 import com.seibel.distanthorizons.core.render.renderer.DebugRenderer;
 import com.seibel.distanthorizons.core.render.renderer.generic.BeaconRenderHandler;
 import com.seibel.distanthorizons.core.sql.dto.BeaconBeamDTO;
-import com.seibel.distanthorizons.core.sql.repo.BeaconBeamRepo;
 import com.seibel.distanthorizons.core.util.KeyedLockContainer;
 import com.seibel.distanthorizons.core.util.threading.PriorityTaskPicker;
 import com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil;
@@ -84,11 +85,9 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 	 * contains the list of beacons currently being rendered in this section 
 	 * if this list is modified the {@link LodRenderSection#beaconRenderHandler} should be updated to match.
 	 */
-	private final List<BeaconBeamDTO> activeBeaconList = new ArrayList<>();
+	private final List<IDhApiDatastore.BeaconBeam> activeBeaconList = new ArrayList<>();
 	@Nullable
 	public final BeaconRenderHandler beaconRenderHandler;
-	@Nullable
-	public final BeaconBeamRepo beaconBeamRepo;
 	
 	
 	private boolean renderingEnabled = false;
@@ -153,7 +152,6 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 		this.uploadTaskCountRef = uploadTaskCountRef;
 		
 		this.beaconRenderHandler = this.quadTree.beaconRenderHandler;
-		this.beaconBeamRepo = this.level.getBeaconBeamRepo();
 		
 		DebugRenderer.register(this, Config.Client.Advanced.Debugging.DebugWireframe.showRenderSectionStatus);
 	}
@@ -460,7 +458,13 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 	{  
 		if (!this.checkedIfFullDataSourceExists)
 		{
-			this.fullDataSourceExists = this.fullDataSourceProvider.repo.existsWithKey(this.pos);
+			this.fullDataSourceExists = this.fullDataSourceProvider.datastore.getFullDataMetadata(
+					this.fullDataSourceProvider.levelId, 
+					DhSectionPos.getDetailLevel(this.pos),
+					DhSectionPos.getX(this.pos), 
+					DhSectionPos.getZ(this.pos)
+			).isPresent();
+			
 			this.checkedIfFullDataSourceExists = true;
 		}
 		
@@ -553,8 +557,7 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 	private void getAndRefreshRenderingBeacons()
 	{
 		// do nothing if beacon rendering or repos are unavailable
-		if (this.beaconBeamRepo == null 
-			|| this.beaconRenderHandler == null)
+		if (this.beaconRenderHandler == null)
 		{
 			return;
 		}
@@ -564,13 +567,20 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 		// Shouldn't be necessary, but just in case.
 		synchronized (this.activeBeaconList)
 		{
-			List<BeaconBeamDTO> activeBeacons = this.beaconBeamRepo.getAllBeamsForPos(this.pos);
+
+			List<IDhApiDatastore.BeaconBeam> activeBeacons = this.fullDataSourceProvider.datastore.listBeaconBeamsInArea(
+					this.fullDataSourceProvider.levelId,
+					DhSectionPos.getMinCornerBlockX(pos),
+					DhSectionPos.getMinCornerBlockZ(pos),
+					DhSectionPos.getMinCornerBlockX(pos) + DhSectionPos.getBlockWidth(pos),
+					DhSectionPos.getMinCornerBlockZ(pos) + DhSectionPos.getBlockWidth(pos)
+			);
 			
 			
 			// stop rendering current beacons
-			for (BeaconBeamDTO beam : this.activeBeaconList)
+			for (IDhApiDatastore.BeaconBeam beam : this.activeBeaconList)
 			{
-				this.beaconRenderHandler.stopRenderingBeaconAtPos(beam.blockPos);
+				this.beaconRenderHandler.stopRenderingBeaconAtPos(new DhBlockPos(beam.blockPosX, beam.blockPosY, beam.blockPosZ));
 			}
 			
 			// swap old and new active beacon list
@@ -578,7 +588,7 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 			this.activeBeaconList.addAll(activeBeacons);
 			
 			// start rendering new beacon list
-			for (BeaconBeamDTO beam : this.activeBeaconList)
+			for (IDhApiDatastore.BeaconBeam beam : this.activeBeaconList)
 			{
 				this.beaconRenderHandler.startRenderingBeacon(beam);
 			}
@@ -596,9 +606,9 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 		
 		synchronized (this.activeBeaconList)
 		{
-			for (BeaconBeamDTO beam : this.activeBeaconList)
+			for (IDhApiDatastore.BeaconBeam beam : this.activeBeaconList)
 			{
-				this.beaconRenderHandler.stopRenderingBeaconAtPos(beam.blockPos);
+				this.beaconRenderHandler.stopRenderingBeaconAtPos(new DhBlockPos(beam.blockPosX, beam.blockPosY, beam.blockPosZ));
 			}
 		}
 	}
@@ -614,7 +624,7 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 		
 		synchronized (this.activeBeaconList)
 		{
-			for (BeaconBeamDTO beam : this.activeBeaconList)
+			for (IDhApiDatastore.BeaconBeam beam : this.activeBeaconList)
 			{
 				this.beaconRenderHandler.startRenderingBeacon(beam);
 			}

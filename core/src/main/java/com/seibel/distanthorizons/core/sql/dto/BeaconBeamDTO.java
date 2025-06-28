@@ -26,8 +26,8 @@ import io.netty.buffer.ByteBuf;
 
 import java.awt.*;
 
-/** handles storing {@link FullDataSourceV2}'s in the database. */
-public class BeaconBeamDTO implements IBaseDTO<DhBlockPos>, INetworkObject
+/** handles network serialization of beacon beams */
+public class BeaconBeamDTO implements INetworkObject
 {
 	public DhBlockPos blockPos;
 	public Color color;
@@ -63,19 +63,4 @@ public class BeaconBeamDTO implements IBaseDTO<DhBlockPos>, INetworkObject
 		this.blockPos = INetworkObject.decodeToInstance(new DhBlockPos(), in);
 		this.color = new Color(in.readInt());
 	}
-	
-	
-	//===========//
-	// overrides //
-	//===========//
-	
-	@Override
-	public DhBlockPos getKey() { return this.blockPos; }
-	
-	@Override
-	public void close()
-	{ /* no closing needed */ }
-	
-	
-	
 }

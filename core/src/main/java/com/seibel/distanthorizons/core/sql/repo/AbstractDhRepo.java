@@ -19,12 +19,16 @@
 
 package com.seibel.distanthorizons.core.sql.repo;
 
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
+import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
-import com.seibel.distanthorizons.core.sql.DatabaseUpdater;
 import com.seibel.distanthorizons.core.sql.DbConnectionClosedException;
+import com.seibel.distanthorizons.core.sql.SQLiteDatastore;
 import com.seibel.distanthorizons.core.sql.dto.IBaseDTO;
 import com.seibel.distanthorizons.core.sql.repo.phantoms.AutoClosableTrackingWrapper;
 import com.seibel.distanthorizons.core.util.KeyedLockContainer;
+import com.seibel.distanthorizons.core.util.ThreadUtil;
+import com.seibel.distanthorizons.coreapi.DependencyInjection.OverrideInjector;
 import com.seibel.distanthorizons.coreapi.ModInfo;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
@@ -39,9 +43,10 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Handles interfacing with SQL databases.
- * 
- * @param <TDTO> DTO stands for "Data Transfer Object" 
+ *
+ * @param <TDTO> DTO stands for "Data Transfer Object"
  */
+@Deprecated
 public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implements AutoCloseable
 {
 	private static final Logger LOGGER = DhLoggerBuilder.getLogger();
@@ -74,96 +79,30 @@ public abstract class AbstractDhRepo<TKey, TDTO extends IBaseDTO<TKey>> implemen
 	//=============//
 	
 	/** @throws SQLException if the repo is unable to access the database or has trouble updating said database. */
-	public AbstractDhRepo(String databaseType, File databaseFile, Class<? extends TDTO> dtoClass) throws SQLException
-	{
-		this.databaseType = databaseType;
-		this.databaseFile = databaseFile;
-		this.dtoClass = dtoClass;
-		
-		
-		try
-		{
-			// needed by Forge to load the Java database connection
-			Class.forName("org.sqlite.JDBC");	
-		}
-		catch (ClassNotFoundException e)
-		{
+    public AbstractDhRepo(String databaseType, File databaseFile, Class<? extends TDTO> dtoClass) {
+        this.databaseType = databaseType;
+        this.databaseFile = databaseFile;
+        this.dtoClass = dtoClass;
+
+        IDhApiDatastore datastore = OverrideInjector.INSTANCE.get(IDhApiDatastore.class);
+        if (datastore == null) {
+            datastore = new SQLiteDatastore(Config.Common.LodBuilding.dataCompression.get());
+            OverrideInjector.INSTANCE.bind(IDhApiDatastore.class, datastore);
+        }
+
+        SQLiteDatastore sqliteDatastore;
+        if (datastore instanceof SQLiteDatastore)
+            sqliteDatastore = (SQLiteDatastore) datastore;
+        else
+            sqliteDatastore = new SQLiteDatastore(Config.Common.LodBuilding.dataCompression.get());
+
+		try {
+			this.connection = sqliteDatastore.getConnection(sqliteDatastore.ensureLevel(databaseFile.getAbsolutePath()));
+		} catch (SQLException e) {
 			throw new RuntimeException(e);
 		}
-		
-		
-		
-		//==========================//
-		// database file validation //
-		//==========================//
-		
-		// check that the database file exists
-		if (!databaseFile.exists())
-		{
-			// check that the parent folder exists
-			File parentFolder = databaseFile.getParentFile();
-			if (parentFolder != null && !parentFolder.exists())
-			{
-				if (!parentFolder.mkdirs())
-				{
-					throw new RuntimeException("Unable to create the necessary parent folders for the database file at location ["+databaseFile.getPath()+"].");
-				}
-			}
-			
-			if (!databaseFile.exists())
-			{
-				try
-				{
-					boolean fileCreated = databaseFile.createNewFile();
-				}
-				catch (IOException e)
-				{
-					throw new RuntimeException("Unable to create database file at location ["+databaseFile.getPath()+"] due to error: ["+e.getMessage()+"]", e);
-				}
-			}
-		}
-		
-		if (!databaseFile.canRead())
-		{
-			throw new RuntimeException("Unable to read database file at location ["+databaseFile.getPath()+"], please make sure the folder and file has the correct permissions.");
-		}
-		if (!databaseFile.canWrite())
-		{
-			throw new RuntimeException("Unable to write database file at location ["+databaseFile.getPath()+"], please make sure the folder and file aren't set to read-only.");
-		}
-		
-		
-		
-		//==================//
-		// connection setup //
-		//==================//
-		
-		// get or create the connection,
-		// reusing existing connections reduces the chance of locking the database during trivial queries
-		this.connectionString = this.databaseType+":"+this.databaseFile.getPath();
-		
-		
-		this.connection = CONNECTIONS_BY_CONNECTION_STRING.computeIfAbsent(this.connectionString, (connectionString) ->
-			{
-				try
-				{
-					return DriverManager.getConnection(connectionString);
-				}
-				catch (SQLException e)
-				{
-					LOGGER.error("Unable to connect to database with the connection string: ["+connectionString+"]");
-					return null;
-				}
-			});
-		if (this.connection == null)
-		{
-			throw new SQLException("Unable to get repo with connection string ["+this.connectionString+"]");
-		}
-		
-		ACTIVE_CONNECTION_STRINGS_BY_REPO.put(this, this.connectionString);
-		
-		DatabaseUpdater.runAutoUpdateScripts(this);
-	}
+		this.connectionString = this.connection.toString();
+    }
 	
 	
 	

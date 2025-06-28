@@ -19,9 +19,11 @@
 package com.seibel.distanthorizons.core.jar;
 
 
+import com.seibel.distanthorizons.api.enums.config.EDhApiDataCompressionMode;
+import com.seibel.distanthorizons.api.interfaces.override.datastore.IDhApiDatastore;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
+import com.seibel.distanthorizons.core.sql.SQLiteDatastore;
 import com.seibel.distanthorizons.core.sql.dto.FullDataSourceV2DTO;
-import com.seibel.distanthorizons.core.sql.repo.FullDataSourceV2Repo;
 import com.seibel.distanthorizons.coreapi.ModInfo;
 import com.seibel.distanthorizons.core.jar.gui.BaseJFrame;
 import com.seibel.distanthorizons.core.jar.gui.cusomJObject.JBox;
@@ -36,7 +38,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.*;
 import java.net.URL;
-import java.sql.SQLException;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -210,49 +211,51 @@ public class JarMain
 			logger.info("LOD data will be exported to ["+exportFile.getAbsolutePath()+"].");
 			
 			
-			FullDataSourceV2Repo repo;
-			try
-			{
-				repo = new FullDataSourceV2Repo(FullDataSourceV2Repo.DEFAULT_DATABASE_TYPE, dbFile);
-			}
-			catch (SQLException e)
-			{
-				logger.error("Failed to initialize connection with database: ["+exportFile.getAbsolutePath()+"], error: ["+e.getMessage()+"].", e);
-				return;
-			}
+			IDhApiDatastore datastore = new SQLiteDatastore(EDhApiDataCompressionMode.LZ4);
+			int	levelId = datastore.ensureLevel(dbFile.getAbsolutePath());
 			
 			if (exportPos != null)
 			{
-				exportLodDataAtPosition(repo, exportFile, exportPos);
+				exportLodDataAtPosition(datastore, exportFile, levelId, exportPos);
 			}
 			else if (exportDetailLevel != null)
 			{
-				exportAllAtDetailLevel(repo, exportFile, exportDetailLevel);
+				exportAllAtDetailLevel(datastore, exportFile, levelId, exportDetailLevel);
 			}
 			else
 			{
-				exportEntireDatabase(repo, exportFile);
+				exportEntireLevel(datastore, exportFile, levelId);
 			}
 		}
 	}
 	
-	private static void exportLodDataAtPosition(FullDataSourceV2Repo repo, File exportFile, long pos)
+	private static void exportLodDataAtPosition(IDhApiDatastore datastore, File exportFile, int levelId, long pos)
 	{
-		FullDataSourceV2DTO dto = repo.getByKey(pos);
-		if (dto == null)
+		Optional<FullDataSourceV2DTO> fullData = datastore.getFullData(
+				levelId,
+				DhSectionPos.getDetailLevel(pos),
+				DhSectionPos.getX(pos),
+				DhSectionPos.getZ(pos)
+		).map(FullDataSourceV2DTO::new);
+		
+		if (!fullData.isPresent())
 		{
 			logger.error("Unable to find any data at the position ["+DhSectionPos.toString(pos)+"].");
 			return;
 		}
-		// TODO need a way to create datasources (specifically data mappings) without a MC level object to deserialize with
-		//dto.createPooledDataSource();
 		
+		try (FullDataSourceV2DTO dto = fullData.get()) {
+			// TODO need a way to create datasources (specifically data mappings) without a MC level object to deserialize with
+			//dto.createPooledDataSource();
+		}
 	}
-	private static void exportAllAtDetailLevel(FullDataSourceV2Repo repo, File exportFile, byte detailLevel)
+	
+	private static void exportAllAtDetailLevel(IDhApiDatastore datastore, File exportFile, int levelId, byte detailLevel)
 	{
 		// TODO
 	}
-	private static void exportEntireDatabase(FullDataSourceV2Repo repo, File exportFile)
+	
+	private static void exportEntireLevel(IDhApiDatastore datastore, File exportFile, int levelId)
 	{
 		// TODO
 	}
