@@ -59,6 +59,10 @@ public final class BufferQuad
 	
 	public boolean hasError = false;
 	
+	// Pre-computed sort keys to avoid recomputing on every comparision
+	// Slight increase in memory for reduction in cpu usage
+	public final long sortKeyEW;
+	public final long sortKeyNS;
 	
 	
 	BufferQuad(
@@ -85,64 +89,19 @@ public final class BufferQuad
 		this.skyLight = skylight;
 		this.blockLight = blockLight;
 		this.direction = direction;
+		this.sortKeyEW = computeSortKey(direction, true);
+		this.sortKeyNS = computeSortKey(direction, false);
 	}
 	
-	
-	
-	/** a rough but fast calculation */
-	double calculateDistance(double relativeX, double relativeY, double relativeZ)
-	{
-		return Math.pow(relativeX - this.x, 2) + Math.pow(relativeY - this.y, 2) + Math.pow(relativeZ - this.z, 2);
-	}
-	
-	/** compares this quad's position to the given quad */
+	/** compares this quad's position to the given quad using pre-computed sort keys */
 	public int compare(BufferQuad quad, BufferMergeDirectionEnum compareDirection)
 	{
 		if (this.direction != quad.direction)
 			throw new IllegalArgumentException("The other quad is not in the same direction: " + quad.direction + " vs " + this.direction);
 		
-		if (compareDirection == BufferMergeDirectionEnum.EastWest)
-		{
-			switch (this.direction.axis)
-			{
-				case X:
-					return threeDimensionalCompare(this.x, this.y, this.z, quad.x, quad.y, quad.z);
-				case Y:
-					return threeDimensionalCompare(this.y, this.z, this.x, quad.y, quad.z, quad.x);
-				case Z:
-					return threeDimensionalCompare(this.z, this.y, this.x, quad.z, quad.y, quad.x);
-				
-				default:
-					throw new IllegalArgumentException("Invalid Axis enum: [" + this.direction.axis + "].");
-			}
-		}
-		else
-		{
-			switch (this.direction.axis)
-			{
-				case X:
-					return threeDimensionalCompare(this.x, this.z, this.y, quad.x, quad.z, quad.y);
-				case Y:
-					return threeDimensionalCompare(this.y, this.x, this.z, quad.y, quad.x, quad.z);
-				case Z:
-					return threeDimensionalCompare(this.z, this.x, this.y, quad.z, quad.x, quad.y);
-				
-				default:
-					throw new IllegalArgumentException("Invalid Axis enum: [" + this.direction.axis + "].");
-			}
-		}
-	}
-	/**
-	 * Compares two 3D points A and B. <br>
-	 * The X, Y, and Z coordinates can be passed into parameters 0, 1, and 2 in any order
-	 * provided they are in the same order for both A and B. <br>
-	 * With the 0th parameter being the most significant when comparing.
-	 */
-	private static int threeDimensionalCompare(short a0, short a1, short a2, short b0, short b1, short b2)
-	{
-		long a = (long) a0 << 48 | (long) a1 << 32 | (long) a2 << 16;
-		long b = (long) b0 << 48 | (long) b1 << 32 | (long) b2 << 16;
-		return Long.compare(a, b);
+		return compareDirection == BufferMergeDirectionEnum.EastWest
+			? Long.compare(this.sortKeyEW, quad.sortKeyEW)
+			: Long.compare(this.sortKeyNS, quad.sortKeyNS);
 	}
 	
 	
@@ -333,4 +292,27 @@ public final class BufferQuad
 		return true;
 	}
 	
+	private long computeSortKey(EDhDirection dir, boolean eastWest)
+	{
+		if (eastWest)
+		{
+			switch (dir.axis)
+			{
+				case X: return (long) x << 48 | (long) y << 32 | (long) z << 16;
+				case Y: return (long) y << 48 | (long) z << 32 | (long) x << 16;
+				case Z: return (long) z << 48 | (long) y << 32 | (long) x << 16;
+				default: throw new IllegalArgumentException("Invalid Axis enum: [" + dir.axis + "].");
+			}
+		}
+		else
+		{
+			switch (dir.axis)
+			{
+				case X: return (long) x << 48 | (long) z << 32 | (long) y << 16;
+				case Y: return (long) y << 48 | (long) x << 32 | (long) z << 16;
+				case Z: return (long) z << 48 | (long) x << 32 | (long) y << 16;
+				default: throw new IllegalArgumentException("Invalid Axis enum: [" + dir.axis + "].");
+			}
+		}
+	}
 }
