@@ -29,6 +29,9 @@ import java.awt.*;
 public interface IClientLevelWrapper extends ILevelWrapper
 {
 	
+	/** used to track when this level was last used for Immersive portals support */
+	void markAccessed();
+	
 	@Nullable
 	IServerLevelWrapper tryGetServerSideWrapper();
 	
