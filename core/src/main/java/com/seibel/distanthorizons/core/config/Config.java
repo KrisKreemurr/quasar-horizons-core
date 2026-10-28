@@ -310,6 +310,19 @@ public class Config
 						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
 						.build();
 					
+					public static ConfigEntry<Boolean> enableBlockModels = new ConfigEntry.Builder<Boolean>()
+						.set(true)
+						.comment(""
+							+ "If true nearby LODs will render blocks with their real shape \n"
+							+ "(stairs, fences, slabs) instead of full cubes. \n"
+							+ "If false all LODs render as full cubes. \n"
+							+ " \n"
+							+ "Only applies to the highest detail LODs. \n"
+							+ "Some shader packs may not support this. \n"
+							+ "")
+						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
+						.build();
+					
 					public static ConfigUISpacer fadeSpacer = new ConfigUISpacer.Builder().build();
 					
 					public static ConfigEntry<Boolean> ditherDhFade = new ConfigEntry.Builder<Boolean>()

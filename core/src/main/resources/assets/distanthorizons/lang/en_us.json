@@ -153,6 +153,10 @@
     "Grass Side Rendering",
   "distanthorizons.config.client.advanced.graphics.quality.grassSideRendering.@tooltip":
     "How should the sides and bottom of grass block LODs render?",
+  "distanthorizons.config.client.advanced.graphics.quality.enableBlockModels":
+    "Enable LOD Block Models",
+  "distanthorizons.config.client.advanced.graphics.quality.enableBlockModels.@tooltip":
+    "If true nearby LODs will render blocks with their real shape \n(stairs, fences, slabs) instead of full cubes. \nIf false all LODs render as full cubes. \n\nOnly applies to the highest detail LODs. \nSome shader packs may not support this.",
   "distanthorizons.config.client.advanced.graphics.quality.ditherDhFade":
     "Fade Nearby DH LODs",
   "distanthorizons.config.client.advanced.graphics.quality.ditherDhFade.@tooltip":
