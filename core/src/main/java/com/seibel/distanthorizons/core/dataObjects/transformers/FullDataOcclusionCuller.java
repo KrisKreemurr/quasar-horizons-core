@@ -3,6 +3,7 @@ package com.seibel.distanthorizons.core.dataObjects.transformers;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.util.FullDataPointUtil;
 import com.seibel.distanthorizons.core.util.LodUtil;
+import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.jetbrains.annotations.NotNull;
 
@@ -190,8 +191,10 @@ public class FullDataOcclusionCuller
 	private static boolean isTranslucent(FullDataSourceV2 source, long point)
 	{
 		int id = FullDataPointUtil.getId(point);
-		int opacity = source.mapping.getBlockStateWrapper(id).getOpacity();
-		return opacity < LodUtil.BLOCK_FULLY_OPAQUE;
+		IBlockStateWrapper block = source.mapping.getBlockStateWrapper(id);
+		// models don't hide the blocks behind them
+		return block.getOpacity() < LodUtil.BLOCK_FULLY_OPAQUE
+			|| !block.isFullBlock();
 	}
 	
 	

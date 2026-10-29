@@ -56,6 +56,37 @@ public class ColumnRenderBufferBuilder
 	// vbo building //
 	//==============//
 	
+	/** Looks up every set a section's palette uses once, so faces don't each ask the registry */
+	@Nullable
+	private static BlockTextureSet[] getSetsByPaletteIndex(ColumnRenderSource renderSource)
+	{
+		if (!renderSource.hasSetIds())
+		{
+			return null;
+		}
+		
+		BlockTextureSet[] setsByPaletteIndex = new BlockTextureSet[renderSource.getPaletteSize()];
+		for (int paletteIndex = 0; paletteIndex < setsByPaletteIndex.length; paletteIndex++)
+		{
+			setsByPaletteIndex[paletteIndex] = BlockTextureRegistry.INSTANCE.getTextureSet(renderSource.getPaletteSetId(paletteIndex));
+		}
+		return setsByPaletteIndex;
+	}
+	
+	/** The set of a point, null if its section doesn't store set ids */
+	@Nullable
+	static BlockTextureSet getSet(BlockTextureSet @Nullable [] setsByPaletteIndex, ColumnRenderSource renderSource, int relX, int relZ, int index)
+	{
+		if (setsByPaletteIndex == null)
+		{
+			return null;
+		}
+		
+		// the palette can grow while a build is running
+		int paletteIndex = renderSource.getDataPointPaletteIndex(relX, relZ, index);
+		return (paletteIndex < setsByPaletteIndex.length) ? setsByPaletteIndex[paletteIndex] : null;
+	}
+	
 	public static void makeLodRenderData(
 			LodQuadBuilder quadBuilder, ColumnRenderSource renderSource, IClientLevelWrapper clientLevelWrapper,
 			ColumnRenderSource[] adjRegions, ColumnRenderSource[][] diagonalRegions, boolean[] isSameDetailLevel)
@@ -109,9 +140,26 @@ public class ColumnRenderBufferBuilder
 			adjColumnViews[EDhDirection.WEST.compassIndex] = westAdjView;
 			short[] flowingFaceTileIds = new short[EDhDirection.ALL.length];
 			int[] adjustedFaceColors = new int[EDhDirection.ALL.length];
+			boolean[] hiddenModelSides = new boolean[EDhDirection.ALL.length];
+			byte[] modelSideLights = new byte[EDhDirection.ALL.length];
+			BlockTextureSet[] setsByPaletteIndex = getSetsByPaletteIndex(renderSource);
 			
 			
 			byte thisDetailLevel = renderSource.getDataDetailLevel();
+			
+			// each neighbor section's sets
+			BlockTextureSet[][] adjSectionSets = new BlockTextureSet[EDhDirection.CARDINAL_COMPASS.length][];
+			for (EDhDirection direction : EDhDirection.CARDINAL_COMPASS)
+			{
+				ColumnRenderSource adjRegion = adjRegions[direction.compassIndex];
+				if (adjRegion != null && adjRegion.getDataDetailLevel() == thisDetailLevel)
+				{
+					adjSectionSets[direction.compassIndex] = getSetsByPaletteIndex(adjRegion);
+				}
+			}
+			
+			// where each neighbor column was read from
+			AdjacentColumnSets adjColumnSets = new AdjacentColumnSets();
 			for (int relX = 0; relX < ColumnRenderSource.WIDTH; relX++)
 			{
 				for (int relZ = 0; relZ < ColumnRenderSource.WIDTH; relZ++)
@@ -161,6 +209,7 @@ public class ColumnRenderBufferBuilder
 					
 					for (EDhDirection direction : EDhDirection.CARDINAL_COMPASS)
 					{
+						adjColumnSets.clear(direction);
 						try
 						{
 							int xAdj = relX + direction.normal.x;
@@ -237,6 +286,12 @@ public class ColumnRenderBufferBuilder
 							}
 							
 							adjRenderSource.populateColumnView(adjColumnViews[direction.compassIndex], xAdj, zAdj);
+							
+							if (adjDetailLevel == thisDetailLevel)
+							{
+								BlockTextureSet[] adjSets = isCrossRenderSourceBoundary ? adjSectionSets[direction.compassIndex] : setsByPaletteIndex;
+								adjColumnSets.set(direction, adjRenderSource, adjSets, xAdj, zAdj);
+							}
 						}
 						catch (RuntimeException e)
 						{
@@ -282,11 +337,7 @@ public class ColumnRenderBufferBuilder
 							bottomDataPoint = columnRenderData.getVoid();
 						}
 						
-						BlockTextureSet textureSet = null;
-						if (renderSource.hasSetIds())
-						{
-							textureSet = BlockTextureRegistry.INSTANCE.getTextureSet(renderSource.getDataPointTextureSetId(relX, relZ, i));
-						}
+						BlockTextureSet textureSet = getSet(setsByPaletteIndex, renderSource, relX, relZ, i);
 						
 						// determine which textures this data point's quads should use
 						short[] faceTileIdsByDirectionOrdinal = null;
@@ -301,6 +352,16 @@ public class ColumnRenderBufferBuilder
 						if (drawModels && textureSet != null && textureSet.modelQuads.length != 0)
 						{
 							modelSet = textureSet;
+						}
+						
+						// the points above and below
+						BlockTextureSet topSet = null;
+						BlockTextureSet bottomSet = null;
+						if (drawModels)
+						{
+							topSet = (i > 0) ? getSet(setsByPaletteIndex, renderSource, relX, relZ, i - 1) : null;
+							boolean bottomIsInColumn = (i + 1 < columnRenderData.size) && columnRenderData.get(i + 1) != RenderDataPointUtil.EMPTY_DATA;
+							bottomSet = bottomIsInColumn ? getSet(setsByPaletteIndex, renderSource, relX, relZ, i + 1) : null;
 						}
 						
 						short topDrops = FluidSurfaceUtil.createNoDrop();
@@ -324,8 +385,10 @@ public class ColumnRenderBufferBuilder
 							clientLevelWrapper, phantomArrayCheckout,
 							data, topDataPoint, bottomDataPoint,
 							adjColumnViews, isSameDetailLevel, faceTileIdsByDirectionOrdinal, faceColors, adjustedFaceColors,
+							hiddenModelSides, modelSideLights,
 							thisDetailLevel, relX, relZ,
-							quadBuilder, topDrops, modelSet);
+							quadBuilder, topDrops, modelSet,
+							drawModels, topSet, bottomSet, adjColumnSets);
 					}
 				}// for z
 			}// for x
@@ -338,8 +401,11 @@ public class ColumnRenderBufferBuilder
 			long renderData, long topRenderData, long bottomRenderData, 
 			ColumnRenderView[] adjColumnViews, boolean[] isSameDetailLevel, short @Nullable [] faceTileIdsByDirectionOrdinal, 
 			int @Nullable [] faceColors, int[] adjustedFaceColors,
+			boolean[] hiddenModelSides, byte[] modelSideLights,
 			byte detailLevel, int renderSourceOffsetPosX, int renderSourceOffsetPosZ, 
-			LodQuadBuilder quadBuilder, short topDrops, @Nullable BlockTextureSet modelSet)
+			LodQuadBuilder quadBuilder, short topDrops, @Nullable BlockTextureSet modelSet,
+			boolean drawModels, @Nullable BlockTextureSet topSet, @Nullable BlockTextureSet bottomSet,
+			AdjacentColumnSets adjColumnSets)
 	{
 		long sectionPos = DhSectionPos.encode(detailLevel, renderSourceOffsetPosX, renderSourceOffsetPosZ);
 		
@@ -476,7 +542,9 @@ public class ColumnRenderBufferBuilder
 				blockMinX, blockMinY, blockMinZ, blockMaxY,
 				color, blockMaterialId,
 				RenderDataPointUtil.getLightSky(renderData),
-				fullBright ? LodUtil.MAX_MC_LIGHT : RenderDataPointUtil.getLightBlock(renderData));
+				fullBright ? LodUtil.MAX_MC_LIGHT : RenderDataPointUtil.getLightBlock(renderData),
+				topRenderData, bottomRenderData, topSet, bottomSet,
+				adjColumnViews, adjColumnSets, hiddenModelSides, modelSideLights);
 			return;
 		}
 		
@@ -489,6 +557,7 @@ public class ColumnRenderBufferBuilder
 			RenderDataPointUtil.getLightSky(renderData),
 			fullBright ? LodUtil.MAX_MC_LIGHT : RenderDataPointUtil.getLightBlock(renderData),
 			topRenderData, bottomRenderData, adjColumnViews, isSameDetailLevel,
+			drawModels, topSet, bottomSet, adjColumnSets,
 			faceTileIdsByDirectionOrdinal, finalFaceColors, topDrops);
 	}
 	

@@ -186,6 +186,9 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	public boolean hasSetIds() { return this.storesSetIds; }
 	public boolean usesTextures() { return this.usesTextures; }
 	
+	public int getPaletteSize() { return this.texturePalette.size(); }
+	public short getPaletteSetId(int paletteIndex) { return this.texturePalette.getShort(paletteIndex); }
+	
 	/** Sets the texture and fluid data for the given data point */
 	public void setDataPointAttributes(int posX, int posZ, int verticalIndex, short textureSetId, int fluidAmount, boolean waterlogged)
 	{
@@ -193,8 +196,8 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 		RenderDataPointAttributeUtil.setRecord(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex), paletteIndex, fluidAmount, waterlogged);
 	}
 	
-	public short getDataPointTextureSetId(int posX, int posZ, int verticalIndex)
-	{ return this.texturePalette.getShort(RenderDataPointAttributeUtil.getTexturePaletteIndex(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex))); }
+	public int getDataPointPaletteIndex(int posX, int posZ, int verticalIndex)
+	{ return RenderDataPointAttributeUtil.getTexturePaletteIndex(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex)); }
 	
 	public int getDataPointFluidAmount(int posX, int posZ, int verticalIndex)
 	{ return RenderDataPointAttributeUtil.getFluidAmount(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex)); }

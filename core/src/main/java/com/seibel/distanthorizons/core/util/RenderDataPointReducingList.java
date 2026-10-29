@@ -107,8 +107,8 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	private short lowest, highest, smallest, biggest;
 	private short sizeWithAir, sizeWithoutAir;
 	private LongArrayList links, data;
-	/** 1 for points the block below shows through */
-	private ByteArrayList canSeeBlockBelowByIndex;
+	/** 1 for model points */
+	private ByteArrayList isModelByIndex;
 	/**
 	 * a temporary array to be used for sorting nodes.
 	 * the array is first populated such that every index
@@ -135,7 +135,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	 * Note: this must be called before this list can be used and this
 	 * object can only be used by one thread at a time.
 	 */
-	public void populate(ColumnRenderView view, LongPredicate canSeeBlockBelow)
+	public void populate(ColumnRenderView view, LongPredicate isModel)
 	{
 		int size = view.size;
 		if (size == 0) 
@@ -146,7 +146,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 			this.setBiggest(NULL);
 			this.links = this.pooledArraysCheckout.getLongArray(0, 0);
 			this.data = this.pooledArraysCheckout.getLongArray(1, 0);
-			this.canSeeBlockBelowByIndex = this.pooledArraysCheckout.getByteArray(0, 0);
+			this.isModelByIndex = this.pooledArraysCheckout.getByteArray(0, 0);
 			this.sortingArray = this.pooledArraysCheckout.getShortArray(0, 0);
 			if (ASSERTS) this.checkLinks();
 			
@@ -164,7 +164,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 		this.links = this.pooledArraysCheckout.getLongArray(0, arrayCapacity);
 		java.util.Arrays.fill(this.links.elements(), DEFAULT_LINKS);
 		this.data = this.pooledArraysCheckout.getLongArray(1, arrayCapacity);
-		this.canSeeBlockBelowByIndex = this.pooledArraysCheckout.getByteArray(0, arrayCapacity);
+		this.isModelByIndex = this.pooledArraysCheckout.getByteArray(0, arrayCapacity);
 		
 		int sizeWithoutAir = 0;
 		for (int index = 0; index < size; index++) 
@@ -175,7 +175,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 			if (isDataVisible(packedData) && RenderDataPointUtil.getYMin(packedData) < RenderDataPointUtil.getYMax(packedData)) 
 			{
 				this.setData(sizeWithoutAir, packedData);
-				this.canSeeBlockBelowByIndex.set(sizeWithoutAir, (byte) (canSeeBlockBelow.test(packedData) ? 1 : 0));
+				this.isModelByIndex.set(sizeWithoutAir, (byte) (isModel.test(packedData) ? 1 : 0));
 				this.setSortingIndex(sizeWithoutAir, sizeWithoutAir);
 				sizeWithoutAir++;
 			}
@@ -299,7 +299,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	 * 	2: if we reach the end of the list before having a success, try again,
 	 * 		but this time, we are allowed to erase a segment entirely without merging it
 	 * 		if there are equal-alpha'd segments above and below it.
-	 * 	2b: if we still fail, drop points the block below shows through, lowest first.
+	 * 	2b: if we still fail, drop model points, lowest first.
 	 * 		steps 1 and 2 never merge these.
 	 * 	3: if we still fail, force the lowest segment to merge with the segment above it,
 	 * 		with no restrictions on alpha.
@@ -333,7 +333,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 		
 		if (this.mergeConnectedSegments(target)) return;
 		if (this.removeLeastImportantSegments(target)) return;
-		if (this.dropSeeThroughSegments(target)) return;
+		if (this.dropModelSegments(target)) return;
 		this.forceBottomToMerge(target);
 	}
 	
@@ -600,14 +600,14 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 		int toExtendDownwards;
 		int toRemove;
 		
-		if (this.canSeeBlockBelow(current))
+		if (this.isModel(current))
 		{
 			return result;
 		}
 		
-		if (higher != NULL && !this.canSeeBlockBelow(higher) && this.getAlpha(higher) == this.getAlpha(current)) 
+		if (higher != NULL && !this.isModel(higher) && this.getAlpha(higher) == this.getAlpha(current)) 
 		{
-			if (lower != NULL && !this.canSeeBlockBelow(lower) && this.getAlpha(lower) == this.getAlpha(current)) 
+			if (lower != NULL && !this.isModel(lower) && this.getAlpha(lower) == this.getAlpha(current)) 
 			{
 				if (this.getSize(higher) <= this.getSize(lower)) 
 				{
@@ -628,7 +628,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 		}
 		else
 		{
-			if (lower != NULL && !this.canSeeBlockBelow(lower) && this.getAlpha(lower) == this.getAlpha(current))
+			if (lower != NULL && !this.isModel(lower) && this.getAlpha(lower) == this.getAlpha(current))
 			{
 				toExtendDownwards = current;
 				toRemove = lower;
@@ -767,7 +767,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 			int lower = this.getLower(center);
 			int higher = this.getHigher(center);
 			if (lower != NULL && higher != NULL && this.getAlpha(lower) == this.getAlpha(higher)
-				&& !this.canSeeBlockBelow(lower) && !this.canSeeBlockBelow(center) && !this.canSeeBlockBelow(higher))
+				&& !this.isModel(lower) && !this.isModel(center) && !this.isModel(higher))
 			{
 				this.setMinY(higher, this.getMinY(lower));
 				this.resortSize(higher);
@@ -789,7 +789,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	 * handles step 2b of {@link #reduce(int)}.
 	 * returns true if the list's size is now less than or equal to target.
 	 */
-	private boolean dropSeeThroughSegments(int target)
+	private boolean dropModelSegments(int target)
 	{
 		for (int node = this.getLowest(); node != NULL; node = this.getHigher(node))
 		{
@@ -799,7 +799,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 			}
 			
 			// becomes a gap so the block below stays visible
-			if (this.isIndexVisible(node) && this.canSeeBlockBelow(node))
+			if (this.isIndexVisible(node) && this.isModel(node))
 			{
 				this.setAlpha(node, 0);
 				this.sizeWithoutAir--;
@@ -885,11 +885,11 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	 * and every other property of the returned data point
 	 * matches those of the data point with the highest
 	 * Y level in the provided view.
-	 * points the block below shows through are skipped.
+	 * model points are skipped.
 	 *
 	 * @implNote this method does not allocate any objects.
 	 */
-	public static long reduceToOne(ColumnRenderView view, LongPredicate canSeeBlockBelow) 
+	public static long reduceToOne(ColumnRenderView view, LongPredicate isModel) 
 	{
 		int size = view.size;
 		if (size <= 0)
@@ -906,7 +906,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 			for (; index < size; index++)
 			{
 				long dataPoint = view.get(index);
-				if (isDataVisible(dataPoint) && !canSeeBlockBelow.test(dataPoint))
+				if (isDataVisible(dataPoint) && !isModel.test(dataPoint))
 				{
 					highestDataPoint = dataPoint;
 					lowestDataPoint = dataPoint;
@@ -921,7 +921,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 		for (; index < size; index++)
 		{
 			long dataPoint = view.get(index);
-			if (isDataVisible(dataPoint) && !canSeeBlockBelow.test(dataPoint))
+			if (isDataVisible(dataPoint) && !isModel.test(dataPoint))
 			{
 				int yMax = RenderDataPointUtil.getYMax(dataPoint);
 				int yMin = RenderDataPointUtil.getYMin(dataPoint);
@@ -1085,7 +1085,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	
 	public boolean isIndexVisible(int index) { return isDataVisible(this.getData(index)); }
 	
-	public boolean canSeeBlockBelow(int index) { return this.canSeeBlockBelowByIndex.getByte(index) == 1; }
+	public boolean isModel(int index) { return this.isModelByIndex.getByte(index) == 1; }
 
 	public static boolean isDataVisible(long data) { return isAlphaVisible(RenderDataPointUtil.getAlpha(data)); }
 

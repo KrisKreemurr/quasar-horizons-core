@@ -64,6 +64,8 @@ public class ColumnBox
 		int color, int rawDataPointColor, byte irisBlockMaterialId, byte skyLight, byte blockLight,
 		long topData, long bottomData, 
 		ColumnRenderView[] adjData, boolean[] isAdjDataSameDetailLevel,
+		boolean drawModels, @Nullable BlockTextureSet topSet, @Nullable BlockTextureSet bottomSet,
+		AdjacentColumnSets adjColumnSets,
 		short @Nullable [] faceTileIdsByDirectionOrdinal, int @Nullable [] faceColors, short topDrops)
 	{
 		//================//
@@ -119,7 +121,9 @@ public class ColumnBox
 					&& (RenderDataPointUtil.getYMin(topData) == maxY)
 					&& (!isTopTransparent || (isTransparent && isSameTransparentBlock(topData, rawDataPointColor, irisBlockMaterialId)))
 					// lowered tops don't touch the block above
-					&& topDrops == 0;
+					&& topDrops == 0
+					// models without a full bottom
+					&& ColumnModel.coversFace(topSet, EDhDirection.DOWN);
 			
 			if (!skipTop)
 			{
@@ -139,7 +143,8 @@ public class ColumnBox
 					&& (RenderDataPointUtil.getYMax(bottomData) == minY)
 					&& (!isBottomTransparent || (isTransparent && isSameTransparentBlock(bottomData, rawDataPointColor, irisBlockMaterialId)))
 					// lowered fluids don't reach the bottom of the block above
-					&& !(RenderDataPointUtil.isFluid(bottomData) && RenderDataPointUtil.getBlockMaterialId(bottomData) != irisBlockMaterialId);
+					&& !(RenderDataPointUtil.isFluid(bottomData) && RenderDataPointUtil.getBlockMaterialId(bottomData) != irisBlockMaterialId)
+					&& ColumnModel.coversFace(bottomSet, EDhDirection.UP);
 			if (!skipBottom)
 			{
 				int bottomColor = getFaceColor(color, faceColors, EDhDirection.DOWN);
@@ -182,6 +187,7 @@ public class ColumnBox
 				makeAdjVerticalQuad(
 					builder, phantomArrayCheckout, clientLevelWrapper,
 					adjCol, faceTileIdsByDirectionOrdinal,
+					drawModels, adjColumnSets,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.NORTH, 
 					minX, minY, minZ, blockWidth, yHeight,
 					northColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
@@ -210,6 +216,7 @@ public class ColumnBox
 				makeAdjVerticalQuad(
 					builder, phantomArrayCheckout, clientLevelWrapper,
 					adjCol, faceTileIdsByDirectionOrdinal,
+					drawModels, adjColumnSets,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.SOUTH,
 					minX, minY, maxZ, blockWidth, yHeight,
 					southColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
@@ -238,6 +245,7 @@ public class ColumnBox
 				makeAdjVerticalQuad(
 					builder, phantomArrayCheckout, clientLevelWrapper,
 					adjCol, faceTileIdsByDirectionOrdinal,
+					drawModels, adjColumnSets,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.WEST, 
 					minX, minY, minZ, blockWidth, yHeight,
 					westColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
@@ -266,6 +274,7 @@ public class ColumnBox
 				makeAdjVerticalQuad(
 					builder, phantomArrayCheckout, clientLevelWrapper,
 					adjCol, faceTileIdsByDirectionOrdinal,
+					drawModels, adjColumnSets,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.EAST, 
 					maxX, minY, minZ, blockWidth, yHeight,
 					eastColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
@@ -276,6 +285,7 @@ public class ColumnBox
 	private static void makeAdjVerticalQuad(
 		LodQuadBuilder builder, PhantomArrayListCheckout phantomArrayCheckout, IClientLevelWrapper clientLevelWrapper,
 		@NotNull ColumnRenderView adjColumnView, short @Nullable [] faceTileIdsByDirectionOrdinal,
+		boolean drawModels, AdjacentColumnSets adjColumnSets,
 		boolean adjacentIsSameDetailLevel, int caveCullingMaxY, EDhDirection direction,
 		short x, short yMin, short z, short horizontalBlockWidth, short ySize,
 		int color, int dataPointColor, byte irisBlockMaterialId, byte blockLight, short topDrops)
@@ -369,6 +379,11 @@ public class ColumnBox
 				&& RenderDataPointUtil.getAlpha(adjPoint) < 255
 				&& transparencyEnabled;
 			
+			BlockTextureSet adjSet = (adjIndex != -1) ? adjColumnSets.getSet(direction, adjIndex) : null;
+			// models without a full face toward this one
+			boolean adjSeeThrough = adjTransparent
+				|| (drawModels && !ColumnModel.coversFace(adjSet, direction.opposite()));
+			
 			byte adjSkyLight = RenderDataPointUtil.getLightSky(adjPoint);
 			byte lightToApply;
 			// whether the adjacent data point hides transparent faces
@@ -387,7 +402,7 @@ public class ColumnBox
 				adjMaxY--;
 			}
 			
-			if (!adjTransparent)
+			if (!adjSeeThrough)
 			{
 				// Adjacent is opaque
 				
@@ -432,9 +447,15 @@ public class ColumnBox
 			}
 			else
 			{
+				// seen through the adjacent block
 				// Adjacent is a different transparent block (IE water next to glass),
 				// the face is visible through it, use below light
 				lightToApply = RenderDataPointUtil.getLightSky(adjBelowPoint);
+				// models are lit from above
+				if (!adjTransparent)
+				{
+					lightToApply = adjSkyLight;
+				}
 				adjCoversRange = false;
 			}
 			

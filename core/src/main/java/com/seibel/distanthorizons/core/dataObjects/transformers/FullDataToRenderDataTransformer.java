@@ -221,16 +221,16 @@ public class FullDataToRenderDataTransformer
 			setRenderColumnView(levelWrapper, fullDataSource, blockX, blockZ, tempExpandingColumnView, fullDataColumn, mutableBlockPos);
 			
 			// models are only drawn at detail 0
-			LongPredicate pointCanSeeBlockBelow = (renderData) -> false;
+			LongPredicate pointIsModel = (renderData) -> false;
 			if (fullDataSource.getDataDetailLevel() == LodUtil.BLOCK_DETAIL_LEVEL)
 			{
-				pointCanSeeBlockBelow = (renderData) ->
+				pointIsModel = (renderData) ->
 				{
 					IBlockStateWrapper block = getBlockAtY(fullDataSource, fullDataColumn, RenderDataPointUtil.getYMax(renderData) - 1);
-					return block != null && canSeeBlockBelow(block, true);
+					return block != null && isDrawnAsModel(block, true);
 				};
 			}
-			columnArrayView.changeVerticalSizeFrom(tempExpandingColumnView, reducingList, pointCanSeeBlockBelow);
+			columnArrayView.changeVerticalSizeFrom(tempExpandingColumnView, reducingList, pointIsModel);
 		}
 		
 		applyTopBlockData(levelWrapper, fullDataSource, columnArrayView, fullDataColumn, columnSource, sourceRelX, sourceRelZ);
@@ -368,9 +368,13 @@ public class FullDataToRenderDataTransformer
 		}
 	}
 	
-	/** Models without a full bottom (fences, upside down stairs), the block below them stays visible */
+	/** Models are only drawn at block detail */
+	private static boolean isDrawnAsModel(IBlockStateWrapper block, boolean modelsAtThisDetail)
+	{ return modelsAtThisDetail && BlockTextureRegistry.usesModel(block); }
+	
+	/** Models without a full bottom, the block below them stays visible */
 	private static boolean canSeeBlockBelow(IBlockStateWrapper block, boolean modelsAtThisDetail)
-	{ return modelsAtThisDetail && BlockTextureRegistry.usesModel(block) && !block.isFaceFull(EDhDirection.DOWN); }
+	{ return isDrawnAsModel(block, modelsAtThisDetail) && !block.isFaceFull(EDhDirection.DOWN); }
 	
 	private static void setRenderColumnView(
 			IClientLevelWrapper levelWrapper, FullDataSourceV2 fullDataSource,
@@ -438,7 +442,6 @@ public class FullDataToRenderDataTransformer
 		// there are several instances where we'll want
 		// to copy the top datapoint down and override the one below it
 		int colorToApplyToNextBlock = -1;
-		IBlockStateWrapper blockToApplyToNextBlock = null;
 		int skylightToApplyToNextBlock = -1;
 		int blocklightToApplyToNextBlock = -1;
 		
@@ -519,7 +522,6 @@ public class FullDataToRenderDataTransformer
 				// doing so can cause weird lighting behavior for cave berries
 				// when hanging above water
 				colorToApplyToNextBlock = -1;
-				blockToApplyToNextBlock = null;
 				skylightToApplyToNextBlock = -1;
 				blocklightToApplyToNextBlock = -1;
 				airAfterLastBlock = true;
@@ -583,7 +585,7 @@ public class FullDataToRenderDataTransformer
 					
 					if (nextSkyLight == LodUtil.MIN_MC_LIGHT
 						&& ColorUtil.getAlpha(lastColor) == 255
-						&& !canSeeBlockBelow(lastBlock, modelsAtThisDetail))
+						&& !isDrawnAsModel(lastBlock, modelsAtThisDetail))
 					{
 						// replace the previous block with new bottom
 						long columnData = renderColumnData.get(renderDataIndex - 1);
@@ -628,14 +630,19 @@ public class FullDataToRenderDataTransformer
 			// non-solid block check //
 			//=======================//
 			
+			// snow layers are drawn with their model
+			boolean isSnowLayerModel = snowLayerBlockStates.contains(block) && isDrawnAsModel(block, modelsAtThisDetail);
+			
 			boolean ignoreNonSolidBlock =
 				ignoreNonCollidingBlocks
 				&& !block.isSolid()
 				&& !block.isLiquid()
-				&& block.getOpacity() != LodUtil.BLOCK_FULLY_OPAQUE;
+				&& block.getOpacity() != LodUtil.BLOCK_FULLY_OPAQUE
+				// TODO remove once plants and non-colliding blocks are drawn as models
+				&& !isSnowLayerModel;
 			
 			// handle height reduction
-			boolean isSnowLayer = snowLayerBlockStates.contains(block);
+			boolean isSnowLayer = snowLayerBlockStates.contains(block) && !isSnowLayerModel;
 			boolean isWaterSurfaceReplacement = waterSurfaceReplacementBlocks.contains(block);
 			if (isSnowLayer || isWaterSurfaceReplacement)
 			{
@@ -662,10 +669,6 @@ public class FullDataToRenderDataTransformer
 						// below it, if not done grass will appear as gray
 						int snowColor = levelWrapper.getBlockColor(mutableBlockPos, biome, fullDataSource, block);
 						colorToApplyToNextBlock = ColorUtil.setAlpha(snowColor, 255);
-						
-						// the dirt/grass below the snow should be related with snow
-						// TODO remove once block models can render snow layers
-						blockToApplyToNextBlock = block;
 					}
 					else //if (isWaterSurfaceReplacement)
 					{
@@ -747,12 +750,6 @@ public class FullDataToRenderDataTransformer
 					blockLight = blocklightToApplyToNextBlock;
 					blocklightToApplyToNextBlock = -1;
 				}
-				
-				if (blockToApplyToNextBlock != null)
-				{
-					block = blockToApplyToNextBlock;
-					blockToApplyToNextBlock = null;
-				}
 			}
 			else
 			{
@@ -774,12 +771,6 @@ public class FullDataToRenderDataTransformer
 					blockLight = blocklightToApplyToNextBlock;
 					blocklightToApplyToNextBlock = -1;
 				}
-				
-				if (blockToApplyToNextBlock != null)
-				{
-					block = blockToApplyToNextBlock;
-					blockToApplyToNextBlock = null;
-				}
 			}
 			
 			
@@ -792,8 +783,8 @@ public class FullDataToRenderDataTransformer
 			if (color == lastColor 
 				&& bottomY + blockHeight == lastBottom  
 				&& renderDataIndex > 0
-				// a model the block below shows through only merges with the same block
-				&& (block == lastBlock || (!canSeeBlockBelow(block, modelsAtThisDetail) && !canSeeBlockBelow(lastBlock, modelsAtThisDetail))))
+				// models only merge with the same block
+				&& (block == lastBlock || (!isDrawnAsModel(block, modelsAtThisDetail) && !isDrawnAsModel(lastBlock, modelsAtThisDetail))))
 			{
 				//replace the previous block with new bottom
 				long columnData = renderColumnData.get(renderDataIndex - 1);
