@@ -48,6 +48,7 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
+import java.util.function.LongPredicate;
 
 /**
  * Handles converting {@link FullDataSourceV2}'s to {@link ColumnRenderSource}.
@@ -158,7 +159,31 @@ public class FullDataToRenderDataTransformer
 		
 		return columnSource;
 	}
-	
+
+	/** The full data block at the given height, null if there's none */
+	@Nullable
+	private static IBlockStateWrapper getBlockAtY(FullDataSourceV2 fullDataSource, LongArrayList fullDataColumn, int blockY)
+	{
+		for (int fullIndex = 0; fullIndex < fullDataColumn.size(); fullIndex++)
+		{
+			long fullData = fullDataColumn.getLong(fullIndex);
+			int bottomY = FullDataPointUtil.getBottomY(fullData);
+			if (bottomY <= blockY && blockY < bottomY + FullDataPointUtil.getHeight(fullData))
+			{
+				try
+				{
+					return fullDataSource.mapping.getBlockStateWrapper(FullDataPointUtil.getId(fullData));
+				}
+				catch (IndexOutOfBoundsException ignore)
+				{
+					// broken mappings are logged during color resolution
+					return null;
+				}
+			}
+		}
+		return null;
+	}
+
 	/** Updates the given {@link ColumnRenderView} to match the incoming Full data {@link LongArrayList} */
 	private static void updateOrReplaceRenderDataViewColumnWithFullDataColumn(
 		IClientLevelWrapper levelWrapper,
@@ -195,7 +220,17 @@ public class FullDataToRenderDataTransformer
 				fullDataLength, 0, 0, fullDataLength);
 			setRenderColumnView(levelWrapper, fullDataSource, blockX, blockZ, tempExpandingColumnView, fullDataColumn, mutableBlockPos);
 			
-			columnArrayView.changeVerticalSizeFrom(tempExpandingColumnView, reducingList);
+			// models are only drawn at detail 0
+			LongPredicate pointCanSeeBlockBelow = (renderData) -> false;
+			if (fullDataSource.getDataDetailLevel() == LodUtil.BLOCK_DETAIL_LEVEL)
+			{
+				pointCanSeeBlockBelow = (renderData) ->
+				{
+					IBlockStateWrapper block = getBlockAtY(fullDataSource, fullDataColumn, RenderDataPointUtil.getYMax(renderData) - 1);
+					return block != null && canSeeBlockBelow(block, true);
+				};
+			}
+			columnArrayView.changeVerticalSizeFrom(tempExpandingColumnView, reducingList, pointCanSeeBlockBelow);
 		}
 		
 		applyTopBlockData(levelWrapper, fullDataSource, columnArrayView, fullDataColumn, columnSource, sourceRelX, sourceRelZ);
