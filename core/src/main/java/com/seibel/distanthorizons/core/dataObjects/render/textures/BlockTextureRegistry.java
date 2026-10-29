@@ -19,6 +19,7 @@
 
 package com.seibel.distanthorizons.core.dataObjects.render.textures;
 
+import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateFaceTextureProvider;
@@ -151,6 +152,14 @@ public class BlockTextureRegistry
 		return this.textureSetsById.get(setId);
 	}
 	
+	/** Decides which block states are drawn with their model, per-block and per-mod lists go here later */
+	private static boolean usesModel(IBlockStateWrapper blockState)
+	{
+		return Config.Client.Advanced.Graphics.Quality.enableBlockModels.get()
+			&& !blockState.isFullBlock()
+			&& !blockState.isLiquid();
+	}
+	
 	private short registerBlockState(IBlockStateWrapper blockState, IClientLevelWrapper levelWrapper)
 	{
 		short[] faceTileIds = new short[6]; // 6 faces on a cube
@@ -221,8 +230,19 @@ public class BlockTextureRegistry
 			}
 		}
 		
+		BlockModelQuad[] modelQuads = usesModel(blockState) ? TEXTURE_PROVIDER.getModel(blockState) : new BlockModelQuad[0];
+		short[] modelQuadTileIds = new short[modelQuads.length];
+		int[] modelQuadColors = new int[modelQuads.length];
+		for (int quadIndex = 0; quadIndex < modelQuads.length; quadIndex++)
+		{
+			BlockFaceTexture quadTexture = modelQuads[quadIndex].texture;
+			int averageColor = calculateAverageVisibleColor(quadTexture);
+			modelQuadTileIds[quadIndex] = this.getOrCreateTileId(quadTexture, averageColor);
+			modelQuadColors[quadIndex] = useLodColor ? BlockTextureSet.USE_LOD_COLOR : averageColor;
+		}
+		
 		short textureId;
-		if (!anyFaceTextured)
+		if (!anyFaceTextured && modelQuads.length == 0)
 		{
 			// blocks whose every face is flat (IE uniformly colored textures)
 			// share the reserved flat set
@@ -240,7 +260,7 @@ public class BlockTextureRegistry
 				else
 				{
 					textureId = (short) this.textureSetsById.size();
-					this.textureSetsById.add(new BlockTextureSet(faceTileIds, faceColors));
+					this.textureSetsById.add(new BlockTextureSet(faceTileIds, faceColors, modelQuads, modelQuadTileIds, modelQuadColors, blockState));
 				}
 			}
 		}
