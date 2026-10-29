@@ -258,7 +258,7 @@ public class LodQuadBuilder implements AutoCloseable
 	}
 	
 	public void addModelQuad(
-		BlockModelQuad modelQuad, EDhDirection shadeDirection,
+		BlockModelQuad modelQuad,
 		short x, short y, short z,
 		int color, short textureTileId,
 		byte irisBlockMaterialId,
@@ -269,7 +269,7 @@ public class LodQuadBuilder implements AutoCloseable
 				: this.opaqueModelQuads;
 		
 		BufferQuad quad = this.getOrCreateBufferQuad();
-		quad.set(x, y, z, (short) 1, (short) 1, color, textureTileId, irisBlockMaterialId, skylight, blocklight, shadeDirection);
+		quad.set(x, y, z, (short) 1, (short) 1, color, textureTileId, irisBlockMaterialId, skylight, blocklight, modelQuad.shadeDirection);
 		quad.modelQuad = modelQuad;
 		quadList.add(quad);
 	}

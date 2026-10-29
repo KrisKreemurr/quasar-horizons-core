@@ -85,6 +85,9 @@ public class ColumnRenderBufferBuilder
 		
 		// only formats with an offset can lower vertices
 		boolean lowerFluidSurfaces = (quadBuilder.getVertexFormat() == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET);
+		// models need the offset format too
+		boolean drawModels = (quadBuilder.getVertexFormat() == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET)
+			&& renderSource.getDataDetailLevel() == LodUtil.BLOCK_DETAIL_LEVEL;
 		
 		//===================//
 		// build each column //
@@ -279,18 +282,25 @@ public class ColumnRenderBufferBuilder
 							bottomDataPoint = columnRenderData.getVoid();
 						}
 						
+						BlockTextureSet textureSet = null;
+						if (renderSource.hasSetIds())
+						{
+							textureSet = BlockTextureRegistry.INSTANCE.getTextureSet(renderSource.getDataPointTextureSetId(relX, relZ, i));
+						}
+						
 						// determine which textures this data point's quads should use
 						short[] faceTileIdsByDirectionOrdinal = null;
 						int[] faceColors = null;
-						if (renderSource.usesTextures())
+						if (textureSet != null && renderSource.usesTextures())
 						{
-							short textureSetId = renderSource.getDataPointTextureSetId(relX, relZ, i);
-							BlockTextureSet textureSet = BlockTextureRegistry.INSTANCE.getTextureSet(textureSetId);
-							if (textureSet != null)
-							{
-								faceTileIdsByDirectionOrdinal = textureSet.faceTileIds;
-								faceColors = textureSet.faceColors;
-							}
+							faceTileIdsByDirectionOrdinal = textureSet.faceTileIds;
+							faceColors = textureSet.faceColors;
+						}
+						
+						BlockTextureSet modelSet = null;
+						if (drawModels && textureSet != null && textureSet.modelQuads.length != 0)
+						{
+							modelSet = textureSet;
 						}
 						
 						short topDrops = FluidSurfaceUtil.createNoDrop();
@@ -315,7 +325,7 @@ public class ColumnRenderBufferBuilder
 							data, topDataPoint, bottomDataPoint,
 							adjColumnViews, isSameDetailLevel, faceTileIdsByDirectionOrdinal, faceColors, adjustedFaceColors,
 							thisDetailLevel, relX, relZ,
-							quadBuilder, topDrops);
+							quadBuilder, topDrops, modelSet);
 					}
 				}// for z
 			}// for x
@@ -329,7 +339,7 @@ public class ColumnRenderBufferBuilder
 			ColumnRenderView[] adjColumnViews, boolean[] isSameDetailLevel, short @Nullable [] faceTileIdsByDirectionOrdinal, 
 			int @Nullable [] faceColors, int[] adjustedFaceColors,
 			byte detailLevel, int renderSourceOffsetPosX, int renderSourceOffsetPosZ, 
-			LodQuadBuilder quadBuilder, short topDrops)
+			LodQuadBuilder quadBuilder, short topDrops, @Nullable BlockTextureSet modelSet)
 	{
 		long sectionPos = DhSectionPos.encode(detailLevel, renderSourceOffsetPosX, renderSourceOffsetPosZ);
 		
@@ -456,6 +466,20 @@ public class ColumnRenderBufferBuilder
 				throw new IllegalArgumentException("Unknown debug mode: " + debugging);
 		}
 		
+		if (modelSet != null)
+		{
+			// face tiles are only given with textures on
+			boolean useTextures = (faceTileIdsByDirectionOrdinal != null);
+			ColumnModel.addModelQuadsToBuilder(
+				quadBuilder, clientLevelWrapper,
+				modelSet, useTextures, debugging == EDhApiDebugRendering.OFF,
+				blockMinX, blockMinY, blockMinZ, blockMaxY,
+				color, blockMaterialId,
+				RenderDataPointUtil.getLightSky(renderData),
+				fullBright ? LodUtil.MAX_MC_LIGHT : RenderDataPointUtil.getLightBlock(renderData));
+			return;
+		}
+		
 		ColumnBox.addBoxQuadsToBuilder(
 			quadBuilder, phantomArrayCheckout, clientLevelWrapper,
 			blockWidth, blockMaxY,
@@ -469,7 +493,7 @@ public class ColumnRenderBufferBuilder
 	}
 	
 	/** applies the saturation and brightness settings */
-	private static int applyColorSettings(int color, float saturationMultiplier, float brightnessMultiplier)
+	static int applyColorSettings(int color, float saturationMultiplier, float brightnessMultiplier)
 	{
 		if (saturationMultiplier == 1.0 && brightnessMultiplier == 1.0)
 		{

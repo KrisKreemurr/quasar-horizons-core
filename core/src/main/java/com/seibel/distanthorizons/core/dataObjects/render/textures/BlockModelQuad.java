@@ -36,14 +36,38 @@ public class BlockModelQuad
 	public final EDhDirection cullDirection;
 	/** the quad's facing, octahedral encoded (x low byte, y high byte) */
 	public final short packedNormal;
+	/** the side the quad faces the most, used for vanilla's face shading */
+	public final EDhDirection shadeDirection;
 	
 	
 	
-	private static short getPackedNormal(float[] cornerPositions)
+	private static DhVec3f getNormal(float[] cornerPositions)
 	{
 		// the diagonals' cross product works for any 4 corners
 		DhVec3f normal = new DhVec3f(cornerPositions[6] - cornerPositions[0], cornerPositions[7] - cornerPositions[1], cornerPositions[8] - cornerPositions[2]);
 		normal.crossProduct(new DhVec3f(cornerPositions[9] - cornerPositions[3], cornerPositions[10] - cornerPositions[4], cornerPositions[11] - cornerPositions[5]));
+		return normal;
+	}
+	
+	/** ties go to up/down, then north/south, like vanilla */
+	private static EDhDirection getShadeDirection(DhVec3f normal)
+	{
+		float absX = Math.abs(normal.x);
+		float absY = Math.abs(normal.y);
+		float absZ = Math.abs(normal.z);
+		if (absY >= absX && absY >= absZ)
+		{
+			return (normal.y >= 0) ? EDhDirection.UP : EDhDirection.DOWN;
+		}
+		else if (absZ >= absX)
+		{
+			return (normal.z >= 0) ? EDhDirection.SOUTH : EDhDirection.NORTH;
+		}
+		return (normal.x >= 0) ? EDhDirection.EAST : EDhDirection.WEST;
+	}
+	
+	private static short getPackedNormal(DhVec3f normal)
+	{
 		normal.mul(1 / (Math.abs(normal.x) + Math.abs(normal.y) + Math.abs(normal.z)));
 		
 		float octX = normal.x;
@@ -65,7 +89,10 @@ public class BlockModelQuad
 		this.cornerUvs = cornerUvs;
 		this.texture = texture;
 		this.cullDirection = cullDirection;
-		this.packedNormal = getPackedNormal(cornerPositions);
+		
+		DhVec3f normal = getNormal(cornerPositions);
+		this.shadeDirection = getShadeDirection(normal);
+		this.packedNormal = getPackedNormal(normal);
 	}
 	
 }
