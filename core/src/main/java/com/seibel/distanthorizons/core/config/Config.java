@@ -704,7 +704,7 @@ public class Config
 						.build();
 					
 					public static ConfigEntry<String> blocksDontRenderTextureCsv = new ConfigEntry.Builder<String>()
-						.set("minecraft:bamboo")
+						.set("")
 						.setAppearance(EConfigEntryAppearance.ALL)
 						.comment(""
 							+ "A comma separated list of block resource locations \n"
@@ -899,7 +899,7 @@ public class Config
 						.build();
 					
 					public static ConfigEntry<String> waterSurfaceBlockReplacementCsv = new ConfigEntry.Builder<String>()
-						.set("minecraft:lily_pad")
+						.set("")
 						.setAppearance(EConfigEntryAppearance.ALL)
 						.addListener(RenderBlockCacheCsvHandler.INSTANCE)
 						.comment(""
