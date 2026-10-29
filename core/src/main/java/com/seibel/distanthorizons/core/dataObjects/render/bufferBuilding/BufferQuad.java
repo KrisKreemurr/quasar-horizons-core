@@ -20,8 +20,10 @@
 package com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding;
 
 import com.seibel.distanthorizons.core.config.Config;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockModelQuad;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.util.LodUtil;
+import org.jetbrains.annotations.Nullable;
 
 /** Represents a render-able quad. */
 public final class BufferQuad
@@ -62,6 +64,9 @@ public final class BufferQuad
 	public boolean hasError = false;
 	/** How far each top corner is lowered, see {@link FluidSurfaceUtil} */
 	public short topDrops;
+	/** null for box faces */
+	@Nullable
+	public BlockModelQuad modelQuad;
 	
 	// Pre-computed sort keys to avoid recomputing on every comparison
 	// Slight increase in memory for reduction in cpu usage
@@ -104,6 +109,7 @@ public final class BufferQuad
 		this.blockLight = blockLight;
 		this.direction = direction;
 		this.topDrops = 0;
+		this.modelQuad = null;
 		this.sortKeyEastWest = computeSortKey(direction, true);
 		this.sortKeyNorthSouth = computeSortKey(direction, false);
 	}

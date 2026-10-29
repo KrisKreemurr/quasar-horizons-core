@@ -20,6 +20,7 @@
 package com.seibel.distanthorizons.core.dataObjects.render.textures;
 
 import com.seibel.distanthorizons.core.enums.EDhDirection;
+import com.seibel.distanthorizons.core.util.math.DhVec3f;
 import org.jetbrains.annotations.Nullable;
 
 /** One quad of a block's model */
@@ -33,8 +34,30 @@ public class BlockModelQuad
 	/** the side whose neighbor can hide this quad, null if it's always drawn (fence post insides) */
 	@Nullable
 	public final EDhDirection cullDirection;
+	/** the quad's facing, octahedral encoded (x low byte, y high byte) */
+	public final short packedNormal;
 	
 	
+	
+	private static short getPackedNormal(float[] cornerPositions)
+	{
+		// the diagonals' cross product works for any 4 corners
+		DhVec3f normal = new DhVec3f(cornerPositions[6] - cornerPositions[0], cornerPositions[7] - cornerPositions[1], cornerPositions[8] - cornerPositions[2]);
+		normal.crossProduct(new DhVec3f(cornerPositions[9] - cornerPositions[3], cornerPositions[10] - cornerPositions[4], cornerPositions[11] - cornerPositions[5]));
+		normal.mul(1 / (Math.abs(normal.x) + Math.abs(normal.y) + Math.abs(normal.z)));
+		
+		float octX = normal.x;
+		float octY = normal.y;
+		if (normal.z < 0)
+		{
+			octX = (1 - Math.abs(normal.y)) * (normal.x >= 0 ? 1 : -1);
+			octY = (1 - Math.abs(normal.x)) * (normal.y >= 0 ? 1 : -1);
+		}
+		
+		int encodedX = Math.round((octX * 0.5f + 0.5f) * 255);
+		int encodedY = Math.round((octY * 0.5f + 0.5f) * 255);
+		return (short) (encodedX | (encodedY << 8));
+	}
 	
 	public BlockModelQuad(float[] cornerPositions, float[] cornerUvs, BlockFaceTexture texture, @Nullable EDhDirection cullDirection)
 	{
@@ -42,6 +65,7 @@ public class BlockModelQuad
 		this.cornerUvs = cornerUvs;
 		this.texture = texture;
 		this.cullDirection = cullDirection;
+		this.packedNormal = getPackedNormal(cornerPositions);
 	}
 	
 }
