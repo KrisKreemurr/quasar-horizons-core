@@ -547,6 +547,9 @@ public class LodQuadBuilder implements AutoCloseable
 			bb.put(subY);
 			bb.put((byte) 0); // sub z
 			bb.put((byte) 0); // flags, for future use
+			bb.put((byte) 0); // u
+			bb.put((byte) 0); // v
+			bb.putShort((short) 0); // normal
 		}
 	}
 	

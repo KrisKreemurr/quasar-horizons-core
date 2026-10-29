@@ -26,7 +26,7 @@ package com.seibel.distanthorizons.api.enums.rendering;
  * The layout of each vertex in DH's terrain buffers.
  *
  * @since API 7.3.0
- * @version 2026-10-25
+ * @version 2026-10-28
  */
 public enum EDhApiTerrainVertexFormat
 {
@@ -52,12 +52,14 @@ public enum EDhApiTerrainVertexFormat
 	 * ubyte material id <br>
 	 * ubyte normal index <br>
 	 * ushort texture tile id <br>
-	 * ubyte sub-block offset xyz, and unused flag w
+	 * ubyte sub-block offset xyz, and unused flag w <br>
+	 * ubyte u, v <br>
+	 * ushort normal
 	 * </code>
 	 * The offsets are in 256ths of a block and are added to the position (lowered fluid surfaces). <br>
 	 * The flags, u, v, and normal are reserved for future block model work and are currently always 0.
 	 */
-	POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET(20);
+	POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET(24);
 	
 	
 	
