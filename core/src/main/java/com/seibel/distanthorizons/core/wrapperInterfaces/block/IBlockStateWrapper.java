@@ -86,10 +86,10 @@ public interface IBlockStateWrapper extends IDhApiBlockStateWrapper
 	/** Blocks that lie along an axis, like logs */
 	boolean isRotatedPillar();
 	
-	/** Blocks whose shape fills their whole block space (stone, glass, leaves), not fences or slabs */
+	/** Blocks whose shape fills their whole block space */
 	boolean isFullBlock();
 	
-	/** True if this side fully covers the neighbor's face on that side (the bottom of a normal stair) */
+	/** True if this side fully covers the neighbor's face on that side */
 	boolean isFaceFull(EDhDirection direction);
 	
 	/**

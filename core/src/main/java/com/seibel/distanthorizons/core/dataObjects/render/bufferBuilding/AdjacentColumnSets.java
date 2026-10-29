@@ -20,15 +20,15 @@
 package com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding;
 
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureSet;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderSet;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import org.jetbrains.annotations.Nullable;
 
-/** Where each adjacent column was read from, so its points' sets can be found */
+/** Where each adjacent column was read from */
 public class AdjacentColumnSets
 {
 	private final ColumnRenderSource[] renderSources = new ColumnRenderSource[EDhDirection.CARDINAL_COMPASS.length];
-	private final BlockTextureSet[][] setsByPaletteIndex = new BlockTextureSet[EDhDirection.CARDINAL_COMPASS.length][];
+	private final BlockRenderSet[][] setsByPaletteIndex = new BlockRenderSet[EDhDirection.CARDINAL_COMPASS.length][];
 	private final int[] relXs = new int[EDhDirection.CARDINAL_COMPASS.length];
 	private final int[] relZs = new int[EDhDirection.CARDINAL_COMPASS.length];
 	
@@ -36,7 +36,7 @@ public class AdjacentColumnSets
 	
 	public void clear(EDhDirection direction) { this.setsByPaletteIndex[direction.compassIndex] = null; }
 	
-	public void set(EDhDirection direction, ColumnRenderSource renderSource, BlockTextureSet @Nullable [] setsByPaletteIndex, int relX, int relZ)
+	public void set(EDhDirection direction, ColumnRenderSource renderSource, BlockRenderSet @Nullable [] setsByPaletteIndex, int relX, int relZ)
 	{
 		this.renderSources[direction.compassIndex] = renderSource;
 		this.setsByPaletteIndex[direction.compassIndex] = setsByPaletteIndex;
@@ -45,7 +45,7 @@ public class AdjacentColumnSets
 	}
 	
 	@Nullable
-	public BlockTextureSet getSet(EDhDirection direction, int index)
+	public BlockRenderSet getSet(EDhDirection direction, int index)
 	{
 		int compassIndex = direction.compassIndex;
 		return ColumnRenderBufferBuilder.getSet(this.setsByPaletteIndex[compassIndex], this.renderSources[compassIndex], this.relXs[compassIndex], this.relZs[compassIndex], index);

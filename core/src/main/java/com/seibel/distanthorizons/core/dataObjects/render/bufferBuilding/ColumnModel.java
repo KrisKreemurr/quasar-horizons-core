@@ -24,7 +24,7 @@ import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.columnViews.ColumnRenderView;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockModelQuad;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureSet;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderSet;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.RenderDataPointUtil;
@@ -32,11 +32,13 @@ import com.seibel.distanthorizons.core.wrapperInterfaces.world.IClientLevelWrapp
 import com.seibel.distanthorizons.coreapi.util.ColorUtil;
 import org.jetbrains.annotations.Nullable;
 
-/** Draws a data point with its block model, the model counterpart to {@link ColumnBox} */
+import java.util.Arrays;
+
+/** Draws a data point with its block model */
 public class ColumnModel
 {
 	/** False for models without a full face on that side */
-	static boolean coversFace(@Nullable BlockTextureSet set, EDhDirection side)
+	static boolean coversFace(@Nullable BlockRenderSet set, EDhDirection side)
 	{
 		return set == null
 			|| set.modelQuads.length == 0
@@ -44,7 +46,7 @@ public class ColumnModel
 	}
 	
 	/** Transparent neighbors never hide quads */
-	private static boolean hidesFace(long neighbor, @Nullable BlockTextureSet neighborSet, EDhDirection side, boolean transparencyEnabled)
+	private static boolean hidesFace(long neighbor, @Nullable BlockRenderSet neighborSet, EDhDirection side, boolean transparencyEnabled)
 	{
 		return RenderDataPointUtil.doesDataPointExist(neighbor)
 			&& !(transparencyEnabled && RenderDataPointUtil.getAlpha(neighbor) < 255)
@@ -53,10 +55,10 @@ public class ColumnModel
 	
 	/** Fills in whether that side hides this block's quads and the sky light coming from it */
 	private static void checkSide(
-		EDhDirection side, short blockY, BlockTextureSet modelSet, short pointMinY, short pointMaxY, byte skyLight,
-		long topData, long bottomData, @Nullable BlockTextureSet topSet, @Nullable BlockTextureSet bottomSet,
+		EDhDirection side, short blockY, BlockRenderSet modelSet, short pointMinY, short pointMaxY, byte skyLight,
+		long topData, long bottomData, @Nullable BlockRenderSet topSet, @Nullable BlockRenderSet bottomSet,
 		ColumnRenderView[] adjColumnViews, AdjacentColumnSets adjColumnSets, boolean transparencyEnabled,
-		boolean[] hiddenSides, byte[] sideLights)
+		int[] adjStartIndexes, boolean[] hiddenSides, byte[] sideLights)
 	{
 		int faceIndex = side.faceIndex;
 		EDhDirection neighborSide = side.opposite();
@@ -80,8 +82,10 @@ public class ColumnModel
 		
 		// the neighbor column is sorted top down
 		ColumnRenderView adjColumn = adjColumnViews[side.compassIndex];
-		for (int adjIndex = 0; adjIndex < adjColumn.size; adjIndex++)
+		for (int adjIndex = adjStartIndexes[side.compassIndex]; adjIndex < adjColumn.size; adjIndex++)
 		{
+			// lower blocks continue from here
+			adjStartIndexes[side.compassIndex] = adjIndex;
 			long adjPoint = adjColumn.get(adjIndex);
 			if (!RenderDataPointUtil.doesDataPointExist(adjPoint))
 			{
@@ -110,25 +114,26 @@ public class ColumnModel
 	
 	public static void addModelQuadsToBuilder(
 		LodQuadBuilder quadBuilder, IClientLevelWrapper clientLevelWrapper,
-		BlockTextureSet modelSet, boolean useTextures, boolean useQuadColors,
+		BlockRenderSet modelSet, boolean useTextures, boolean useQuadColors,
 		short blockMinX, short blockMinY, short blockMinZ, short height,
 		int color, byte irisBlockMaterialId, byte skyLight, byte blockLight,
-		long topData, long bottomData, @Nullable BlockTextureSet topSet, @Nullable BlockTextureSet bottomSet,
-		ColumnRenderView[] adjColumnViews, AdjacentColumnSets adjColumnSets, boolean[] hiddenSides, byte[] sideLights)
+		long topData, long bottomData, @Nullable BlockRenderSet topSet, @Nullable BlockRenderSet bottomSet,
+		ColumnRenderView[] adjColumnViews, AdjacentColumnSets adjColumnSets, boolean[] hiddenSides, byte[] sideLights, int[] adjStartIndexes)
 	{
 		float saturationMultiplier = Config.Client.Advanced.Graphics.Quality.saturationMultiplier.get();
 		float brightnessMultiplier = Config.Client.Advanced.Graphics.Quality.brightnessMultiplier.get();
 		boolean transparencyEnabled = Config.Client.Advanced.Graphics.Quality.transparency.get() == EDhApiTransparency.COMPLETE;
 		short pointMaxY = (short) (blockMinY + height);
 		
-		// stacked blocks are one point, the model is drawn per block
-		for (short blockY = blockMinY; blockY < pointMaxY; blockY++)
+		// the model is drawn per block of the point, top down so each neighbor column is walked once
+		Arrays.fill(adjStartIndexes, 0);
+		for (short blockY = (short) (pointMaxY - 1); blockY >= blockMinY; blockY--)
 		{
 			for (EDhDirection side : EDhDirection.ALL)
 			{
 				checkSide(side, blockY, modelSet, blockMinY, pointMaxY, skyLight,
 					topData, bottomData, topSet, bottomSet, adjColumnViews, adjColumnSets, transparencyEnabled,
-					hiddenSides, sideLights);
+					adjStartIndexes, hiddenSides, sideLights);
 			}
 			
 			byte brightestLight = LodUtil.MIN_MC_LIGHT;
@@ -148,9 +153,9 @@ public class ColumnModel
 				
 				int quadColor = color;
 				if (useQuadColors
-					&& modelSet.modelQuadColors[quadIndex] != BlockTextureSet.USE_LOD_COLOR)
+					&& modelSet.modelQuadColors[quadIndex] != BlockRenderSet.USE_LOD_COLOR)
 				{
-					// the LOD's alpha is kept so transparency doesn't change
+					// the LOD's alpha is kept
 					quadColor = ColumnRenderBufferBuilder.applyColorSettings(modelSet.modelQuadColors[quadIndex], saturationMultiplier, brightnessMultiplier);
 					quadColor = ColorUtil.setAlpha(quadColor, ColorUtil.getAlpha(color));
 				}

@@ -159,16 +159,30 @@ public class FullDataToRenderDataTransformer
 		
 		return columnSource;
 	}
-
-	/** The full data block at the given height, null if there's none */
+	
+	/** The full data block at the given height */
 	@Nullable
 	private static IBlockStateWrapper getBlockAtY(FullDataSourceV2 fullDataSource, LongArrayList fullDataColumn, int blockY)
 	{
-		for (int fullIndex = 0; fullIndex < fullDataColumn.size(); fullIndex++)
+		// the column is sorted top down
+		int low = 0;
+		int high = fullDataColumn.size() - 1;
+		while (low <= high)
 		{
-			long fullData = fullDataColumn.getLong(fullIndex);
+			int middle = (low + high) >>> 1;
+			long fullData = fullDataColumn.getLong(middle);
 			int bottomY = FullDataPointUtil.getBottomY(fullData);
-			if (bottomY <= blockY && blockY < bottomY + FullDataPointUtil.getHeight(fullData))
+			if (blockY < bottomY)
+			{
+				// below this point
+				low = middle + 1;
+			}
+			else if (blockY >= bottomY + FullDataPointUtil.getHeight(fullData))
+			{
+				// above this point
+				high = middle - 1;
+			}
+			else
 			{
 				try
 				{
@@ -183,7 +197,7 @@ public class FullDataToRenderDataTransformer
 		}
 		return null;
 	}
-
+	
 	/** Updates the given {@link ColumnRenderView} to match the incoming Full data {@link LongArrayList} */
 	private static void updateOrReplaceRenderDataViewColumnWithFullDataColumn(
 		IClientLevelWrapper levelWrapper,
@@ -220,9 +234,8 @@ public class FullDataToRenderDataTransformer
 				fullDataLength, 0, 0, fullDataLength);
 			setRenderColumnView(levelWrapper, fullDataSource, blockX, blockZ, tempExpandingColumnView, fullDataColumn, mutableBlockPos);
 			
-			// models are only drawn at detail 0
 			LongPredicate pointIsModel = (renderData) -> false;
-			if (fullDataSource.getDataDetailLevel() == LodUtil.BLOCK_DETAIL_LEVEL)
+			if (BlockTextureRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel()))
 			{
 				pointIsModel = (renderData) ->
 				{
@@ -372,9 +385,20 @@ public class FullDataToRenderDataTransformer
 	private static boolean isDrawnAsModel(IBlockStateWrapper block, boolean modelsAtThisDetail)
 	{ return modelsAtThisDetail && BlockTextureRegistry.usesModel(block); }
 	
-	/** Models without a full bottom, the block below them stays visible */
+	/** Models without a full bottom */
 	private static boolean canSeeBlockBelow(IBlockStateWrapper block, boolean modelsAtThisDetail)
 	{ return isDrawnAsModel(block, modelsAtThisDetail) && !block.isFaceFull(EDhDirection.DOWN); }
+	
+	/** Models only merge with the same block */
+	private static boolean canMergeBlocks(IBlockStateWrapper block, IBlockStateWrapper lastBlock, boolean modelsAtThisDetail)
+	{
+		if (block == lastBlock)
+		{
+			return true;
+		}
+		return !isDrawnAsModel(block, modelsAtThisDetail)
+			&& !isDrawnAsModel(lastBlock, modelsAtThisDetail);
+	}
 	
 	private static void setRenderColumnView(
 			IClientLevelWrapper levelWrapper, FullDataSourceV2 fullDataSource,
@@ -387,7 +411,7 @@ public class FullDataToRenderDataTransformer
 		
 		boolean ignoreNonCollidingBlocks = (Config.Client.Advanced.Graphics.Culling.blocksToIgnore.get() == EDhApiBlocksToAvoid.NON_COLLIDING);
 		boolean colorBelowWithAvoidedBlocks = Config.Client.Advanced.Graphics.Culling.tintWithAvoidedBlocks.get();
-		boolean modelsAtThisDetail = fullDataSource.getDataDetailLevel() == LodUtil.BLOCK_DETAIL_LEVEL;
+		boolean modelsAtThisDetail = BlockTextureRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel());
 		
 		final ObjectOpenHashSet<IBlockStateWrapper> blockStatesToIgnore = WRAPPER_FACTORY.getRendererIgnoredBlocks(levelWrapper);
 		final ObjectOpenHashSet<IBlockStateWrapper> caveBlockStatesToIgnore = WRAPPER_FACTORY.getRendererIgnoredCaveBlocks(levelWrapper);
@@ -783,8 +807,7 @@ public class FullDataToRenderDataTransformer
 			if (color == lastColor 
 				&& bottomY + blockHeight == lastBottom  
 				&& renderDataIndex > 0
-				// models only merge with the same block
-				&& (block == lastBlock || (!isDrawnAsModel(block, modelsAtThisDetail) && !isDrawnAsModel(lastBlock, modelsAtThisDetail))))
+				&& canMergeBlocks(block, lastBlock, modelsAtThisDetail))
 			{
 				//replace the previous block with new bottom
 				long columnData = renderColumnData.get(renderDataIndex - 1);

@@ -32,13 +32,13 @@ public class RenderDataPointAttributeUtil
 
 
 
-	public static void setRecord(ByteArrayList data, int offset, int texturePaletteIndex, int fluidAmount, boolean waterlogged)
+	public static void setRecord(ByteArrayList data, int offset, int setPaletteIndex, int fluidAmount, boolean waterlogged)
 	{
-		data.set(offset, (byte) texturePaletteIndex);
+		data.set(offset, (byte) setPaletteIndex);
 		data.set(offset + 1, waterlogged ? WATERLOGGED_FLUID_AMOUNT : (byte) fluidAmount);
 	}
 
-	public static int getTexturePaletteIndex(ByteArrayList data, int offset) { return data.getByte(offset) & 0xFF; }
+	public static int getSetPaletteIndex(ByteArrayList data, int offset) { return data.getByte(offset) & 0xFF; }
 	public static int getFluidAmount(ByteArrayList data, int offset) { return Math.min(data.getByte(offset + 1), LodUtil.MAX_FLUID_AMOUNT); }
 	public static boolean isWaterlogged(ByteArrayList data, int offset) { return data.getByte(offset + 1) == WATERLOGGED_FLUID_AMOUNT; }
 

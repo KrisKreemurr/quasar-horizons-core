@@ -59,7 +59,7 @@ public class LodQuadBuilder implements AutoCloseable
 	/** smallest vertex size, used to size index buffers */
 	public static final int BYTES_PER_VERTEX = EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE.bytesPerVertex;
 	public static final int BYTES_PER_QUAD = BYTES_PER_VERTEX * 4;
-	/** tells the shader to use the vertex u/v (model quads) */
+	/** tells the shader to use the vertex u/v */
 	private static final byte VERTEX_UV_FLAG = 0b1;
 	
 	public static final int[][][] DIRECTION_VERTEX_IBO_QUAD = new int[][][]
@@ -119,7 +119,7 @@ public class LodQuadBuilder implements AutoCloseable
 	private final ArrayList<BufferQuad>[] opaqueQuads = (ArrayList<BufferQuad>[]) new ArrayList[6];
 	@SuppressWarnings("unchecked")
 	private final ArrayList<BufferQuad>[] transparentQuads = (ArrayList<BufferQuad>[]) new ArrayList[6];
-	/** model quads are never merged, so they get their own lists */
+	/** model quads are never merged */
 	private final ArrayList<BufferQuad> opaqueModelQuads = new ArrayList<>();
 	private final ArrayList<BufferQuad> transparentModelQuads = new ArrayList<>();
 	
@@ -418,14 +418,13 @@ public class LodQuadBuilder implements AutoCloseable
 	}
 	private void putModelQuad(ByteBuffer bb, BufferQuad quad)
 	{
-		float[] corners = quad.modelQuad.cornerPositions;
-		float[] uvs = quad.modelQuad.cornerUvs;
+		int[] corners = quad.modelQuad.cornerPositions;
+		byte[] uvs = quad.modelQuad.cornerUvBytes;
 		for (int i = 0; i < 4; i++)
 		{
-			// 256ths of a block, a corner at 1.0 is the next block with offset 0
-			int x256 = Math.round(corners[i * 3] * 256);
-			int y256 = Math.round(corners[i * 3 + 1] * 256);
-			int z256 = Math.round(corners[i * 3 + 2] * 256);
+			int x256 = corners[i * 3];
+			int y256 = corners[i * 3 + 1];
+			int z256 = corners[i * 3 + 2];
 			
 			this.putVertex(bb,
 					(short) (quad.x + (x256 >> 8)), (short) (quad.y + (y256 >> 8)), (short) (quad.z + (z256 >> 8)),
@@ -434,7 +433,7 @@ public class LodQuadBuilder implements AutoCloseable
 					quad.textureTileId,
 					0, 0, 0,
 					(byte) (x256 & 0xFF), (byte) (y256 & 0xFF), (byte) (z256 & 0xFF),
-					VERTEX_UV_FLAG, (byte) Math.round(uvs[i * 2] * 255), (byte) Math.round(uvs[i * 2 + 1] * 255),
+					VERTEX_UV_FLAG, uvs[i * 2], uvs[i * 2 + 1],
 					quad.modelQuad.packedNormal);
 		}
 	}

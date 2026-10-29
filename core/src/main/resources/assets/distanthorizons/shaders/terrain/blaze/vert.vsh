@@ -6,7 +6,7 @@ layout(location = 0) in uvec4 vPositionAndMeta; // Meta contains light and micro
 layout(location = 1) in vec4 vColor;
 // x: iris material, y: normal index, zw: block texture tile id (0 = flat color)
 layout(location = 2) in uvec4 materialNormalTile;
-// xyz: offset inside the block in 256ths, w: flags (for future use), see EDhApiTerrainVertexFormat
+// xyz: offset inside the block in 256ths, w: flags, see EDhApiTerrainVertexFormat
 layout(location = 3) in uvec4 offsetData;
 // xy: model texture position, zw: normal, see EDhApiTerrainVertexFormat
 layout(location = 4) in uvec4 uvNormal;

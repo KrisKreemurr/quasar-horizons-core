@@ -29,7 +29,6 @@ import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.dataObjects.render.columnViews.ColumnRenderView;
 import com.seibel.distanthorizons.core.util.RenderDataPointUtil;
 import com.seibel.distanthorizons.core.util.RenderDataPointAttributeUtil;
-import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.config.Config;
 import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -85,7 +84,7 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	 * Palette index -> {@link BlockTextureRegistry} set id. <br>
 	 * Index {@link BlockTextureRegistry#UNTEXTURED_ID} is always the flat "no texture" set.
 	 */
-	private final ShortArrayList texturePalette = new ShortArrayList();
+	private final ShortArrayList setPalette = new ShortArrayList();
 	private final boolean storesSetIds;
 	private final boolean usesTextures;
 	
@@ -122,8 +121,8 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 		// set ids are only stored for high detail sections that use textures or block models
 		this.usesTextures = texturedLodsEnabledAtDetailLevel(this.getDataDetailLevel());
 		this.storesSetIds = this.usesTextures
-			|| (Config.Client.Advanced.Graphics.Quality.enableBlockModels.get() && this.getDataDetailLevel() == LodUtil.BLOCK_DETAIL_LEVEL);
-		this.texturePalette.add(BlockTextureRegistry.UNTEXTURED_ID);
+			|| BlockTextureRegistry.modelsDrawnAtDetailLevel(this.getDataDetailLevel());
+		this.setPalette.add(BlockTextureRegistry.UNTEXTURED_ID);
 		
 		this.attributeContainer = this.pooledArraysCheckout.getByteArray(0, maxDatapointCount * RenderDataPointAttributeUtil.RECORD_SIZE_IN_BYTES);
 	}
@@ -186,18 +185,18 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	public boolean hasSetIds() { return this.storesSetIds; }
 	public boolean usesTextures() { return this.usesTextures; }
 	
-	public int getPaletteSize() { return this.texturePalette.size(); }
-	public short getPaletteSetId(int paletteIndex) { return this.texturePalette.getShort(paletteIndex); }
+	public int getPaletteSize() { return this.setPalette.size(); }
+	public short getPaletteSetId(int paletteIndex) { return this.setPalette.getShort(paletteIndex); }
 	
 	/** Sets the texture and fluid data for the given data point */
-	public void setDataPointAttributes(int posX, int posZ, int verticalIndex, short textureSetId, int fluidAmount, boolean waterlogged)
+	public void setDataPointAttributes(int posX, int posZ, int verticalIndex, short setId, int fluidAmount, boolean waterlogged)
 	{
-		int paletteIndex = this.getOrAddPaletteIndex(textureSetId) & 0xFF;
+		int paletteIndex = this.getOrAddPaletteIndex(setId) & 0xFF;
 		RenderDataPointAttributeUtil.setRecord(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex), paletteIndex, fluidAmount, waterlogged);
 	}
 	
 	public int getDataPointPaletteIndex(int posX, int posZ, int verticalIndex)
-	{ return RenderDataPointAttributeUtil.getTexturePaletteIndex(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex)); }
+	{ return RenderDataPointAttributeUtil.getSetPaletteIndex(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex)); }
 	
 	public int getDataPointFluidAmount(int posX, int posZ, int verticalIndex)
 	{ return RenderDataPointAttributeUtil.getFluidAmount(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex)); }
@@ -205,16 +204,16 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	public boolean isDataPointWaterlogged(int posX, int posZ, int verticalIndex)
 	{ return RenderDataPointAttributeUtil.isWaterlogged(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex)); }
 	
-	private byte getOrAddPaletteIndex(short textureSetId)
+	private byte getOrAddPaletteIndex(short setId)
 	{
 		// linear search is fine, palettes hold the few dozen
 		// distinct block appearances of a single 64x64 section
 		// and most lookups hit the first few entries
 		// TODO: Still see if we can improve this
-		int paletteSize = this.texturePalette.size();
+		int paletteSize = this.setPalette.size();
 		for (int i = 0; i < paletteSize; i++)
 		{
-			if (this.texturePalette.getShort(i) == textureSetId)
+			if (this.setPalette.getShort(i) == setId)
 			{
 				return (byte) i;
 			}
@@ -227,7 +226,7 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 			return BlockTextureRegistry.UNTEXTURED_ID;
 		}
 		
-		this.texturePalette.add(textureSetId);
+		this.setPalette.add(setId);
 		return (byte) paletteSize;
 	}
 	

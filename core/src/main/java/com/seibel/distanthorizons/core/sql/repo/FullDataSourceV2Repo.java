@@ -581,7 +581,7 @@ public class FullDataSourceV2Repo extends AbstractDhRepo<Long, FullDataSourceV2D
 	private final String getColumnGeneratedVersionSql =
 			"select ColumnGeneratedVersion as ColumnBytes, CompressionMode " +
 			"from "+this.getTableName()+" " +
-			"WHERE DetailLevel = ? AND PosX = ? AND PosZ = ?";
+			"WHERE DetailLevel = ? AND PosX = ? AND PosZ = ? AND ColumnGeneratedVersion IS NOT NULL";
 	
 	/** @return null if nothing exists for this position */
 	public void getColumnGenerationStepForPos(long pos, ByteArrayList outputByteArray) { this.getColumnBytesForPos(this.getColumnGenerationStepSql, pos, outputByteArray); }
@@ -623,12 +623,6 @@ public class FullDataSourceV2Repo extends AbstractDhRepo<Long, FullDataSourceV2D
 				{
 					ByteArrayList byteArrayList = new ByteArrayList();
 					putAllBytes(result.getBinaryStream("ColumnBytes"), byteArrayList);
-					// old rows don't have this column
-					if (byteArrayList.isEmpty())
-					{
-						return;
-					}
-					
 					try(PhantomArrayListCheckout checkout = FullDataSourceV2DTO.ARRAY_LIST_POOL.checkoutByteArrays(1);
 						DhDataInputStream compressedIn = DhDataInputStream.create(byteArrayList, compressionModeEnum, checkout))
 					{

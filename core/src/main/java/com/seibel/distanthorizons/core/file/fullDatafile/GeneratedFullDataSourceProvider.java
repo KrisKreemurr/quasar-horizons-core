@@ -28,10 +28,10 @@ import com.seibel.distanthorizons.core.file.fullDatafile.V2.FullDataSourceProvid
 import com.seibel.distanthorizons.core.util.delayedSaveCache.DelayedDataSourceSaveCache;
 import com.seibel.distanthorizons.core.file.structure.ISaveStructure;
 import com.seibel.distanthorizons.core.generation.queues.IFullDataSourceRetrievalQueue;
-import com.seibel.distanthorizons.core.generation.queues.WorldGenerationQueue;
 import com.seibel.distanthorizons.core.generation.tasks.DataSourceRetrievalResult;
 import com.seibel.distanthorizons.core.generation.tasks.ERetrievalResultState;
 import com.seibel.distanthorizons.core.level.IDhLevel;
+import com.seibel.distanthorizons.core.level.IDhServerLevel;
 import com.seibel.distanthorizons.core.logging.DhLogger;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout;
@@ -389,7 +389,7 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 		if (this.repo.existsWithKey(pos))
 		{
 			// old full detail LODs are rebuilt by local world gen
-			if (worldGenQueue instanceof WorldGenerationQueue
+			if (this.level instanceof IDhServerLevel
 				&& WorldGenUtil.regenAllowed(this)
 				&& DhSectionPos.getDetailLevel(pos) == DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL
 				&& this.hasOutdatedColumns(pos, 0, 0, FullDataSourceV2.WIDTH))

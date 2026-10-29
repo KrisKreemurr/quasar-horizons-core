@@ -314,7 +314,7 @@ public class Config
 						.set(true)
 						.comment(""
 							+ "If true nearby LODs will render blocks with their real shape \n"
-							+ "(stairs, fences, slabs) instead of full cubes. \n"
+							+ "instead of full cubes. \n"
 							+ "If false all LODs render as full cubes. \n"
 							+ " \n"
 							+ "Only applies to the highest detail LODs. \n"

@@ -23,8 +23,8 @@ import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 import org.jetbrains.annotations.Nullable;
 
-/** The face tiles and colors of one block state, see {@link BlockTextureRegistry} */
-public class BlockTextureSet
+/** The face tiles, colors and model of one block state, see {@link BlockTextureRegistry} */
+public class BlockRenderSet
 {
 	/** a face color that means the face uses the LOD's color instead (biome tinted faces) */
 	public static final int USE_LOD_COLOR = 0;
@@ -45,12 +45,12 @@ public class BlockTextureSet
 	
 	
 	
-	public BlockTextureSet() 
+	public BlockRenderSet() 
 	{
 		// 6 faces on a cube
 		this(new short[6], new int[6], new BlockModelQuad[0], new short[0], new int[0], null);
 	}
-	public BlockTextureSet(short[] faceTileIds, int[] faceColors, BlockModelQuad[] modelQuads, short[] modelQuadTileIds, int[] modelQuadColors, @Nullable IBlockStateWrapper blockState)
+	public BlockRenderSet(short[] faceTileIds, int[] faceColors, BlockModelQuad[] modelQuads, short[] modelQuadTileIds, int[] modelQuadColors, @Nullable IBlockStateWrapper blockState)
 	{
 		this.faceTileIds = faceTileIds;
 		this.faceColors = faceColors;

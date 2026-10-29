@@ -26,26 +26,26 @@ import org.jetbrains.annotations.Nullable;
 /** One quad of a block's model */
 public class BlockModelQuad
 {
-	/** x, y, z of each of the 4 corners, in the range [0,1] inside the block */
-	public final float[] cornerPositions;
-	/** u, v of each of the 4 corners, in the range [0,1] inside the texture */
-	public final float[] cornerUvs;
+	/** x, y, z of each of the 4 corners in 256ths of a block */
+	public final int[] cornerPositions = new int[12];
+	/** u, v of each of the 4 corners in 255ths of the texture */
+	public final byte[] cornerUvBytes = new byte[8];
 	public final BlockFaceTexture texture;
-	/** the side whose neighbor can hide this quad, null if it's always drawn (fence post insides) */
+	/** the side whose neighbor can hide this quad */
 	@Nullable
 	public final EDhDirection cullDirection;
 	/** the quad's facing, octahedral encoded (x low byte, y high byte) */
 	public final short packedNormal;
-	/** the side the quad faces the most, used for vanilla's face shading */
+	/** the side the quad faces the most */
 	public final EDhDirection shadeDirection;
 	
 	
 	
-	private static DhVec3f getNormal(float[] cornerPositions)
+	private static DhVec3f getNormal(float[] xByVertex, float[] yByVertex, float[] zByVertex)
 	{
 		// the diagonals' cross product works for any 4 corners
-		DhVec3f normal = new DhVec3f(cornerPositions[6] - cornerPositions[0], cornerPositions[7] - cornerPositions[1], cornerPositions[8] - cornerPositions[2]);
-		normal.crossProduct(new DhVec3f(cornerPositions[9] - cornerPositions[3], cornerPositions[10] - cornerPositions[4], cornerPositions[11] - cornerPositions[5]));
+		DhVec3f normal = new DhVec3f(xByVertex[2] - xByVertex[0], yByVertex[2] - yByVertex[0], zByVertex[2] - zByVertex[0]);
+		normal.crossProduct(new DhVec3f(xByVertex[3] - xByVertex[1], yByVertex[3] - yByVertex[1], zByVertex[3] - zByVertex[1]));
 		return normal;
 	}
 	
@@ -83,14 +83,24 @@ public class BlockModelQuad
 		return (short) (encodedX | (encodedY << 8));
 	}
 	
-	public BlockModelQuad(float[] cornerPositions, float[] cornerUvs, BlockFaceTexture texture, @Nullable EDhDirection cullDirection)
+	/** all inputs are in the range [0,1] */
+	public BlockModelQuad(
+		float[] xByVertex, float[] yByVertex, float[] zByVertex, float[] uByVertex, float[] vByVertex,
+		BlockFaceTexture texture, @Nullable EDhDirection cullDirection)
 	{
-		this.cornerPositions = cornerPositions;
-		this.cornerUvs = cornerUvs;
 		this.texture = texture;
 		this.cullDirection = cullDirection;
 		
-		DhVec3f normal = getNormal(cornerPositions);
+		for (int i = 0; i < 4; i++)
+		{
+			this.cornerPositions[i * 3] = Math.round(xByVertex[i] * 256);
+			this.cornerPositions[i * 3 + 1] = Math.round(yByVertex[i] * 256);
+			this.cornerPositions[i * 3 + 2] = Math.round(zByVertex[i] * 256);
+			this.cornerUvBytes[i * 2] = (byte) Math.round(uByVertex[i] * 255);
+			this.cornerUvBytes[i * 2 + 1] = (byte) Math.round(vByVertex[i] * 255);
+		}
+		
+		DhVec3f normal = getNormal(xByVertex, yByVertex, zByVertex);
 		this.shadeDirection = getShadeDirection(normal);
 		this.packedNormal = getPackedNormal(normal);
 	}

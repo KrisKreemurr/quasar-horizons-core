@@ -798,7 +798,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 				return true;
 			}
 			
-			// becomes a gap so the block below stays visible
+			// becomes a gap
 			if (this.isIndexVisible(node) && this.isModel(node))
 			{
 				this.setAlpha(node, 0);

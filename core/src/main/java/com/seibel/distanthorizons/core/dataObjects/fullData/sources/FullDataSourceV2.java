@@ -98,7 +98,7 @@ public class FullDataSourceV2
 	public long lastModifiedUnixDateTime;
 	public long createdUnixDateTime;
 	
-	/**
+	/** 
 	 * stores how far each column has been generated should start with {@link EDhApiWorldGenerationStep#EMPTY}
 	 *
 	 * @see EDhApiWorldGenerationStep
@@ -216,7 +216,7 @@ public class FullDataSourceV2
 		FullDataPointIdMap map = new FullDataPointIdMap(pos);
 		return new FullDataSourceV2(
 				pos, map,
-				// data points, genSteps, and columnCompression are all null since
+				// data points, genSteps, columnCompression, and versions are all null since
 				// nothing has been generated yet.
 				// Using the default value of all 0's is adequate
 				null,
@@ -704,8 +704,7 @@ public class FullDataSourceV2
 	}
 	
 	/** 
-	 * The minimum value is used because we don't want to accidentally record that
-	 * something was generated when it wasn't.
+	 * The minimum value is used so a column never looks more generated or newer than it is.
 	 */
 	private static byte determineMinForTwoByTwoColumn(ByteArrayList columnValues, int relX, int relZ)
 	{
@@ -1151,7 +1150,7 @@ public class FullDataSourceV2
 				
 				
 				// world compression //
-				byte worldCompressionMode = inputDataSource.columnWorldCompressionMode.getByte(recipientIndex);
+				byte worldCompressionMode = inputDataSource.columnWorldCompressionMode.getByte(inputIndex);
 				this.columnWorldCompressionMode.set(recipientIndex, worldCompressionMode);
 				this.columnGeneratedVersion.set(recipientIndex, inputDataSource.columnGeneratedVersion.getByte(inputIndex));
 				

@@ -4,7 +4,7 @@ in uvec4 vPosition;
 in vec4 color;
 // x: iris material id, y: face normal index, zw: block texture tile id (little endian)
 in uvec4 irisData;
-// xyz: offset inside the block in 256ths, w: flags (for future use), see EDhApiTerrainVertexFormat
+// xyz: offset inside the block in 256ths, w: flags, see EDhApiTerrainVertexFormat
 in uvec4 offsetData;
 // xy: model texture position, zw: normal, see EDhApiTerrainVertexFormat
 in uvec4 uvNormal;

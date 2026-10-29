@@ -22,6 +22,7 @@ package com.seibel.distanthorizons.core.dataObjects.render.textures;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
+import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateFaceTextureProvider;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.IClientLevelWrapper;
@@ -82,7 +83,7 @@ public class BlockTextureRegistry
 	 * indexed by set id (stored by {@link BlockTextureRegistry#setIdByBlockStateWrapper}), 
 	 * holds the face tiles and colors for one block state.
 	 */
-	private final ArrayList<BlockTextureSet> textureSetsById = new ArrayList<>();
+	private final ArrayList<BlockRenderSet> renderSetsById = new ArrayList<>();
 	private final ConcurrentHashMap<IBlockStateWrapper, Short> setIdByBlockStateWrapper = new ConcurrentHashMap<>();
 	
 	
@@ -108,7 +109,7 @@ public class BlockTextureRegistry
 		this.tilePixelsById.add(flatPixels);
 		
 		// reserve the all-flat face set so set id 0 always renders flat
-		this.textureSetsById.add(new BlockTextureSet());
+		this.renderSetsById.add(new BlockRenderSet());
 	}
 	
 	//endregion
@@ -143,21 +144,27 @@ public class BlockTextureRegistry
 	 *
 	 * @return null if the set id is invalid or the flat set
 	 */
-	public synchronized @Nullable BlockTextureSet getTextureSet(int setId)
+	public synchronized @Nullable BlockRenderSet getRenderSet(int setId)
 	{
-		if (setId <= UNTEXTURED_ID || setId >= this.textureSetsById.size())
+		if (setId <= UNTEXTURED_ID || setId >= this.renderSetsById.size())
 		{
 			return null;
 		}
-		return this.textureSetsById.get(setId);
+		return this.renderSetsById.get(setId);
 	}
 	
-	/** Decides which block states are drawn with their model, per-block and per-mod lists go here later */
+	/** Decides which block states are drawn with their model */
 	public static boolean usesModel(IBlockStateWrapper blockState)
 	{
-		return Config.Client.Advanced.Graphics.Quality.enableBlockModels.get()
-			&& !blockState.isFullBlock()
+		return !blockState.isFullBlock()
 			&& !blockState.isLiquid();
+	}
+	
+	/** Models are only drawn at block detail */
+	public static boolean modelsDrawnAtDetailLevel(byte dataDetailLevel)
+	{
+		return Config.Client.Advanced.Graphics.Quality.enableBlockModels.get()
+			&& dataDetailLevel == LodUtil.BLOCK_DETAIL_LEVEL;
 	}
 	
 	private short registerBlockState(IBlockStateWrapper blockState, IClientLevelWrapper levelWrapper)
@@ -181,7 +188,7 @@ public class BlockTextureRegistry
 				int averageColor = calculateAverageVisibleColor(faceTexture);
 				faceTileIds[faceIndex] = this.getOrCreateTileId(faceTexture, averageColor);
 				
-				faceColors[faceIndex] = useLodColor ? BlockTextureSet.USE_LOD_COLOR : averageColor;
+				faceColors[faceIndex] = useLodColor ? BlockRenderSet.USE_LOD_COLOR : averageColor;
 				
 				if (direction == EDhDirection.UP)
 				{
@@ -209,7 +216,7 @@ public class BlockTextureRegistry
 		// only pillars have a top that doesn't match the LOD's color
 		if (!blockState.isRotatedPillar())
 		{
-			faceColors[EDhDirection.UP.faceIndex] = BlockTextureSet.USE_LOD_COLOR;
+			faceColors[EDhDirection.UP.faceIndex] = BlockRenderSet.USE_LOD_COLOR;
 		}
 		
 		BlockFaceTexture flowTexture = isFluidBlock ? TEXTURE_PROVIDER.getFaceTexture(blockState, EDhDirection.UP) : null;
@@ -230,7 +237,8 @@ public class BlockTextureRegistry
 			}
 		}
 		
-		BlockModelQuad[] modelQuads = usesModel(blockState) ? TEXTURE_PROVIDER.getModel(blockState) : new BlockModelQuad[0];
+		boolean drawModel = Config.Client.Advanced.Graphics.Quality.enableBlockModels.get() && usesModel(blockState);
+		BlockModelQuad[] modelQuads = drawModel ? TEXTURE_PROVIDER.getModel(blockState) : new BlockModelQuad[0];
 		short[] modelQuadTileIds = new short[modelQuads.length];
 		int[] modelQuadColors = new int[modelQuads.length];
 		for (int quadIndex = 0; quadIndex < modelQuads.length; quadIndex++)
@@ -238,7 +246,7 @@ public class BlockTextureRegistry
 			BlockFaceTexture quadTexture = modelQuads[quadIndex].texture;
 			int averageColor = calculateAverageVisibleColor(quadTexture);
 			modelQuadTileIds[quadIndex] = this.getOrCreateTileId(quadTexture, averageColor);
-			modelQuadColors[quadIndex] = useLodColor ? BlockTextureSet.USE_LOD_COLOR : averageColor;
+			modelQuadColors[quadIndex] = useLodColor ? BlockRenderSet.USE_LOD_COLOR : averageColor;
 		}
 		
 		short textureId;
@@ -253,14 +261,14 @@ public class BlockTextureRegistry
 			// synchronized to prevent concurrent array modifications
 			synchronized (this)
 			{
-				if (this.textureSetsById.size() >= MAX_TILE_COUNT)
+				if (this.renderSetsById.size() >= MAX_TILE_COUNT)
 				{
 					textureId = UNTEXTURED_ID;
 				}
 				else
 				{
-					textureId = (short) this.textureSetsById.size();
-					this.textureSetsById.add(new BlockTextureSet(faceTileIds, faceColors, modelQuads, modelQuadTileIds, modelQuadColors, blockState));
+					textureId = (short) this.renderSetsById.size();
+					this.renderSetsById.add(new BlockRenderSet(faceTileIds, faceColors, modelQuads, modelQuadTileIds, modelQuadColors, blockState));
 				}
 			}
 		}
@@ -467,9 +475,9 @@ public class BlockTextureRegistry
 	public synchronized void clear()
 	{
 		this.setIdByBlockStateWrapper.clear();
-		BlockTextureSet flatSet = this.textureSetsById.get(UNTEXTURED_ID);
-		this.textureSetsById.clear();
-		this.textureSetsById.add(flatSet);
+		BlockRenderSet flatSet = this.renderSetsById.get(UNTEXTURED_ID);
+		this.renderSetsById.clear();
+		this.renderSetsById.add(flatSet);
 		
 		this.tileIdByContent.clear();
 		byte[] flatTile = this.tilePixelsById.get(UNTEXTURED_ID);
