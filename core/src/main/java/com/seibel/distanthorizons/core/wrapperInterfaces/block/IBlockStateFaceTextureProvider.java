@@ -20,6 +20,7 @@
 package com.seibel.distanthorizons.core.wrapperInterfaces.block;
 
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockFaceTexture;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockModelQuad;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.coreapi.interfaces.dependencyInjection.IBindable;
 import org.jetbrains.annotations.Nullable;
@@ -40,6 +41,14 @@ public interface IBlockStateFaceTextureProvider extends IBindable
 	 */
 	@Nullable
 	BlockFaceTexture getFaceTexture(IBlockStateWrapper blockState, EDhDirection direction);
+	
+	/**
+	 * May be slow the first time a given block state is requested
+	 * since the model needs to be read.
+	 *
+	 * @return an empty array if the block state has no model quads
+	 */
+	BlockModelQuad[] getModel(IBlockStateWrapper blockState);
 
 	/** Should be called whenever MC's textures change, IE when resource packs are swapped. */
 	void clear();
