@@ -22,6 +22,7 @@ package com.seibel.distanthorizons.core.wrapperInterfaces.block;
 import com.seibel.distanthorizons.api.interfaces.block.IDhApiBlockStateWrapper;
 import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiBlockColorOverrideEvent;
 import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiBlockTextureOverrideEvent;
+import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.util.LodUtil;
 
 import java.awt.*;
@@ -84,6 +85,12 @@ public interface IBlockStateWrapper extends IDhApiBlockStateWrapper
 	
 	/** Blocks that lie along an axis, like logs */
 	boolean isRotatedPillar();
+	
+	/** Blocks whose shape fills their whole block space (stone, glass, leaves), not fences or slabs */
+	boolean isFullBlock();
+	
+	/** True if this side fully covers the neighbor's face on that side (the bottom of a normal stair) */
+	boolean isFaceFull(EDhDirection direction);
 	
 	/**
 	 * Some blocks don't pull their texture properly (like bamboo).

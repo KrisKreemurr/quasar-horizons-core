@@ -1,5 +1,6 @@
 package testItems.wrappers;
 
+import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 
 import java.awt.*;
@@ -29,6 +30,8 @@ public class TestBlockStateWrapper implements IBlockStateWrapper
 	@Override public int getFluidAmount() { return 0; }
 	@Override public boolean isWaterlogged() { return false; }
 	@Override public boolean isRotatedPillar() { return false; }
+	@Override public boolean isFullBlock() { return true; }
+	@Override public boolean isFaceFull(EDhDirection direction) { return true; }
 	@Override public boolean allowApiColorOverride() { return false; }
 	@Override public boolean allowApiTextureOverride() { return false; }
 	@Override public Color getMapColor() { return Color.MAGENTA; }
