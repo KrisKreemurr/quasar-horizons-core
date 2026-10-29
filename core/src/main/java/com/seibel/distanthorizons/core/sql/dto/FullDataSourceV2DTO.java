@@ -48,6 +48,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
+import java.util.Arrays;
 
 /** handles storing {@link FullDataSourceV2}'s in the database. */
 public class FullDataSourceV2DTO 
@@ -81,6 +82,8 @@ public class FullDataSourceV2DTO
 	public ByteArrayList compressedColumnGenStepByteArray;
 	/** @see EDhApiWorldCompressionMode */
 	public ByteArrayList compressedWorldCompressionModeByteArray;
+	/** @see FullDataSourceV2#GENERATED_VERSION */
+	public ByteArrayList compressedColumnGeneratedVersionByteArray;
 	
 	public ByteArrayList compressedMappingByteArray;
 	
@@ -100,6 +103,9 @@ public class FullDataSourceV2DTO
 	public long lastModifiedUnixDateTime;
 	public long createdUnixDateTime;
 	
+	/** true for data received from a server */
+	private boolean decodedFromNetwork = false;
+	
 	
 	
 	//==============//
@@ -113,7 +119,8 @@ public class FullDataSourceV2DTO
 		// populate arrays
 		writeDataSourceDataArrayToBlobV2(dataSource.dataPoints, dto.compressedDataByteArray, null, compressionModeEnum);
 		writeGenerationStepsToBlob(dataSource.columnGenerationSteps, dto.compressedColumnGenStepByteArray, compressionModeEnum);
-		writeWorldCompressionModeToBlob(dataSource.columnWorldCompressionMode, dto.compressedWorldCompressionModeByteArray, compressionModeEnum);
+		writeColumnBytesToBlob(dataSource.columnWorldCompressionMode, dto.compressedWorldCompressionModeByteArray, compressionModeEnum);
+		writeColumnBytesToBlob(dataSource.columnGeneratedVersion, dto.compressedColumnGeneratedVersionByteArray, compressionModeEnum);
 		writeDataMappingToBlob(dataSource.mapping, dto.compressedMappingByteArray, compressionModeEnum);
 		// adjacent full data
 		writeDataSourceDataArrayToBlobV2(dataSource.dataPoints, dto.compressedNorthAdjDataByteArray, EDhDirection.NORTH, compressionModeEnum);
@@ -143,7 +150,7 @@ public class FullDataSourceV2DTO
 	public static FullDataSourceV2DTO CreateEmptyDataSourceForDecoding() { return new FullDataSourceV2DTO(); }
 	private FullDataSourceV2DTO() 
 	{
-		super(ARRAY_LIST_POOL, 8, 0, 0, 0, 0);
+		super(ARRAY_LIST_POOL, 9, 0, 0, 0, 0);
 		
 		// Expected sizes here are 0 since we don't know how big these arrays need to be,
 		// they depend on compression settings and world complexity.
@@ -156,6 +163,7 @@ public class FullDataSourceV2DTO
 		this.compressedSouthAdjDataByteArray = this.pooledArraysCheckout.getByteArray(5, 0);
 		this.compressedEastAdjDataByteArray = this.pooledArraysCheckout.getByteArray(6, 0);
 		this.compressedWestAdjDataByteArray = this.pooledArraysCheckout.getByteArray(7, 0);
+		this.compressedColumnGeneratedVersionByteArray = this.pooledArraysCheckout.getByteArray(8, 0);
 	}
 	
 	
@@ -242,7 +250,18 @@ public class FullDataSourceV2DTO
 		if (direction == null)
 		{
 			readBlobToGenerationSteps(this.compressedColumnGenStepByteArray, dataSource.columnGenerationSteps, compressionModeEnum);
-			readBlobToWorldCompressionMode(this.compressedWorldCompressionModeByteArray, dataSource.columnWorldCompressionMode, compressionModeEnum);
+			readBlobToColumnBytes(this.compressedWorldCompressionModeByteArray, dataSource.columnWorldCompressionMode, compressionModeEnum);
+			
+			// old rows stay version 0
+			if (!this.compressedColumnGeneratedVersionByteArray.isEmpty())
+			{
+				readBlobToColumnBytes(this.compressedColumnGeneratedVersionByteArray, dataSource.columnGeneratedVersion, compressionModeEnum);
+			}
+			else if (this.decodedFromNetwork)
+			{
+				// servers send data built with the current version
+				Arrays.fill(dataSource.columnGeneratedVersion.elements(), 0, FullDataSourceV2.WIDTH * FullDataSourceV2.WIDTH, FullDataSourceV2.GENERATED_VERSION);
+			}
 			
 			if (this.dataFormatVersion == 1)
 			{
@@ -691,17 +710,17 @@ public class FullDataSourceV2DTO
 	}
 	
 	
-	private static void writeWorldCompressionModeToBlob(ByteArrayList inputWorldCompressionModeByteArray, ByteArrayList outputByteArray, EDhApiDataCompressionMode compressionModeEnum) throws IOException
+	private static void writeColumnBytesToBlob(ByteArrayList inputByteArray, ByteArrayList outputByteArray, EDhApiDataCompressionMode compressionModeEnum) throws IOException
 	{
 		try (DhDataOutputStream compressedOut = DhDataOutputStream.create(compressionModeEnum, outputByteArray))
 		{
-			for (int i = 0; i < inputWorldCompressionModeByteArray.size(); i++)
+			for (int i = 0; i < inputByteArray.size(); i++)
 			{
-				compressedOut.write(inputWorldCompressionModeByteArray.getByte(i));
+				compressedOut.write(inputByteArray.getByte(i));
 			}
 		}
 	}
-	private static void readBlobToWorldCompressionMode(ByteArrayList inputCompressedDataByteArray, ByteArrayList outputByteArray, EDhApiDataCompressionMode compressionModeEnum) throws IOException, DataCorruptedException
+	private static void readBlobToColumnBytes(ByteArrayList inputCompressedDataByteArray, ByteArrayList outputByteArray, EDhApiDataCompressionMode compressionModeEnum) throws IOException, DataCorruptedException
 	{
 		try(PhantomArrayListCheckout checkout = ARRAY_LIST_POOL.checkoutByteArrays(1);
 			DhDataInputStream compressedIn = DhDataInputStream.create(inputCompressedDataByteArray, compressionModeEnum, checkout))
@@ -817,6 +836,8 @@ public class FullDataSourceV2DTO
 		
 		this.lastModifiedUnixDateTime = in.readLong();
 		this.createdUnixDateTime = in.readLong();
+		
+		this.decodedFromNetwork = true;
 	}
 	
 	
@@ -839,6 +860,7 @@ public class FullDataSourceV2DTO
 				.add("compressedDataByteArray length", this.compressedDataByteArray.size())
 				.add("compressedColumnGenStepByteArray length", this.compressedColumnGenStepByteArray.size())
 				.add("compressedWorldCompressionModeByteArray length", this.compressedWorldCompressionModeByteArray.size())
+				.add("compressedColumnGeneratedVersionByteArray length", this.compressedColumnGeneratedVersionByteArray.size())
 				.add("compressedMappingByteArray length", this.compressedMappingByteArray.size())
 				.add("dataFormatVersion", this.dataFormatVersion)
 				.add("compressionModeValue", this.compressionModeValue)

@@ -324,7 +324,9 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 				int newChunkHash = chunkWrapper.getBlockBiomeHashCode();
 				
 				boolean hasNewChunkHash = (oldChunkHash != newChunkHash);
-				if (!hasNewChunkHash)
+				// old LODs are rebuilt even if the chunk didn't change
+				if (!hasNewChunkHash
+					&& !dhLevel.getFullDataProvider().isChunkLodOutdated(chunkWrapper.getChunkPos()))
 				{
 					// do not update the chunk if the hash is the same
 					return;
