@@ -28,6 +28,7 @@ import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
 import com.seibel.distanthorizons.core.dataObjects.render.columnViews.ColumnRenderView;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
+import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPosMutable;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout;
@@ -275,8 +276,8 @@ public class FullDataToRenderDataTransformer
 							block = WRAPPER_FACTORY.getWaterBlockStateWrapper(levelWrapper);
 						}
 						
-						// This now also runs for fluid changes, so we gotta check if textures are on
-						if (columnSource.hasTextureSetIds())
+						// This now also runs for fluid changes, so we gotta check if set ids are stored
+						if (columnSource.hasSetIds())
 						{
 							textureId = BlockTextureRegistry.INSTANCE.getOrRegisterBlockStateSetId(block, levelWrapper);
 						}
@@ -332,6 +333,10 @@ public class FullDataToRenderDataTransformer
 		}
 	}
 	
+	/** Models without a full bottom (fences, upside down stairs), the block below them stays visible */
+	private static boolean canSeeBlockBelow(IBlockStateWrapper block, boolean modelsAtThisDetail)
+	{ return modelsAtThisDetail && BlockTextureRegistry.usesModel(block) && !block.isFaceFull(EDhDirection.DOWN); }
+	
 	private static void setRenderColumnView(
 			IClientLevelWrapper levelWrapper, FullDataSourceV2 fullDataSource,
 			int blockX, int blockZ,
@@ -343,6 +348,7 @@ public class FullDataToRenderDataTransformer
 		
 		boolean ignoreNonCollidingBlocks = (Config.Client.Advanced.Graphics.Culling.blocksToIgnore.get() == EDhApiBlocksToAvoid.NON_COLLIDING);
 		boolean colorBelowWithAvoidedBlocks = Config.Client.Advanced.Graphics.Culling.tintWithAvoidedBlocks.get();
+		boolean modelsAtThisDetail = fullDataSource.getDataDetailLevel() == LodUtil.BLOCK_DETAIL_LEVEL;
 		
 		final ObjectOpenHashSet<IBlockStateWrapper> blockStatesToIgnore = WRAPPER_FACTORY.getRendererIgnoredBlocks(levelWrapper);
 		final ObjectOpenHashSet<IBlockStateWrapper> caveBlockStatesToIgnore = WRAPPER_FACTORY.getRendererIgnoredCaveBlocks(levelWrapper);
@@ -541,7 +547,8 @@ public class FullDataToRenderDataTransformer
 					int nextSkyLight = FullDataPointUtil.getSkyLight(nextFullData);
 					
 					if (nextSkyLight == LodUtil.MIN_MC_LIGHT
-						&& ColorUtil.getAlpha(lastColor) == 255)
+						&& ColorUtil.getAlpha(lastColor) == 255
+						&& !canSeeBlockBelow(lastBlock, modelsAtThisDetail))
 					{
 						// replace the previous block with new bottom
 						long columnData = renderColumnData.get(renderDataIndex - 1);
@@ -749,7 +756,9 @@ public class FullDataToRenderDataTransformer
 			// check if they share a top-bottom face and if they have same color
 			if (color == lastColor 
 				&& bottomY + blockHeight == lastBottom  
-				&& renderDataIndex > 0)
+				&& renderDataIndex > 0
+				// a model the block below shows through only merges with the same block
+				&& (block == lastBlock || (!canSeeBlockBelow(block, modelsAtThisDetail) && !canSeeBlockBelow(lastBlock, modelsAtThisDetail))))
 			{
 				//replace the previous block with new bottom
 				long columnData = renderColumnData.get(renderDataIndex - 1);
@@ -768,6 +777,12 @@ public class FullDataToRenderDataTransformer
 			lastColor = color;
 			lastBlock = block;
 			airAfterLastBlock = false;
+			
+			if (canSeeBlockBelow(block, modelsAtThisDetail))
+			{
+				skylightToApplyToNextBlock = skyLight;
+				blocklightToApplyToNextBlock = blockLight;
+			}
 		}
 		
 		

@@ -153,7 +153,7 @@ public class BlockTextureRegistry
 	}
 	
 	/** Decides which block states are drawn with their model, per-block and per-mod lists go here later */
-	private static boolean usesModel(IBlockStateWrapper blockState)
+	public static boolean usesModel(IBlockStateWrapper blockState)
 	{
 		return Config.Client.Advanced.Graphics.Quality.enableBlockModels.get()
 			&& !blockState.isFullBlock()

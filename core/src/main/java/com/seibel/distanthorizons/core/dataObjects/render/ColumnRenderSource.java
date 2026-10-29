@@ -29,6 +29,7 @@ import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.dataObjects.render.columnViews.ColumnRenderView;
 import com.seibel.distanthorizons.core.util.RenderDataPointUtil;
 import com.seibel.distanthorizons.core.util.RenderDataPointAttributeUtil;
+import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.config.Config;
 import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -85,7 +86,8 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	 * Index {@link BlockTextureRegistry#UNTEXTURED_ID} is always the flat "no texture" set.
 	 */
 	private final ShortArrayList texturePalette = new ShortArrayList();
-	private final boolean storesTextures;
+	private final boolean storesSetIds;
+	private final boolean usesTextures;
 	
 	private boolean isEmpty = true;
 	
@@ -117,8 +119,10 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 		this.renderDataContainer = this.pooledArraysCheckout.getLongArray(0, maxDatapointCount);
 		this.voidRenderDataContainer = this.pooledArraysCheckout.getLongArray(1, WIDTH * WIDTH);
 		
-		// texture ids are only stored for high detail sections
-		this.storesTextures = texturedLodsEnabledAtDetailLevel(this.getDataDetailLevel());
+		// set ids are only stored for high detail sections that use textures or block models
+		this.usesTextures = texturedLodsEnabledAtDetailLevel(this.getDataDetailLevel());
+		this.storesSetIds = this.usesTextures
+			|| (Config.Client.Advanced.Graphics.Quality.enableBlockModels.get() && this.getDataDetailLevel() == LodUtil.BLOCK_DETAIL_LEVEL);
 		this.texturePalette.add(BlockTextureRegistry.UNTEXTURED_ID);
 		
 		this.attributeContainer = this.pooledArraysCheckout.getByteArray(0, maxDatapointCount * RenderDataPointAttributeUtil.RECORD_SIZE_IN_BYTES);
@@ -179,7 +183,8 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	
 	private int getAttributeOffset(int posX, int posZ, int verticalIndex) { return this.getDatapointIndex(posX, posZ, verticalIndex) * RenderDataPointAttributeUtil.RECORD_SIZE_IN_BYTES; }
 	
-	public boolean hasTextureSetIds() { return this.storesTextures; }
+	public boolean hasSetIds() { return this.storesSetIds; }
+	public boolean usesTextures() { return this.usesTextures; }
 	
 	/** Sets the texture and fluid data for the given data point */
 	public void setDataPointAttributes(int posX, int posZ, int verticalIndex, short textureSetId, int fluidAmount, boolean waterlogged)

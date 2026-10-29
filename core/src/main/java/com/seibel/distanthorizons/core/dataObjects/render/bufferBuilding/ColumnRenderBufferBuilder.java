@@ -282,7 +282,7 @@ public class ColumnRenderBufferBuilder
 						// determine which textures this data point's quads should use
 						short[] faceTileIdsByDirectionOrdinal = null;
 						int[] faceColors = null;
-						if (renderSource.hasTextureSetIds())
+						if (renderSource.usesTextures())
 						{
 							short textureSetId = renderSource.getDataPointTextureSetId(relX, relZ, i);
 							BlockTextureSet textureSet = BlockTextureRegistry.INSTANCE.getTextureSet(textureSetId);
