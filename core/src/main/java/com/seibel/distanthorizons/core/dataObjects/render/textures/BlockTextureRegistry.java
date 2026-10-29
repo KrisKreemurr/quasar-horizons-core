@@ -60,8 +60,10 @@ public class BlockTextureRegistry
 	 */
 	public static final int MAX_TILE_COUNT = 65_536;
 	
-	/** renders every face flat, also used when set registration overflows */
+	/** renders flat */
 	public static final short UNTEXTURED_ID = 0;
+	/** renders every face flat, also used when set registration overflows */
+	public static final short FLAT_SET_ID = 0;
 	/** Fluids store their texture turned to each flow direction after their 6 faces (by EDhDirection.compassIndex) */
 	public static final int FLUID_FLOW_TILE_INDEX = 6;
 	
@@ -81,7 +83,7 @@ public class BlockTextureRegistry
 	
 	/** 
 	 * indexed by set id (stored by {@link BlockTextureRegistry#setIdByBlockStateWrapper}), 
-	 * holds the face tiles and colors for one block state.
+	 * holds the face tiles, colors and model for one block state.
 	 */
 	private final ArrayList<BlockRenderSet> renderSetsById = new ArrayList<>();
 	private final ConcurrentHashMap<IBlockStateWrapper, Short> setIdByBlockStateWrapper = new ConcurrentHashMap<>();
@@ -122,11 +124,11 @@ public class BlockTextureRegistry
 	//region
 	
 	/**
-	 * Returns the id of the given block state's face tile set,
-	 * baking and registering the face textures if necessary. <br>
+	 * Returns the id of the given block state's set,
+	 * baking and registering its textures and model if necessary. <br>
 	 * Thread safe, although baking may block briefly.
 	 *
-	 * @return {@link BlockTextureRegistry#UNTEXTURED_ID} if no textures are available
+	 * @return {@link BlockTextureRegistry#FLAT_SET_ID} if the block has no textures or model
 	 */
 	public short getOrRegisterBlockStateSetId(IBlockStateWrapper blockState, IClientLevelWrapper levelWrapper)
 	{
@@ -139,14 +141,14 @@ public class BlockTextureRegistry
 	}
 	
 	/**
-	 * Returns the face tiles and colors of the given set. <br>
+	 * Returns the face tiles, colors and model of the given set. <br>
 	 * The returned set must not be modified.
 	 *
 	 * @return null if the set id is invalid or the flat set
 	 */
 	public synchronized @Nullable BlockRenderSet getRenderSet(int setId)
 	{
-		if (setId <= UNTEXTURED_ID || setId >= this.renderSetsById.size())
+		if (setId <= FLAT_SET_ID || setId >= this.renderSetsById.size())
 		{
 			return null;
 		}
@@ -249,12 +251,12 @@ public class BlockTextureRegistry
 			modelQuadColors[quadIndex] = useLodColor ? BlockRenderSet.USE_LOD_COLOR : averageColor;
 		}
 		
-		short textureId;
+		short setId;
 		if (!anyFaceTextured && modelQuads.length == 0)
 		{
 			// blocks whose every face is flat (IE uniformly colored textures)
 			// share the reserved flat set
-			textureId = UNTEXTURED_ID;
+			setId = FLAT_SET_ID;
 		}
 		else
 		{
@@ -263,18 +265,18 @@ public class BlockTextureRegistry
 			{
 				if (this.renderSetsById.size() >= MAX_TILE_COUNT)
 				{
-					textureId = UNTEXTURED_ID;
+					setId = FLAT_SET_ID;
 				}
 				else
 				{
-					textureId = (short) this.renderSetsById.size();
+					setId = (short) this.renderSetsById.size();
 					this.renderSetsById.add(new BlockRenderSet(faceTileIds, faceColors, modelQuads, modelQuadTileIds, modelQuadColors, blockState));
 				}
 			}
 		}
 		
-		Short existingSetId = this.setIdByBlockStateWrapper.putIfAbsent(blockState, textureId);
-		return (existingSetId != null) ? existingSetId : textureId;
+		Short existingSetId = this.setIdByBlockStateWrapper.putIfAbsent(blockState, setId);
+		return (existingSetId != null) ? existingSetId : setId;
 	}
 	
 	private static int getFlowQuarterTurns(EDhDirection flowDirection)
@@ -475,7 +477,7 @@ public class BlockTextureRegistry
 	public synchronized void clear()
 	{
 		this.setIdByBlockStateWrapper.clear();
-		BlockRenderSet flatSet = this.renderSetsById.get(UNTEXTURED_ID);
+		BlockRenderSet flatSet = this.renderSetsById.get(FLAT_SET_ID);
 		this.renderSetsById.clear();
 		this.renderSetsById.add(flatSet);
 		

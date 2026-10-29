@@ -48,11 +48,11 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	public static final int WIDTH = 64;
 	
 	/** 
-	 * Texture palettes are indexed by unsigned bytes. <Br>
+	 * Set palettes are indexed by unsigned bytes. <Br>
 	 * This limitation is also done so a single LOD doesn't take
-	 * up every possible texture ID available to the world.
+	 * up every possible set ID available to the world.
 	 */
-	public static final int MAX_TEXTURE_PALETTE_SIZE = 256;
+	public static final int MAX_SET_PALETTE_SIZE = 256;
 	
 	public static final PhantomArrayListPool ARRAY_LIST_POOL = new PhantomArrayListPool("Render Source");
 	
@@ -78,11 +78,11 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	 */
 	public final LongArrayList voidRenderDataContainer;
 	
-	/** texture and fluid data for each data point, see {@link RenderDataPointAttributeUtil} */
+	/** set and fluid data for each data point, see {@link RenderDataPointAttributeUtil} */
 	private final ByteArrayList attributeContainer;
 	/**
 	 * Palette index -> {@link BlockTextureRegistry} set id. <br>
-	 * Index {@link BlockTextureRegistry#UNTEXTURED_ID} is always the flat "no texture" set.
+	 * Index {@link BlockTextureRegistry#FLAT_SET_ID} is always the flat set.
 	 */
 	private final ShortArrayList setPalette = new ShortArrayList();
 	private final boolean storesSetIds;
@@ -122,7 +122,7 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 		this.usesTextures = texturedLodsEnabledAtDetailLevel(this.getDataDetailLevel());
 		this.storesSetIds = this.usesTextures
 			|| BlockTextureRegistry.modelsDrawnAtDetailLevel(this.getDataDetailLevel());
-		this.setPalette.add(BlockTextureRegistry.UNTEXTURED_ID);
+		this.setPalette.add(BlockTextureRegistry.FLAT_SET_ID);
 		
 		this.attributeContainer = this.pooledArraysCheckout.getByteArray(0, maxDatapointCount * RenderDataPointAttributeUtil.RECORD_SIZE_IN_BYTES);
 	}
@@ -188,7 +188,7 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	public int getPaletteSize() { return this.setPalette.size(); }
 	public short getPaletteSetId(int paletteIndex) { return this.setPalette.getShort(paletteIndex); }
 	
-	/** Sets the texture and fluid data for the given data point */
+	/** Sets the set id and fluid data for the given data point */
 	public void setDataPointAttributes(int posX, int posZ, int verticalIndex, short setId, int fluidAmount, boolean waterlogged)
 	{
 		int paletteIndex = this.getOrAddPaletteIndex(setId) & 0xFF;
@@ -219,11 +219,11 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 			}
 		}
 		
-		if (paletteSize >= MAX_TEXTURE_PALETTE_SIZE)
+		if (paletteSize >= MAX_SET_PALETTE_SIZE)
 		{
 			// sections with too many distinct blocks
-			// gracefully lose textures so they can't take up every possible ID
-			return BlockTextureRegistry.UNTEXTURED_ID;
+			// gracefully fall back to the flat set so they can't take up every possible ID
+			return BlockTextureRegistry.FLAT_SET_ID;
 		}
 		
 		this.setPalette.add(setId);

@@ -21,10 +21,10 @@ package com.seibel.distanthorizons.core.util;
 
 import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 
-/** Texture and fluid data for each render data point, stored in one byte array per ColumnRenderSource */
+/** Set and fluid data for each render data point, stored in one byte array per ColumnRenderSource */
 public class RenderDataPointAttributeUtil
 {
-	// each data point is [texture palette index][fluid amount], size in bytes
+	// each data point is [set palette index][fluid amount], size in bytes
 	public static final int RECORD_SIZE_IN_BYTES = 2;
 
 	// waterlogged blocks are always full, so they're stored as one past full to save space

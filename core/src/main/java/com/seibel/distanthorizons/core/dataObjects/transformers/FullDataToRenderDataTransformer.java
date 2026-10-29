@@ -204,7 +204,7 @@ public class FullDataToRenderDataTransformer
 		FullDataSourceV2 fullDataSource, int blockX, int blockZ, 
 		ColumnRenderView columnArrayView, 
 		LongArrayList fullDataColumn,
-		// only needed for texture ids and fluid amounts, see applyTopBlockData
+		// only needed for set ids and fluid amounts, see applyTopBlockData
 		ColumnRenderSource columnSource, int sourceRelX, int sourceRelZ,
 		// pooled references
 		PhantomArrayListCheckout phantomCheckout, ColumnRenderView tempExpandingColumnView, 
@@ -250,7 +250,7 @@ public class FullDataToRenderDataTransformer
 	}
 	
 	/**
-	 * Determines the texture and fluid amount for each finished render data point
+	 * Determines the set id and fluid amount for each finished render data point
 	 * by finding the full data block at the data point's top. <br>
 	 * The top block is used since merged data points keep their top block's color,
 	 * keeping the texture consistent with the color it multiplies. <br><br>
@@ -277,7 +277,7 @@ public class FullDataToRenderDataTransformer
 			
 			// find the full data point containing the render data point's top block,
 			// the full data column is sorted top down
-			short textureId = 0;
+			short setId = BlockTextureRegistry.FLAT_SET_ID;
 			// liquids default to full, everything else has no liquid
 			int fluidAmount = RenderDataPointUtil.isFluid(renderData) ? LodUtil.MAX_FLUID_AMOUNT : LodUtil.NO_FLUID_AMOUNT;
 			boolean waterlogged = false;
@@ -305,7 +305,7 @@ public class FullDataToRenderDataTransformer
 							&& fullIndex > 0)
 						{
 							// Note: this is a hack.
-							// Since the Render data and textures aren't in the same data array it's difficult to map
+							// Since the Render data and set ids aren't in the same data array it's difficult to map
 							// them together, but this guess works well enough for now.
 							
 							fullData = fullDataColumn.getLong(fullIndex - 1);
@@ -327,7 +327,7 @@ public class FullDataToRenderDataTransformer
 						// This now also runs for fluid changes, so we gotta check if set ids are stored
 						if (columnSource.hasSetIds())
 						{
-							textureId = BlockTextureRegistry.INSTANCE.getOrRegisterBlockStateSetId(block, levelWrapper);
+							setId = BlockTextureRegistry.INSTANCE.getOrRegisterBlockStateSetId(block, levelWrapper);
 						}
 						
 						// Blocks that are replaced with water (like lily pads) don't have fluid, those stay full
@@ -348,7 +348,7 @@ public class FullDataToRenderDataTransformer
 				break;
 			}
 			
-			columnSource.setDataPointAttributes(sourceRelX, sourceRelZ, renderIndex, textureId, fluidAmount, waterlogged);
+			columnSource.setDataPointAttributes(sourceRelX, sourceRelZ, renderIndex, setId, fluidAmount, waterlogged);
 		}
 	}
 	
