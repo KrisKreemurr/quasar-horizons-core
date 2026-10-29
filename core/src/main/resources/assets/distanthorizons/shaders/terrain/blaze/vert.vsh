@@ -8,6 +8,8 @@ layout(location = 1) in vec4 vColor;
 layout(location = 2) in uvec4 materialNormalTile;
 // xyz: offset inside the block in 256ths, w: flags (for future use), see EDhApiTerrainVertexFormat
 layout(location = 3) in uvec4 offsetData;
+// xy: model texture position, zw: normal, see EDhApiTerrainVertexFormat
+layout(location = 4) in uvec4 uvNormal;
 
 // order matters, this must match the fragment shader's inputs
 layout(location = 0) out vec3 vPos;
@@ -17,6 +19,8 @@ layout(location = 2) out vec3 vertexWorldPos;
 layout(location = 3) out vec3 vBlockPos;
 layout(location = 4) flat out uint vNormalIndex;
 layout(location = 5) flat out uint vTextureTileId;
+layout(location = 7) out vec2 vModelUv;
+layout(location = 8) flat out uint vUsesModelUv;
 
 layout (std140) uniform vertUniqueUniformBlock
 {
@@ -73,6 +77,8 @@ void main()
     vBlockPos = vec3(vPosition.xyz);
     vNormalIndex = materialNormalTile.y;
     vTextureTileId = materialNormalTile.z | (materialNormalTile.w << 8u);
+    vModelUv = vec2(uvNormal.xy) / 255.0;
+    vUsesModelUv = offsetData.w & 1u;
     
     ivec3 relOffset = uModelOffset - uCorseCameraPos; // ints needed for extreme (10 million +) distances
     vertexWorldPos = vPosition.xyz + (vec3(relOffset) - uFineCameraPos);
