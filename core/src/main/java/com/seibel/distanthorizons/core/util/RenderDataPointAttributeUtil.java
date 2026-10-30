@@ -24,8 +24,8 @@ import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 /** Set and fluid data for each render data point, stored in one byte array per ColumnRenderSource */
 public class RenderDataPointAttributeUtil
 {
-	// each data point is [set palette index][fluid amount], size in bytes
-	public static final int RECORD_SIZE_IN_BYTES = 2;
+	// each data point is [set palette index, 2 bytes][fluid amount], size in bytes
+	public static final int RECORD_SIZE_IN_BYTES = 3;
 
 	// waterlogged blocks are always full, so they're stored as one past full to save space
 	private static final byte WATERLOGGED_FLUID_AMOUNT = 9;
@@ -34,12 +34,13 @@ public class RenderDataPointAttributeUtil
 
 	public static void setRecord(ByteArrayList data, int offset, int setPaletteIndex, int fluidAmount, boolean waterlogged)
 	{
-		data.set(offset, (byte) setPaletteIndex);
-		data.set(offset + 1, waterlogged ? WATERLOGGED_FLUID_AMOUNT : (byte) fluidAmount);
+		data.set(offset, (byte) (setPaletteIndex >> 8));
+		data.set(offset + 1, (byte) setPaletteIndex);
+		data.set(offset + 2, waterlogged ? WATERLOGGED_FLUID_AMOUNT : (byte) fluidAmount);
 	}
 
-	public static int getSetPaletteIndex(ByteArrayList data, int offset) { return data.getByte(offset) & 0xFF; }
-	public static int getFluidAmount(ByteArrayList data, int offset) { return Math.min(data.getByte(offset + 1), LodUtil.MAX_FLUID_AMOUNT); }
-	public static boolean isWaterlogged(ByteArrayList data, int offset) { return data.getByte(offset + 1) == WATERLOGGED_FLUID_AMOUNT; }
+	public static int getSetPaletteIndex(ByteArrayList data, int offset) { return ((data.getByte(offset) & 0xFF) << 8) | (data.getByte(offset + 1) & 0xFF); }
+	public static int getFluidAmount(ByteArrayList data, int offset) { return Math.min(data.getByte(offset + 2), LodUtil.MAX_FLUID_AMOUNT); }
+	public static boolean isWaterlogged(ByteArrayList data, int offset) { return data.getByte(offset + 2) == WATERLOGGED_FLUID_AMOUNT; }
 
 }

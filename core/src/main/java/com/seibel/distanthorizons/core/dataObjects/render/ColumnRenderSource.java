@@ -31,6 +31,7 @@ import com.seibel.distanthorizons.core.util.RenderDataPointUtil;
 import com.seibel.distanthorizons.core.util.RenderDataPointAttributeUtil;
 import com.seibel.distanthorizons.core.config.Config;
 import it.unimi.dsi.fastutil.bytes.ByteArrayList;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import com.seibel.distanthorizons.core.logging.DhLogger;
@@ -46,14 +47,7 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	
 	/** measured in data columns */
 	public static final int WIDTH = 64;
-	
-	/** 
-	 * Set palettes are indexed by unsigned bytes. <Br>
-	 * This limitation is also done so a single LOD doesn't take
-	 * up every possible set ID available to the world.
-	 */
-	public static final int MAX_SET_PALETTE_SIZE = 256;
-	
+
 	public static final PhantomArrayListPool ARRAY_LIST_POOL = new PhantomArrayListPool("Render Source");
 	
 	
@@ -85,6 +79,8 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	 * Index {@link BlockTextureRegistry#FLAT_SET_ID} is always the flat set.
 	 */
 	private final ShortArrayList setPalette = new ShortArrayList();
+	/** set id -> palette index */
+	private final Int2IntOpenHashMap paletteIndexBySetId = new Int2IntOpenHashMap();
 	private final boolean storesSetIds;
 	private final boolean usesTextures;
 	
@@ -123,6 +119,7 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 		this.storesSetIds = this.usesTextures
 			|| BlockTextureRegistry.modelsDrawnAtDetailLevel(this.getDataDetailLevel());
 		this.setPalette.add(BlockTextureRegistry.FLAT_SET_ID);
+		this.paletteIndexBySetId.put(BlockTextureRegistry.FLAT_SET_ID, 0);
 		
 		this.attributeContainer = this.pooledArraysCheckout.getByteArray(0, maxDatapointCount * RenderDataPointAttributeUtil.RECORD_SIZE_IN_BYTES);
 	}
@@ -191,7 +188,7 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	/** Sets the set id and fluid data for the given data point */
 	public void setDataPointAttributes(int posX, int posZ, int verticalIndex, short setId, int fluidAmount, boolean waterlogged)
 	{
-		int paletteIndex = this.getOrAddPaletteIndex(setId) & 0xFF;
+		int paletteIndex = this.getOrAddPaletteIndex(setId);
 		RenderDataPointAttributeUtil.setRecord(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex), paletteIndex, fluidAmount, waterlogged);
 	}
 	
@@ -204,30 +201,17 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	public boolean isDataPointWaterlogged(int posX, int posZ, int verticalIndex)
 	{ return RenderDataPointAttributeUtil.isWaterlogged(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex)); }
 	
-	private byte getOrAddPaletteIndex(short setId)
+	private int getOrAddPaletteIndex(short setId)
 	{
-		// linear search is fine, palettes hold the few dozen
-		// distinct block appearances of a single 64x64 section
-		// and most lookups hit the first few entries
-		// TODO: Still see if we can improve this
-		int paletteSize = this.setPalette.size();
-		for (int i = 0; i < paletteSize; i++)
+		// the registry has at most 65,536 sets, so indices fit in 2 bytes
+		int paletteIndex = this.paletteIndexBySetId.getOrDefault(setId, -1);
+		if (paletteIndex == -1)
 		{
-			if (this.setPalette.getShort(i) == setId)
-			{
-				return (byte) i;
-			}
+			paletteIndex = this.setPalette.size();
+			this.setPalette.add(setId);
+			this.paletteIndexBySetId.put(setId, paletteIndex);
 		}
-		
-		if (paletteSize >= MAX_SET_PALETTE_SIZE)
-		{
-			// sections with too many distinct blocks
-			// gracefully fall back to the flat set so they can't take up every possible ID
-			return BlockTextureRegistry.FLAT_SET_ID;
-		}
-		
-		this.setPalette.add(setId);
-		return (byte) paletteSize;
+		return paletteIndex;
 	}
 	
 	//endregion
