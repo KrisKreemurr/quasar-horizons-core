@@ -177,7 +177,8 @@ public class BlockTextureRegistry
 		boolean isFluidBlock = blockState.isLiquid() && !blockState.isWaterlogged();
 		// tinted blocks need the LOD's color since their own texture is gray,
 		// API color overrides only change the LOD's color
-		boolean useLodColor = levelWrapper.getBlockNeedsPostTinting(blockState) || blockState.allowApiColorOverride();
+		boolean needPostTinting = levelWrapper.getBlockNeedsPostTinting(blockState);
+		boolean useApiColor = blockState.allowApiColorOverride();
 		boolean anyFaceTextured = false;
 		
 		// UP is first in EDhDirection.ALL so the sides below can fall back to it
@@ -190,7 +191,9 @@ public class BlockTextureRegistry
 				int averageColor = calculateAverageVisibleColor(faceTexture);
 				faceTileIds[faceIndex] = this.getOrCreateTileId(faceTexture, averageColor);
 				
-				faceColors[faceIndex] = useLodColor ? BlockRenderSet.USE_LOD_COLOR : averageColor;
+				// only tinted faces take the biome tint
+				boolean faceUsesLodColor = useApiColor || (needPostTinting && TEXTURE_PROVIDER.isFaceTinted(blockState, direction));
+				faceColors[faceIndex] = faceUsesLodColor ? BlockRenderSet.USE_LOD_COLOR : averageColor;
 				
 				if (direction == EDhDirection.UP)
 				{
@@ -248,7 +251,9 @@ public class BlockTextureRegistry
 			BlockFaceTexture quadTexture = modelQuads[quadIndex].texture;
 			int averageColor = calculateAverageVisibleColor(quadTexture);
 			modelQuadTileIds[quadIndex] = this.getOrCreateTileId(quadTexture, averageColor);
-			modelQuadColors[quadIndex] = useLodColor ? BlockRenderSet.USE_LOD_COLOR : averageColor;
+			// only tinted quads take the biome tint
+			boolean quadUsesLodColor = useApiColor || (needPostTinting && modelQuads[quadIndex].tinted);
+			modelQuadColors[quadIndex] = quadUsesLodColor ? BlockRenderSet.USE_LOD_COLOR : averageColor;
 		}
 		
 		short setId;

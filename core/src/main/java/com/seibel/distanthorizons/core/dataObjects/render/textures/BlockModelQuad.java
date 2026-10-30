@@ -38,6 +38,8 @@ public class BlockModelQuad
 	public final short packedNormal;
 	/** the side the quad faces the most */
 	public final EDhDirection shadeDirection;
+	/** takes the block's tint color */
+	public final boolean tinted;
 	
 	
 	
@@ -86,10 +88,11 @@ public class BlockModelQuad
 	/** all inputs are in the range [0,1] */
 	public BlockModelQuad(
 		float[] xByVertex, float[] yByVertex, float[] zByVertex, float[] uByVertex, float[] vByVertex,
-		BlockFaceTexture texture, @Nullable EDhDirection cullDirection)
+		BlockFaceTexture texture, @Nullable EDhDirection cullDirection, boolean tinted)
 	{
 		this.texture = texture;
 		this.cullDirection = cullDirection;
+		this.tinted = tinted;
 		
 		for (int i = 0; i < 4; i++)
 		{

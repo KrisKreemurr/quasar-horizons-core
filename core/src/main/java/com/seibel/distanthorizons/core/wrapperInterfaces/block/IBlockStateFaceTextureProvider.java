@@ -50,6 +50,9 @@ public interface IBlockStateFaceTextureProvider extends IBindable
 	 */
 	BlockModelQuad[] getModel(IBlockStateWrapper blockState);
 
+	/** True if this face takes the block's tint color */
+	boolean isFaceTinted(IBlockStateWrapper blockState, EDhDirection direction);
+	
 	/** Should be called whenever MC's textures change, IE when resource packs are swapped. */
 	void clear();
 
