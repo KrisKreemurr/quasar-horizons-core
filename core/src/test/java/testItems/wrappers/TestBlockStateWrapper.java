@@ -34,6 +34,7 @@ public class TestBlockStateWrapper implements IBlockStateWrapper
 	@Override public boolean isFaceFull(EDhDirection direction) { return true; }
 	@Override public boolean allowApiColorOverride() { return false; }
 	@Override public boolean allowApiTextureOverride() { return false; }
+	@Override public boolean allowApiModelOverride() { return false; }
 	@Override public Color getMapColor() { return Color.MAGENTA; }
 	@Override public Color getBeaconTintColor() { return Color.MAGENTA; }
 	@Override public boolean renderTexture() { return true; }

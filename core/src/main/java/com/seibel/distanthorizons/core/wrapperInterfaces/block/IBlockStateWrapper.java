@@ -21,6 +21,7 @@ package com.seibel.distanthorizons.core.wrapperInterfaces.block;
 
 import com.seibel.distanthorizons.api.interfaces.block.IDhApiBlockStateWrapper;
 import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiBlockColorOverrideEvent;
+import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiBlockModelOverrideEvent;
 import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiBlockTextureOverrideEvent;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.util.LodUtil;
@@ -121,6 +122,11 @@ public interface IBlockStateWrapper extends IDhApiBlockStateWrapper
 	 * by {@link DhApiBlockTextureOverrideEvent}
 	 */
 	boolean allowApiTextureOverride();
+	/**
+	 * if true this block can have its model overridden
+	 * by {@link DhApiBlockModelOverrideEvent}
+	 */
+	boolean allowApiModelOverride();
 	
 	Color getMapColor();
 	Color getBeaconTintColor();

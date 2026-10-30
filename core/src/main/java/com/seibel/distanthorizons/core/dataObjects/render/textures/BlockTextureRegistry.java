@@ -158,7 +158,7 @@ public class BlockTextureRegistry
 	/** Decides which block states are drawn with their model */
 	public static boolean usesModel(IBlockStateWrapper blockState)
 	{
-		return !blockState.isFullBlock()
+		return (!blockState.isFullBlock() || blockState.allowApiModelOverride())
 			&& !blockState.isLiquid();
 	}
 	
