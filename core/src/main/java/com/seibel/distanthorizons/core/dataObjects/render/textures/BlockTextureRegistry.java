@@ -155,20 +155,6 @@ public class BlockTextureRegistry
 		return this.renderSetsById.get(setId);
 	}
 	
-	/** Decides which block states are drawn with their model */
-	public static boolean usesModel(IBlockStateWrapper blockState)
-	{
-		return (!blockState.isFullBlock() || blockState.allowApiModelOverride())
-			&& !blockState.isLiquid();
-	}
-	
-	/** Models are only drawn at block detail */
-	public static boolean modelsDrawnAtDetailLevel(byte dataDetailLevel)
-	{
-		return Config.Client.Advanced.Graphics.Quality.enableBlockModels.get()
-			&& dataDetailLevel == LodUtil.BLOCK_DETAIL_LEVEL;
-	}
-	
 	private short registerBlockState(IBlockStateWrapper blockState, IClientLevelWrapper levelWrapper)
 	{
 		short[] faceTileIds = new short[6]; // 6 faces on a cube
@@ -293,6 +279,29 @@ public class BlockTextureRegistry
 			case NORTH: return 3;
 			default: return 0;
 		}
+	}
+	
+	//endregion
+	
+	
+	
+	//==============//
+	// block models //
+	//==============//
+	//region
+	
+	/** Decides which block states are drawn with their model */
+	public static boolean usesModel(IBlockStateWrapper blockState)
+	{
+		return (!blockState.isFullBlock() || blockState.allowApiModelOverride())
+			&& !blockState.isLiquid();
+	}
+	
+	/** Models are only drawn at block detail */
+	public static boolean modelsDrawnAtDetailLevel(byte dataDetailLevel)
+	{
+		return Config.Client.Advanced.Graphics.Quality.enableBlockModels.get()
+			&& dataDetailLevel == LodUtil.BLOCK_DETAIL_LEVEL;
 	}
 	
 	//endregion
