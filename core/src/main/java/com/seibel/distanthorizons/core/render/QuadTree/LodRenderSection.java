@@ -21,11 +21,12 @@ package com.seibel.distanthorizons.core.render.QuadTree;
 
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiTerrainVertexFormat;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiTransparency;
+import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.IDhApiDebugWireframeRenderer;
+import com.seibel.distanthorizons.coreapi.DependencyInjection.OverrideInjector;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
-import com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding.FluidSurfaceUtil;
 import com.seibel.distanthorizons.core.dataObjects.render.columnViews.ColumnRenderView;
 import com.seibel.distanthorizons.core.util.RenderDataPointUtil;
 import com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding.ColumnRenderBufferBuilder;
@@ -88,11 +89,11 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 	 * for cached render data caching purposes, but not
 	 * for re-creating missing nodes.
 	 */
-	public boolean renderDataDirty = false;
+	public volatile boolean renderDataDirty = false;
 	public boolean queuedMissingSectionsForRetrieval = false;
 	
 	/** this reference is necessary so we can determine what VBO to render */
-	public LodBufferContainer renderBufferContainer; 
+	public volatile LodBufferContainer renderBufferContainer;
 	
 	
 	/** 
@@ -413,6 +414,20 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 					return;
 				}
 				
+				if (parentFuture.isCancelled()
+					// Should fix a bug where a renderer switch happens at just the wrong time.
+					|| bufferContainer.isIncompatibleWith(OverrideInjector.INSTANCE.get(AbstractDhApiRenderDefinition.class)))
+				{
+					// if the parent future was canceled that likely means
+					// this LodRenderSection was closed before this point,
+					// meaning this buffer will become homeless, 
+					// so we need to clean it up here
+					bufferContainer.close();
+					
+					this.renderDataDirty = true;
+					return;
+				}
+				
 				// close the old container
 				LodBufferContainer oldContainer = this.renderBufferContainer;
 				this.renderBufferContainer = bufferContainer.buffersUploaded ? bufferContainer : null;
@@ -423,16 +438,6 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 				
 				// upload complete
 				this.renderDataDirty = false;
-				
-				
-				if (parentFuture.isCancelled())
-				{
-					// if the parent future was canceled that likely means
-					// this LodRenderSection was closed before this point,
-					// meaning this buffer will become homeless, 
-					// so we need to clean it up here
-					bufferContainer.close();
-				}
 			}
 			catch (Exception finishEx)
 			{
@@ -556,9 +561,11 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 		
 		
 		this.setRenderingEnabled(false);
-		if (this.renderBufferContainer != null)
+		LodBufferContainer oldContainer = this.renderBufferContainer;
+		this.renderBufferContainer = null;
+		if (oldContainer != null)
 		{
-			this.renderBufferContainer.close();
+			oldContainer.close();
 		}
 		
 	}

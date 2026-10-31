@@ -380,7 +380,7 @@ public class LodRenderer
 		// rendering //
 		//===========//
 		
-		SortedArraySet<LodBufferContainer> lodBufferContainer = lodBufferHandler.getColumnRenderBuffers();
+		SortedArraySet<LodBufferContainer> lodBufferContainer = lodBufferHandler.getColumnRenderBuffers(renderEventParam);
 		if (lodBufferContainer != null)
 		{
 			terrainRenderer.render(renderEventParam, opaquePass, lodBufferContainer);

@@ -22,6 +22,7 @@ package com.seibel.distanthorizons.core.render;
 import com.seibel.distanthorizons.api.DhApi;
 import com.seibel.distanthorizons.api.interfaces.override.rendering.IDhApiCullingFrustum;
 import com.seibel.distanthorizons.api.interfaces.override.rendering.IDhApiShadowCullingFrustum;
+import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding.LodBufferContainer;
 import com.seibel.distanthorizons.core.dependencyInjection.ModAccessorInjector;
@@ -68,6 +69,7 @@ public class RenderBufferHandler implements AutoCloseable
 	public final LodQuadTree lodQuadTree;
 	
 	private final SortedArraySet<LodBufferContainer> loadedNearToFarBuffers;
+	private AbstractDhApiRenderDefinition currentRenderDefinition;
 	/** camera position the buffers are sorted relative to, updated in {@link #buildRenderList} */
 	private double sortCameraBlockX;
 	private double sortCameraBlockZ;
@@ -147,6 +149,7 @@ public class RenderBufferHandler implements AutoCloseable
 		
 		// clear the old list so we can start fresh
 		this.loadedNearToFarBuffers.clear();
+		this.currentRenderDefinition = renderParams.renderDefinition;
 		
 		
 		
@@ -259,6 +262,13 @@ public class RenderBufferHandler implements AutoCloseable
 					continue;
 				}
 				
+				if (bufferContainer.isIncompatibleWith(renderParams.renderDefinition))
+				{
+					// if the render data doesn't match, we'll need it to be re-generated
+					renderSection.renderDataDirty = true;
+					continue;
+				}
+
 				this.loadedNearToFarBuffers.add(bufferContainer);
 			}
 			catch (Exception e)
@@ -293,7 +303,17 @@ public class RenderBufferHandler implements AutoCloseable
 	//================//
 	//region
 	
-	public SortedArraySet<LodBufferContainer> getColumnRenderBuffers() { return this.loadedNearToFarBuffers; }
+	public SortedArraySet<LodBufferContainer> getColumnRenderBuffers(RenderParam renderParams)
+	{
+		// If we don't check this, when the renderer changes, it might reuse the wrong/old objects
+		if (this.currentRenderDefinition != renderParams.renderDefinition)
+		{
+			// the render definition changed, rebuild everything to use the new objects 
+			this.buildRenderList(renderParams);
+		}
+		
+		return this.loadedNearToFarBuffers;
+	}
 	
 	//endregion
 	

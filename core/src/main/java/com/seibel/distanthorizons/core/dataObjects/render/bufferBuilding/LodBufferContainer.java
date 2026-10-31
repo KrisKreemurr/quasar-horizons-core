@@ -107,6 +107,12 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	@Override public IDhApiVertexBufferWrapper[] getVboTransparentWrappers() { return this.vboTransparentWrappers; }
 	@Override public IDhApiTerrainContainerUniformBufferWrapper getUniformContainer() { return this.uniformContainer; }
 	
+	public boolean isIncompatibleWith(AbstractDhApiRenderDefinition renderDefinition)
+	{
+		return this.renderDef != renderDefinition
+			|| this.vertexFormat != renderDefinition.getTerrainVertexFormat();
+	}
+	
 	//endregion
 	
 	
