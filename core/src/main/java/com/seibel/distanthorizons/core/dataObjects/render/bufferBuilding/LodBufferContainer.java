@@ -23,6 +23,7 @@ import com.seibel.distanthorizons.api.enums.rendering.EDhApiTerrainVertexFormat;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.objects.IDhApiTerrainBufferContainer;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.objects.IDhApiVertexBufferWrapper;
+import com.seibel.distanthorizons.api.objects.math.DhApiVec3i;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.logging.DhLogger;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
@@ -59,7 +60,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	
 	
 	/** the position closest to minimum X/Z infinity and the level's lowest Y */
-	public final DhBlockPos minCornerBlockPos;
+	public final DhApiVec3i minCornerBlockPos;
 	public final long pos;
 	private final EDhApiTerrainVertexFormat vertexFormat;
 	
@@ -86,7 +87,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	private LodBufferContainer(long pos, DhBlockPos minCornerBlockPos, EDhApiTerrainVertexFormat vertexFormat)
 	{
 		this.pos = pos;
-		this.minCornerBlockPos = minCornerBlockPos;
+		this.minCornerBlockPos = new DhApiVec3i(minCornerBlockPos.getX(), minCornerBlockPos.getY(), minCornerBlockPos.getZ());
 		this.vertexFormat = vertexFormat;
 		this.vboOpaqueWrappers = new IDhApiVertexBufferWrapper[0];
 		this.vboTransparentWrappers = new IDhApiVertexBufferWrapper[0];
@@ -106,6 +107,17 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	@Override public IDhApiVertexBufferWrapper[] getVboOpaqueWrappers() { return this.vboOpaqueWrappers; }
 	@Override public IDhApiVertexBufferWrapper[] getVboTransparentWrappers() { return this.vboTransparentWrappers; }
 	@Override public IDhApiTerrainContainerUniformBufferWrapper getUniformContainer() { return this.uniformContainer; }
+	
+	@Override public byte getDetailLevel() 
+	{ 
+		// subtract DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL so API users see a 0+ detail level
+		// instead of our internal 6+ detail level
+		return (byte)(DhSectionPos.getDetailLevel(this.pos) - DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL); 
+	}
+	@Override public int getLodPosX() { return DhSectionPos.getX(this.pos); }
+	@Override public int getLodPosZ() { return DhSectionPos.getZ(this.pos); }
+	
+	@Override public DhApiVec3i getMinCornerBlockPos() { return this.minCornerBlockPos; }
 	
 	public boolean isIncompatibleWith(AbstractDhApiRenderDefinition renderDefinition)
 	{

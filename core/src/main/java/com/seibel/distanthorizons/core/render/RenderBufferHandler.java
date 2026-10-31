@@ -255,8 +255,10 @@ public class RenderBufferHandler implements AutoCloseable
 			try
 			{
 				LodBufferContainer bufferContainer = renderSection.renderBufferContainer;
+				
 				if (bufferContainer == null
-					|| !renderSection.getRenderingEnabled())
+					|| !renderSection.getRenderingEnabled()
+					|| !bufferContainer.buffersUploaded)
 				{
 					// shouldn't happen, but just in case
 					continue;

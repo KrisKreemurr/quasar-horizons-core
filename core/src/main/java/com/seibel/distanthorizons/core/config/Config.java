@@ -1220,7 +1220,7 @@ public class Config
 						.addListener(ReloadLodsConfigEventHandler.INSTANT_INSTANCE)
 						.build();
 					public static ConfigEntry<Integer> columnBuilderDebugDetailLevel = new ConfigEntry.Builder<Integer>()
-						.set((int) DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL)
+						.set(0)
 						.setAppearance(EConfigEntryAppearance.ONLY_IN_GUI)
 						.addListener(ReloadLodsConfigEventHandler.INSTANT_INSTANCE)
 						.build();
