@@ -946,4 +946,19 @@ public class ClientApi
 	
 	
 	
+	//================//
+	// helper methods //
+	//================//
+	//region
+	
+	/** Called when the world is closed so the last rendered level can be garbage collected. */
+	public static void clearLevelReferences()
+	{
+		RENDER_STATE.clearLevelReferences();
+		RENDER_PARAMS.clearLevelReferences();
+	}
+	
+	//endregion
+	
+	
 }

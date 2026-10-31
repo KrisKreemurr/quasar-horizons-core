@@ -167,10 +167,7 @@ public class DhApiRenderParam implements IDhApiEventParam
 	 * Clearing the level reference is necessary so the level 
 	 * can be garbage collected once the world closes.
 	 */
-	public void clearLevelRef()
-	{
-		this.clientLevelWrapper = null;
-	}
+	public void clearLevelReferences() { this.clientLevelWrapper = null; }
 	
 	//endregion
 	

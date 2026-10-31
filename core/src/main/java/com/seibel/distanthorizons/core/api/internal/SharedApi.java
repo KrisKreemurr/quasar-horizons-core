@@ -138,6 +138,8 @@ public class SharedApi
 				BlockTextureRegistry.INSTANCE.clear();
 				WorldGeneratorInjector.INSTANCE.clear();
 				
+				ClientApi.clearLevelReferences();
+				
 				// cache clearing is necessary for certain mods that need biomes (Polytone)
 				// generated specifically for this world
 				BlockBiomeWrapperPair.clearCache();

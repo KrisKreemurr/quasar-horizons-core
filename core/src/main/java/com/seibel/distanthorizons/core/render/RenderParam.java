@@ -111,6 +111,30 @@ public class RenderParam extends DhApiRenderParam
 	
 	
 	
+	//================//
+	// helper methods //
+	//================//
+	//region
+	
+	/** Called when the world is closed so the last rendered level can be garbage collected. */
+	@Override
+	public void clearLevelReferences()
+	{
+		super.clearLevelReferences();
+		this.apiCopy.clearLevelReferences();
+		
+		this.dhClientWorld = null;
+		this.dhClientLevel = null;
+		this.clientLevelWrapper = null;
+		this.lightmap = null;
+		this.renderBufferHandler = null;
+		this.genericRegister = null;
+	}
+	
+	//endregion
+	
+	
+	
 	//======================//
 	// parameter validation //
 	//======================//
