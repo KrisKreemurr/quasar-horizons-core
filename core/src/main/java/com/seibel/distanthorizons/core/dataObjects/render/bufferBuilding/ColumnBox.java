@@ -24,6 +24,7 @@ import com.seibel.distanthorizons.api.enums.rendering.EDhApiTransparency;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureSet;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.level.IDhClientLevel;
@@ -63,7 +64,7 @@ public class ColumnBox
 		int color, int rawDataPointColor, byte irisBlockMaterialId, byte skyLight, byte blockLight,
 		long topData, long bottomData, 
 		ColumnRenderView[] adjData, boolean[] isAdjDataSameDetailLevel,
-		short @Nullable [] faceTileIdsByDirectionOrdinal, short topDrops)
+		short @Nullable [] faceTileIdsByDirectionOrdinal, int @Nullable [] faceColors, short topDrops)
 	{
 		//================//
 		// variable setup //
@@ -140,10 +141,11 @@ public class ColumnBox
 					&& !(RenderDataPointUtil.isFluid(bottomData) && RenderDataPointUtil.getBlockMaterialId(bottomData) != irisBlockMaterialId);
 			if (!skipBottom)
 			{
+				int bottomColor = getFaceColor(color, faceColors, EDhDirection.DOWN);
 				builder.addQuadDown(
 					minX, minY, minZ, 
 					blockWidth, 
-					ColorUtil.applyShade(color, clientLevelWrapper.getShade(EDhDirection.DOWN)), tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.DOWN), 
+					ColorUtil.applyShade(bottomColor, clientLevelWrapper.getShade(EDhDirection.DOWN)), tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.DOWN), 
 					irisBlockMaterialId, 
 					skyLightBottom, blockLight);
 			}
@@ -157,6 +159,7 @@ public class ColumnBox
 		
 		// NORTH face
 		{
+			int northColor = getFaceColor(color, faceColors, EDhDirection.NORTH);
 			ColumnRenderView adjCol = adjData[EDhDirection.NORTH.compassIndex];
 			boolean adjSameDetailLevel = isAdjDataSameDetailLevel[EDhDirection.NORTH.compassIndex];
 			// if the adjacent column is null that generally means the adjacent area hasn't been generated yet
@@ -169,7 +172,7 @@ public class ColumnBox
 						EDhDirection.NORTH, 
 						minX, minY, minZ, 
 						blockWidth, yHeight, 
-						color, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.NORTH),
+						northColor, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.NORTH),
 						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops);
 				}
 			}
@@ -180,12 +183,13 @@ public class ColumnBox
 					adjCol, faceTileIdsByDirectionOrdinal,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.NORTH, 
 					minX, minY, minZ, blockWidth, yHeight,
-					color, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
+					northColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
 			}
 		}
 		
 		// SOUTH face
 		{
+			int southColor = getFaceColor(color, faceColors, EDhDirection.SOUTH);
 			ColumnRenderView adjCol = adjData[EDhDirection.SOUTH.compassIndex];
 			boolean adjSameDetailLevel = isAdjDataSameDetailLevel[EDhDirection.SOUTH.compassIndex];
 			if (adjCol == null)
@@ -196,7 +200,7 @@ public class ColumnBox
 						EDhDirection.SOUTH, 
 						minX, minY, maxZ, 
 						blockWidth, yHeight, 
-						color, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.SOUTH),
+						southColor, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.SOUTH),
 						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops);
 				}
 			}
@@ -207,12 +211,13 @@ public class ColumnBox
 					adjCol, faceTileIdsByDirectionOrdinal,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.SOUTH,
 					minX, minY, maxZ, blockWidth, yHeight,
-					color, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
+					southColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
 			}
 		}
 		
 		// WEST face
 		{
+			int westColor = getFaceColor(color, faceColors, EDhDirection.WEST);
 			ColumnRenderView adjCol = adjData[EDhDirection.WEST.compassIndex];
 			boolean adjSameDetailLevel = isAdjDataSameDetailLevel[EDhDirection.WEST.compassIndex];
 			if (adjCol == null)
@@ -223,7 +228,7 @@ public class ColumnBox
 						EDhDirection.WEST, 
 						minX, minY, minZ, 
 						blockWidth, yHeight, 
-						color, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.WEST),
+						westColor, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.WEST),
 						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops);
 				}
 			}
@@ -234,12 +239,13 @@ public class ColumnBox
 					adjCol, faceTileIdsByDirectionOrdinal,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.WEST, 
 					minX, minY, minZ, blockWidth, yHeight,
-					color, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
+					westColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
 			}
 		}
 		
 		// EAST face
 		{
+			int eastColor = getFaceColor(color, faceColors, EDhDirection.EAST);
 			ColumnRenderView adjCol = adjData[EDhDirection.EAST.compassIndex];
 			boolean adjSameDetailLevel = isAdjDataSameDetailLevel[EDhDirection.EAST.compassIndex];
 			if (adjCol == null)
@@ -250,7 +256,7 @@ public class ColumnBox
 						EDhDirection.EAST, 
 						maxX, minY, minZ, 
 						blockWidth, yHeight, 
-						color, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.EAST),
+						eastColor, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.EAST),
 						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops);
 				}
 			}
@@ -261,7 +267,7 @@ public class ColumnBox
 					adjCol, faceTileIdsByDirectionOrdinal,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.EAST, 
 					maxX, minY, minZ, blockWidth, yHeight,
-					color, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
+					eastColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
 			}
 		}
 	}
@@ -587,6 +593,19 @@ public class ColumnBox
 		}
 		
 		return faceTileIdsByDirectionOrdinal[direction.faceIndex];
+	}
+	
+	/** @return the face's own color if it has one, otherwise the LOD's color */
+	private static int getFaceColor(int lodColor, int @Nullable [] faceColors, EDhDirection direction)
+	{
+		if (faceColors == null
+			|| faceColors[direction.faceIndex] == BlockTextureSet.USE_LOD_COLOR)
+		{
+			return lodColor;
+		}
+		
+		// the LOD's alpha is kept so transparency doesn't change
+		return ColorUtil.setAlpha(faceColors[direction.faceIndex], ColorUtil.getAlpha(lodColor));
 	}
 	
 	/**

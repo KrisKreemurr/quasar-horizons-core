@@ -26,6 +26,7 @@ import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureSet;
 import com.seibel.distanthorizons.core.logging.DhLogger;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout;
@@ -104,6 +105,7 @@ public class ColumnRenderBufferBuilder
 			adjColumnViews[EDhDirection.EAST.compassIndex] = eastAdjView;
 			adjColumnViews[EDhDirection.WEST.compassIndex] = westAdjView;
 			short[] flowingFaceTileIds = new short[EDhDirection.ALL.length];
+			int[] adjustedFaceColors = new int[EDhDirection.ALL.length];
 			
 			
 			byte thisDetailLevel = renderSource.getDataDetailLevel();
@@ -279,10 +281,16 @@ public class ColumnRenderBufferBuilder
 						
 						// determine which textures this data point's quads should use
 						short[] faceTileIdsByDirectionOrdinal = null;
+						int[] faceColors = null;
 						if (renderSource.hasTextureSetIds())
 						{
 							short textureSetId = renderSource.getDataPointTextureSetId(relX, relZ, i);
-							faceTileIdsByDirectionOrdinal = BlockTextureRegistry.INSTANCE.getFaceTileIds(textureSetId);
+							BlockTextureSet textureSet = BlockTextureRegistry.INSTANCE.getTextureSet(textureSetId);
+							if (textureSet != null)
+							{
+								faceTileIdsByDirectionOrdinal = textureSet.faceTileIds;
+								faceColors = textureSet.faceColors;
+							}
 						}
 						
 						short topDrops = FluidSurfaceUtil.createNoDrop();
@@ -305,7 +313,7 @@ public class ColumnRenderBufferBuilder
 						addRenderDataPointToBuilder(
 							clientLevelWrapper, phantomArrayCheckout,
 							data, topDataPoint, bottomDataPoint,
-							adjColumnViews, isSameDetailLevel, faceTileIdsByDirectionOrdinal,
+							adjColumnViews, isSameDetailLevel, faceTileIdsByDirectionOrdinal, faceColors, adjustedFaceColors,
 							thisDetailLevel, relX, relZ,
 							quadBuilder, topDrops);
 					}
@@ -318,7 +326,8 @@ public class ColumnRenderBufferBuilder
 	private static void addRenderDataPointToBuilder(
 			IClientLevelWrapper clientLevelWrapper, PhantomArrayListCheckout phantomArrayCheckout,
 			long renderData, long topRenderData, long bottomRenderData, 
-			ColumnRenderView[] adjColumnViews, boolean[] isSameDetailLevel, short @Nullable [] faceTileIdsByDirectionOrdinal,
+			ColumnRenderView[] adjColumnViews, boolean[] isSameDetailLevel, short @Nullable [] faceTileIdsByDirectionOrdinal, 
+			int @Nullable [] faceColors, int[] adjustedFaceColors,
 			byte detailLevel, int renderSourceOffsetPosX, int renderSourceOffsetPosZ, 
 			LodQuadBuilder quadBuilder, short topDrops)
 	{
@@ -344,6 +353,7 @@ public class ColumnRenderBufferBuilder
 		
 		
 		int color;
+		int[] finalFaceColors = null;
 		boolean fullBright = false;
 		EDhApiDebugRendering debugging = Config.Client.Advanced.Debugging.debugRenderingColors.get();
 		switch (debugging)
@@ -352,14 +362,19 @@ public class ColumnRenderBufferBuilder
 			{
 				float saturationMultiplier = Config.Client.Advanced.Graphics.Quality.saturationMultiplier.get();
 				float brightnessMultiplier = Config.Client.Advanced.Graphics.Quality.brightnessMultiplier.get();
-				if (saturationMultiplier == 1.0 && brightnessMultiplier == 1.0)
+				color = applyColorSettings(RenderDataPointUtil.getColor(renderData), saturationMultiplier, brightnessMultiplier);
+				
+				// grass sides fade from the LOD's color, see LodQuadBuilder
+				if (faceColors != null
+					&& blockMaterialId != EDhApiBlockMaterial.GRASS.index)
 				{
-					color = RenderDataPointUtil.getColor(renderData);
-				}
-				else
-				{
-					float[] ahsv = ColorUtil.argbToAhsv(RenderDataPointUtil.getColor(renderData));
-					color = ColorUtil.ahsvToArgb(ahsv[0], ahsv[1], ahsv[2] * saturationMultiplier, ahsv[3] * brightnessMultiplier);
+					for (int faceIndex = 0; faceIndex < faceColors.length; faceIndex++)
+					{
+						adjustedFaceColors[faceIndex] = (faceColors[faceIndex] == BlockTextureSet.USE_LOD_COLOR)
+							? BlockTextureSet.USE_LOD_COLOR
+							: applyColorSettings(faceColors[faceIndex], saturationMultiplier, brightnessMultiplier);
+					}
+					finalFaceColors = adjustedFaceColors;
 				}
 				break;
 			}
@@ -450,7 +465,19 @@ public class ColumnRenderBufferBuilder
 			RenderDataPointUtil.getLightSky(renderData),
 			fullBright ? LodUtil.MAX_MC_LIGHT : RenderDataPointUtil.getLightBlock(renderData),
 			topRenderData, bottomRenderData, adjColumnViews, isSameDetailLevel,
-			faceTileIdsByDirectionOrdinal, topDrops);
+			faceTileIdsByDirectionOrdinal, finalFaceColors, topDrops);
+	}
+	
+	/** applies the saturation and brightness settings */
+	private static int applyColorSettings(int color, float saturationMultiplier, float brightnessMultiplier)
+	{
+		if (saturationMultiplier == 1.0 && brightnessMultiplier == 1.0)
+		{
+			return color;
+		}
+		
+		float[] ahsv = ColorUtil.argbToAhsv(color);
+		return ColorUtil.ahsvToArgb(ahsv[0], ahsv[1], ahsv[2] * saturationMultiplier, ahsv[3] * brightnessMultiplier);
 	}
 	
 }

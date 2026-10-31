@@ -23,6 +23,7 @@ import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateFaceTextureProvider;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
+import com.seibel.distanthorizons.core.wrapperInterfaces.world.IClientLevelWrapper;
 import com.seibel.distanthorizons.coreapi.util.ColorUtil;
 import com.seibel.distanthorizons.coreapi.util.TextureUtil;
 import org.jetbrains.annotations.Nullable;
@@ -78,9 +79,9 @@ public class BlockTextureRegistry
 	
 	/** 
 	 * indexed by set id (stored by {@link BlockTextureRegistry#setIdByBlockStateWrapper}), 
-	 * holds the 6 face tile ids for one block state.
+	 * holds the face tiles and colors for one block state.
 	 */
-	private final ArrayList<short[]> faceTileIdsBySetId = new ArrayList<>();
+	private final ArrayList<BlockTextureSet> textureSetsById = new ArrayList<>();
 	private final ConcurrentHashMap<IBlockStateWrapper, Short> setIdByBlockStateWrapper = new ConcurrentHashMap<>();
 	
 	
@@ -106,7 +107,7 @@ public class BlockTextureRegistry
 		this.tilePixelsById.add(flatPixels);
 		
 		// reserve the all-flat face set so set id 0 always renders flat
-		this.faceTileIdsBySetId.add(new short[6]);
+		this.textureSetsById.add(new BlockTextureSet());
 	}
 	
 	//endregion
@@ -125,68 +126,82 @@ public class BlockTextureRegistry
 	 *
 	 * @return {@link BlockTextureRegistry#UNTEXTURED_ID} if no textures are available
 	 */
-	public short getOrRegisterBlockStateSetId(IBlockStateWrapper blockState)
+	public short getOrRegisterBlockStateSetId(IBlockStateWrapper blockState, IClientLevelWrapper levelWrapper)
 	{
 		Short setId = this.setIdByBlockStateWrapper.get(blockState);
 		if (setId == null)
 		{
-			setId = this.registerBlockState(blockState);
+			setId = this.registerBlockState(blockState, levelWrapper);
 		}
 		return setId;
 	}
 	
 	/**
-	 * Returns the tile id for each face of the given set,
-	 * indexed by {@link EDhDirection#faceIndex}. <br>
-	 * The returned array must not be modified.
+	 * Returns the face tiles and colors of the given set. <br>
+	 * The returned set must not be modified.
 	 *
 	 * @return null if the set id is invalid or the flat set
 	 */
-	public synchronized short @Nullable [] getFaceTileIds(int setId)
+	public synchronized @Nullable BlockTextureSet getTextureSet(int setId)
 	{
-		if (setId <= UNTEXTURED_ID || setId >= this.faceTileIdsBySetId.size())
+		if (setId <= UNTEXTURED_ID || setId >= this.textureSetsById.size())
 		{
 			return null;
 		}
-		return this.faceTileIdsBySetId.get(setId);
+		return this.textureSetsById.get(setId);
 	}
 	
-	private short registerBlockState(IBlockStateWrapper blockState)
+	private short registerBlockState(IBlockStateWrapper blockState, IClientLevelWrapper levelWrapper)
 	{
 		short[] faceTileIds = new short[6]; // 6 faces on a cube
+		int[] faceColors = new int[6];
+		int upAverageColor = 0;
+		boolean isFluidBlock = blockState.isLiquid() && !blockState.isWaterlogged();
+		// tinted blocks need the LOD's color since their own texture is gray,
+		// API color overrides only change the LOD's color
+		boolean useLodColor = levelWrapper.getBlockNeedsPostTinting(blockState) || blockState.allowApiColorOverride();
 		boolean anyFaceTextured = false;
 		
+		// UP is first in EDhDirection.ALL so the sides below can fall back to it
 		for (EDhDirection direction : EDhDirection.ALL)
 		{
+			int faceIndex = direction.faceIndex;
 			BlockFaceTexture faceTexture = TEXTURE_PROVIDER.getFaceTexture(blockState, direction);
-			short tileId = (faceTexture != null)
-					? this.getOrCreateTileId(faceTexture)
-					: UNTEXTURED_ID;
+			if (faceTexture != null)
+			{
+				int averageColor = calculateAverageVisibleColor(faceTexture);
+				faceTileIds[faceIndex] = this.getOrCreateTileId(faceTexture, averageColor);
+				
+				faceColors[faceIndex] = useLodColor ? BlockTextureSet.USE_LOD_COLOR : averageColor;
+				
+				if (direction == EDhDirection.UP)
+				{
+					upAverageColor = averageColor;
+				}
+			}
 			
 			// If no texture exists in the current north/sout/west/east direction,
 			// try using the top instead.
 			// This fixes fences, walls, anvils, etc.
 			// from having untextured sides, but textured tops
-			if (tileId == UNTEXTURED_ID
+			int upIndex = EDhDirection.UP.faceIndex;
+			if (faceTileIds[faceIndex] == UNTEXTURED_ID
+				&& faceTileIds[upIndex] != UNTEXTURED_ID
 				&& direction != EDhDirection.UP
 				&& direction != EDhDirection.DOWN)
 			{
-				faceTexture = TEXTURE_PROVIDER.getFaceTexture(blockState, EDhDirection.UP);
-				tileId = (faceTexture != null)
-					? this.getOrCreateTileId(faceTexture)
-					: UNTEXTURED_ID;
+				faceTileIds[faceIndex] = faceTileIds[upIndex];
+				faceColors[faceIndex] = faceColors[upIndex];
 			}
 			
-			faceTileIds[direction.faceIndex] = tileId;
-			anyFaceTextured |= (tileId != UNTEXTURED_ID);
+			anyFaceTextured |= (faceTileIds[faceIndex] != UNTEXTURED_ID);
 		}
 		
-		boolean isFluidBlock = blockState.isLiquid() && !blockState.isWaterlogged();
 		BlockFaceTexture flowTexture = isFluidBlock ? TEXTURE_PROVIDER.getFaceTexture(blockState, EDhDirection.UP) : null;
 		if (flowTexture != null)
 		{
 			// stripes run down the sides, like vanilla's flowing texture
-			short sideTileId = this.getOrCreateTileId(flowTexture.createWithQuarterTurns(1));
+			short sideTileId = this.getOrCreateTileId(flowTexture.createWithQuarterTurns(1), upAverageColor);
 			for (EDhDirection direction : EDhDirection.CARDINAL_COMPASS)
 			{
 				faceTileIds[direction.faceIndex] = sideTileId;
@@ -196,7 +211,7 @@ public class BlockTextureRegistry
 			for (EDhDirection direction : EDhDirection.CARDINAL_COMPASS)
 			{
 				BlockFaceTexture turnedTexture = flowTexture.createWithQuarterTurns(getFlowQuarterTurns(direction));
-				faceTileIds[FLUID_FLOW_TILE_INDEX + direction.compassIndex] = this.getOrCreateTileId(turnedTexture);
+				faceTileIds[FLUID_FLOW_TILE_INDEX + direction.compassIndex] = this.getOrCreateTileId(turnedTexture, upAverageColor);
 			}
 		}
 		
@@ -212,14 +227,14 @@ public class BlockTextureRegistry
 			// synchronized to prevent concurrent array modifications
 			synchronized (this)
 			{
-				if (this.faceTileIdsBySetId.size() >= MAX_TILE_COUNT)
+				if (this.textureSetsById.size() >= MAX_TILE_COUNT)
 				{
 					textureId = UNTEXTURED_ID;
 				}
 				else
 				{
-					textureId = (short) this.faceTileIdsBySetId.size();
-					this.faceTileIdsBySetId.add(faceTileIds);
+					textureId = (short) this.textureSetsById.size();
+					this.textureSetsById.add(new BlockTextureSet(faceTileIds, faceColors));
 				}
 			}
 		}
@@ -248,9 +263,9 @@ public class BlockTextureRegistry
 	//===================//
 	//region
 	
-	private synchronized short getOrCreateTileId(BlockFaceTexture faceTexture)
+	private synchronized short getOrCreateTileId(BlockFaceTexture faceTexture, int averageColor)
 	{
-		byte[] ratioPixels = convertColorsToDifferenceRatios(faceTexture);
+		byte[] ratioPixels = convertColorsToDifferenceRatios(faceTexture, averageColor);
 		if (ratioPixels == null)
 		{
 			return UNTEXTURED_ID;
@@ -274,14 +289,8 @@ public class BlockTextureRegistry
 		return newId;
 	}
 	
-	/**
-	 * Converts the texture's absolute colors into ratios
-	 * relative to the texture's average color.
-	 * 128 = 1.0, 255 = 2.0, ratios above 2.0 are clamped.
-	 *
-	 * @return null if the texture is a single uniform color, IE flat shading is identical
-	 */
-	private static byte[] convertColorsToDifferenceRatios(BlockFaceTexture faceTexture)
+	/** @return the average of the visible pixels, or {@link ColorUtil#INVISIBLE} if none are visible */
+	private static int calculateAverageVisibleColor(BlockFaceTexture faceTexture)
 	{
 		int[] argbPixels = faceTexture.argbPixels;
 		
@@ -303,12 +312,31 @@ public class BlockTextureRegistry
 		}
 		if (visibleCount == 0)
 		{
+			return ColorUtil.INVISIBLE;
+		}
+		
+		return ColorUtil.rgbToInt((int) (redSum / visibleCount), (int) (greenSum / visibleCount), (int) (blueSum / visibleCount));
+	}
+	
+	/**
+	 * Converts the texture's absolute colors into ratios
+	 * relative to the texture's average color.
+	 * 128 = 1.0, 255 = 2.0, ratios above 2.0 are clamped.
+	 *
+	 * @return null if the texture is a single uniform color, IE flat shading is identical
+	 */
+	private static byte[] convertColorsToDifferenceRatios(BlockFaceTexture faceTexture, int averageColor)
+	{
+		int[] argbPixels = faceTexture.argbPixels;
+		
+		if (ColorUtil.getAlpha(averageColor) == 0)
+		{
 			return null;
 		}
 		
-		float averageRed = Math.max(redSum / (float) visibleCount, 1.0f);
-		float averageGreen = Math.max(greenSum / (float) visibleCount, 1.0f);
-		float averageBlue = Math.max(blueSum / (float) visibleCount, 1.0f);
+		float averageRed = Math.max(ColorUtil.getRed(averageColor), 1.0f);
+		float averageGreen = Math.max(ColorUtil.getGreen(averageColor), 1.0f);
+		float averageBlue = Math.max(ColorUtil.getBlue(averageColor), 1.0f);
 		
 		
 		byte[] uploadPixels = new byte[TILE_BYTE_COUNT];
@@ -413,9 +441,9 @@ public class BlockTextureRegistry
 	public synchronized void clear()
 	{
 		this.setIdByBlockStateWrapper.clear();
-		short[] flatSet = this.faceTileIdsBySetId.get(UNTEXTURED_ID);
-		this.faceTileIdsBySetId.clear();
-		this.faceTileIdsBySetId.add(flatSet);
+		BlockTextureSet flatSet = this.textureSetsById.get(UNTEXTURED_ID);
+		this.textureSetsById.clear();
+		this.textureSetsById.add(flatSet);
 		
 		this.tileIdByContent.clear();
 		byte[] flatTile = this.tilePixelsById.get(UNTEXTURED_ID);

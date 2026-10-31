@@ -278,7 +278,7 @@ public class FullDataToRenderDataTransformer
 						// This now also runs for fluid changes, so we gotta check if textures are on
 						if (columnSource.hasTextureSetIds())
 						{
-							textureId = BlockTextureRegistry.INSTANCE.getOrRegisterBlockStateSetId(block);
+							textureId = BlockTextureRegistry.INSTANCE.getOrRegisterBlockStateSetId(block, levelWrapper);
 						}
 						
 						// Blocks that are replaced with water (like lily pads) don't have fluid, those stay full
@@ -622,6 +622,7 @@ public class FullDataToRenderDataTransformer
 						colorToApplyToNextBlock = ColorUtil.setAlpha(snowColor, 255);
 						
 						// the dirt/grass below the snow should be related with snow
+						// TODO remove once block models can render snow layers
 						blockToApplyToNextBlock = block;
 					}
 					else //if (isWaterSurfaceReplacement)
@@ -646,8 +647,6 @@ public class FullDataToRenderDataTransformer
 					if (ignoredAlpha != 0)
 					{
 						colorToApplyToNextBlock = ColorUtil.setAlpha(ignoredColor, 255);
-						// also copy over the material so shaders/textures render correctly
-						blockToApplyToNextBlock = block;
 					}
 				}
 				
