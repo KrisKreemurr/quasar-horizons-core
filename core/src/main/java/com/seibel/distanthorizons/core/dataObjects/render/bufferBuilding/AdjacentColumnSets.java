@@ -45,10 +45,10 @@ public class AdjacentColumnSets
 	}
 	
 	@Nullable
-	public BlockRenderSet getSet(EDhDirection direction, int index)
+	public BlockRenderSet getDataPointRenderSet(EDhDirection direction, int index)
 	{
 		int compassIndex = direction.compassIndex;
-		return ColumnRenderBufferBuilder.getSet(this.setsByPaletteIndex[compassIndex], this.renderSources[compassIndex], this.relXs[compassIndex], this.relZs[compassIndex], index);
+		return ColumnRenderBufferBuilder.getDataPointRenderSet(this.setsByPaletteIndex[compassIndex], this.renderSources[compassIndex], this.relXs[compassIndex], this.relZs[compassIndex], index);
 	}
 	
 }

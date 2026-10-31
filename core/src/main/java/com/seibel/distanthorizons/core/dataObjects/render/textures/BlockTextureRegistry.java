@@ -19,6 +19,8 @@
 
 package com.seibel.distanthorizons.core.dataObjects.render.textures;
 
+import com.seibel.distanthorizons.api.enums.rendering.EDhApiTerrainVertexFormat;
+import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
@@ -26,6 +28,7 @@ import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateFaceTextureProvider;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.IClientLevelWrapper;
+import com.seibel.distanthorizons.coreapi.DependencyInjection.OverrideInjector;
 import com.seibel.distanthorizons.coreapi.util.ColorUtil;
 import com.seibel.distanthorizons.coreapi.util.TextureUtil;
 import org.jetbrains.annotations.Nullable;
@@ -294,14 +297,17 @@ public class BlockTextureRegistry
 	public static boolean usesModel(IBlockStateWrapper blockState)
 	{
 		return (!blockState.isFullBlock() || blockState.allowApiModelOverride())
-			&& !blockState.isLiquid();
+			&& !blockState.isLiquid()
+			// blocks without quads stay boxes
+			&& TEXTURE_PROVIDER.getModel(blockState).length != 0;
 	}
 	
-	/** Models are only drawn at block detail */
+	/** Models are only drawn at block detail and need the offset format */
 	public static boolean modelsDrawnAtDetailLevel(byte dataDetailLevel)
 	{
 		return Config.Client.Advanced.Graphics.Quality.enableBlockModels.get()
-			&& dataDetailLevel == LodUtil.BLOCK_DETAIL_LEVEL;
+			&& dataDetailLevel == LodUtil.BLOCK_DETAIL_LEVEL
+			&& OverrideInjector.INSTANCE.get(AbstractDhApiRenderDefinition.class).getTerrainVertexFormat() == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET;
 	}
 	
 	//endregion

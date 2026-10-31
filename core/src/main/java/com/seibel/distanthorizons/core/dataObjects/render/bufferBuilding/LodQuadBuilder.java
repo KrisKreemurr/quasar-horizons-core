@@ -369,10 +369,10 @@ public class LodQuadBuilder implements AutoCloseable
 		int byteBufferSize = getMaxBufferByteSize();
 		
 		ByteBuffer buffer = null;
-		// the 6 box face directions, then the model quads
-		for (int listIndex = 0; listIndex <= 6; listIndex++)
+		// the box face directions, then the model quads
+		for (int listIndex = 0; listIndex <= quadList.length; listIndex++)
 		{
-			ArrayList<BufferQuad> quads = (listIndex < 6) ? quadList[listIndex] : modelQuadList;
+			ArrayList<BufferQuad> quads = (listIndex < quadList.length) ? quadList[listIndex] : modelQuadList;
 			
 			// ignore empty directions
 			if (quads.isEmpty())
@@ -420,6 +420,7 @@ public class LodQuadBuilder implements AutoCloseable
 	{
 		int[] corners = quad.modelQuad.cornerPositions;
 		byte[] uvs = quad.modelQuad.cornerUvBytes;
+		int unitsPerBlock = BlockModelQuad.CORNER_UNITS_PER_BLOCK;
 		for (int i = 0; i < 4; i++)
 		{
 			int x256 = corners[i * 3];
@@ -427,12 +428,12 @@ public class LodQuadBuilder implements AutoCloseable
 			int z256 = corners[i * 3 + 2];
 			
 			this.putVertex(bb,
-					(short) (quad.x + (x256 >> 8)), (short) (quad.y + (y256 >> 8)), (short) (quad.z + (z256 >> 8)),
+					(short) (quad.x + Math.floorDiv(x256, unitsPerBlock)), (short) (quad.y + Math.floorDiv(y256, unitsPerBlock)), (short) (quad.z + Math.floorDiv(z256, unitsPerBlock)),
 					quad.color, (byte) quad.direction.faceIndex,
 					quad.irisBlockMaterialId, quad.skyLight, quad.blockLight,
 					quad.textureTileId,
 					0, 0, 0,
-					(byte) (x256 & 0xFF), (byte) (y256 & 0xFF), (byte) (z256 & 0xFF),
+					(byte) Math.floorMod(x256, unitsPerBlock), (byte) Math.floorMod(y256, unitsPerBlock), (byte) Math.floorMod(z256, unitsPerBlock),
 					VERTEX_UV_FLAG, uvs[i * 2], uvs[i * 2 + 1],
 					quad.modelQuad.packedNormal);
 		}

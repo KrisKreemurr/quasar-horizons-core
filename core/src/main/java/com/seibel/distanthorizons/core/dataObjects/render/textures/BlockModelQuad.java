@@ -26,6 +26,10 @@ import org.jetbrains.annotations.Nullable;
 /** One quad of a block's model */
 public class BlockModelQuad
 {
+	/** corner positions are stored in 256ths of a block */
+	public static final int CORNER_UNITS_PER_BLOCK = 256;
+	private static final int MAX_UNSIGNED_BYTE = 255;
+	
 	/** x, y, z of each of the 4 corners in 256ths of a block */
 	public final int[] cornerPositions = new int[12];
 	/** u, v of each of the 4 corners in 255ths of the texture */
@@ -80,8 +84,8 @@ public class BlockModelQuad
 			octY = (1 - Math.abs(normal.x)) * (normal.y >= 0 ? 1 : -1);
 		}
 		
-		int encodedX = Math.round((octX * 0.5f + 0.5f) * 255);
-		int encodedY = Math.round((octY * 0.5f + 0.5f) * 255);
+		int encodedX = Math.round((octX * 0.5f + 0.5f) * MAX_UNSIGNED_BYTE);
+		int encodedY = Math.round((octY * 0.5f + 0.5f) * MAX_UNSIGNED_BYTE);
 		return (short) (encodedX | (encodedY << 8));
 	}
 	
@@ -96,11 +100,11 @@ public class BlockModelQuad
 		
 		for (int i = 0; i < 4; i++)
 		{
-			this.cornerPositions[i * 3] = Math.round(xByVertex[i] * 256);
-			this.cornerPositions[i * 3 + 1] = Math.round(yByVertex[i] * 256);
-			this.cornerPositions[i * 3 + 2] = Math.round(zByVertex[i] * 256);
-			this.cornerUvBytes[i * 2] = (byte) Math.round(uByVertex[i] * 255);
-			this.cornerUvBytes[i * 2 + 1] = (byte) Math.round(vByVertex[i] * 255);
+			this.cornerPositions[i * 3] = Math.round(xByVertex[i] * CORNER_UNITS_PER_BLOCK);
+			this.cornerPositions[i * 3 + 1] = Math.round(yByVertex[i] * CORNER_UNITS_PER_BLOCK);
+			this.cornerPositions[i * 3 + 2] = Math.round(zByVertex[i] * CORNER_UNITS_PER_BLOCK);
+			this.cornerUvBytes[i * 2] = (byte) Math.round(uByVertex[i] * MAX_UNSIGNED_BYTE);
+			this.cornerUvBytes[i * 2 + 1] = (byte) Math.round(vByVertex[i] * MAX_UNSIGNED_BYTE);
 		}
 		
 		DhVec3f normal = getNormal(xByVertex, yByVertex, zByVertex);

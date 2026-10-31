@@ -51,15 +51,15 @@ public class FullDataOcclusionCuller
 		{
 			long currentPoint = centerColumn.getLong(centerIndex);
 			
-			// Translucent data points are not eligible to be culled.
-			if (isTranslucent(dataSource, currentPoint))
+			// See through data points are not eligible to be culled.
+			if (isSeeThrough(dataSource, currentPoint))
 			{
 				continue;
 			}
 			
 			// the top segment should never be culled.
 			if (centerIndex == 0
-				|| isTranslucent(dataSource, centerColumn.getLong(centerIndex - 1)))
+				|| isSeeThrough(dataSource, centerColumn.getLong(centerIndex - 1)))
 			{
 				continue;
 			}
@@ -68,7 +68,7 @@ public class FullDataOcclusionCuller
 			// assume it will not be seen from below,
 			// because this would imply the player is in the void.
 			if (centerIndex + 1 < centerColumn.size()
-				&& isTranslucent(dataSource, centerColumn.getLong(centerIndex + 1)))
+				&& isSeeThrough(dataSource, centerColumn.getLong(centerIndex + 1)))
 			{
 				continue;
 			}
@@ -171,7 +171,7 @@ public class FullDataOcclusionCuller
 				// check the next one
 				continue;
 			}
-			else if (isTranslucent(source, adjacentPoint))
+			else if (isSeeThrough(source, adjacentPoint))
 			{
 				// this point is adjacent to a transparent LOD and should be shown
 				return ~adjacentIndex;
@@ -188,7 +188,7 @@ public class FullDataOcclusionCuller
 		// this point should be visible
 		return ~adjacentIndex;
 	}
-	private static boolean isTranslucent(FullDataSourceV2 source, long point)
+	private static boolean isSeeThrough(FullDataSourceV2 source, long point)
 	{
 		int id = FullDataPointUtil.getId(point);
 		IBlockStateWrapper block = source.mapping.getBlockStateWrapper(id);

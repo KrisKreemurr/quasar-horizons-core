@@ -45,9 +45,9 @@ public class DhApiModelQuad
 	public final Object sprite;
 	/** the side whose neighbor can hide this quad, null if no neighbor can */
 	public final EDhApiDirection cullDirection;
-
-
-
+	
+	
+	
 	public DhApiModelQuad(
 		float[] xByCorner, float[] yByCorner, float[] zByCorner,
 		float[] uByCorner, float[] vByCorner,
@@ -58,7 +58,7 @@ public class DhApiModelQuad
 		throwIfNotFourCorners("zByCorner", zByCorner);
 		throwIfNotFourCorners("uByCorner", uByCorner);
 		throwIfNotFourCorners("vByCorner", vByCorner);
-
+		
 		this.xByCorner = xByCorner;
 		this.yByCorner = yByCorner;
 		this.zByCorner = zByCorner;
@@ -67,7 +67,7 @@ public class DhApiModelQuad
 		this.sprite = sprite;
 		this.cullDirection = cullDirection;
 	}
-
+	
 	private static void throwIfNotFourCorners(String name, float[] values) throws IllegalArgumentException
 	{
 		if (values == null || values.length != 4)
@@ -75,5 +75,5 @@ public class DhApiModelQuad
 			throw new IllegalArgumentException("["+name+"] must have 4 values, one per corner.");
 		}
 	}
-
+	
 }

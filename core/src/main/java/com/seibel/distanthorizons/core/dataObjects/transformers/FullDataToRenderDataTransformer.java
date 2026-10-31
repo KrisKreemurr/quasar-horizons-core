@@ -240,7 +240,7 @@ public class FullDataToRenderDataTransformer
 				pointIsModel = (renderData) ->
 				{
 					IBlockStateWrapper block = getBlockAtY(fullDataSource, fullDataColumn, RenderDataPointUtil.getYMax(renderData) - 1);
-					return block != null && isDrawnAsModel(block, true);
+					return block != null && BlockTextureRegistry.usesModel(block);
 				};
 			}
 			columnArrayView.changeVerticalSizeFrom(tempExpandingColumnView, reducingList, pointIsModel);

@@ -47,7 +47,7 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	
 	/** measured in data columns */
 	public static final int WIDTH = 64;
-
+	
 	public static final PhantomArrayListPool ARRAY_LIST_POOL = new PhantomArrayListPool("Render Source");
 	
 	

@@ -80,6 +80,8 @@ public class FullDataSourceV2
 	public static final int NUMB_OF_CHUNKS_WIDE = WIDTH / LodUtil.CHUNK_WIDTH;
 	/** bumped when old LODs need rebuilding, see {@link #columnNeedsRebuild} */
 	public static final byte GENERATED_VERSION = 1;
+	/** first version whose occlusion culling doesn't stretch models */
+	private static final byte UNSTRETCHED_MODELS_VERSION = 1;
 	
 	private static final PhantomArrayListPool ARRAY_LIST_POOL = new PhantomArrayListPool("FullDataV2");
 	
@@ -1421,8 +1423,7 @@ public class FullDataSourceV2
 	{
 		byte version = this.columnGeneratedVersion.getByte(columnIndex);
 		
-		// 1: occlusion culling stretched models
-		if (version < 1 && this.columnHasStretchedModel(columnIndex))
+		if (version < UNSTRETCHED_MODELS_VERSION && this.columnHasStretchedModel(columnIndex))
 		{
 			return true;
 		}

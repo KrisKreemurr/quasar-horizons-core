@@ -318,7 +318,7 @@ public class Config
 							+ "If false all LODs render as full cubes. \n"
 							+ " \n"
 							+ "Only applies to the highest detail LODs. \n"
-							+ "Some shader packs may not support this. \n"
+							+ "Not used while a shader pack is on. \n"
 							+ "")
 						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
 						.build();

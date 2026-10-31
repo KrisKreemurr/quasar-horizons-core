@@ -51,48 +51,48 @@ import java.util.List;
 public abstract class DhApiBlockModelOverrideEvent implements IDhApiEvent<DhApiBlockModelOverrideEvent.EventParam>
 {
 	public abstract void onBlockModelOverridden(DhApiEventParam<EventParam> event);
-
-
+	
+	
 	//=========================//
 	// internal DH API methods //
 	//=========================//
-
+	
 	@Override
 	public final void fireEvent(DhApiEventParam<EventParam> event) { this.onBlockModelOverridden(event); }
-
-
+	
+	
 	//==================//
 	// parameter object //
 	//==================//
-
+	
 	public static class EventParam implements IDhApiEventParam
 	{
 		private final IDhApiBlockStateWrapper blockStateWrapper;
-
+		
 		private boolean keepBlockModel = true;
 		private final ArrayList<IDhApiBlockStateWrapper> copiedBlocks = new ArrayList<>();
 		private final ArrayList<DhApiModelQuad> addedQuads = new ArrayList<>();
-
-
-
+		
+		
+		
 		//=============//
 		// constructor //
 		//=============//
 		//region
-
+		
 		public EventParam(IDhApiBlockStateWrapper blockStateWrapper) { this.blockStateWrapper = blockStateWrapper; }
-
+		
 		//endregion
-
-
-
+		
+		
+		
 		//=================//
 		// getters/setters //
 		//=================//
 		//region
-
+		
 		public IDhApiBlockStateWrapper getBlockStateWrapper() { return this.blockStateWrapper; }
-
+		
 		/** Removes the block's own Minecraft model and anything added so far */
 		public void clearQuads()
 		{
@@ -100,23 +100,23 @@ public abstract class DhApiBlockModelOverrideEvent implements IDhApiEvent<DhApiB
 			this.copiedBlocks.clear();
 			this.addedQuads.clear();
 		}
-
+		
 		public void addQuad(DhApiModelQuad quad) { this.addedQuads.add(quad); }
-
+		
 		/** Adds the Minecraft model of the given block */
 		public void addModelFromBlock(IDhApiBlockStateWrapper blockStateWrapper) { this.copiedBlocks.add(blockStateWrapper); }
-
+		
 		/** should only be used by internal DH functions */
 		public boolean getKeepBlockModel() { return this.keepBlockModel; }
 		/** should only be used by internal DH functions */
 		public List<IDhApiBlockStateWrapper> getCopiedBlocks() { return this.copiedBlocks; }
 		/** should only be used by internal DH functions */
 		public List<DhApiModelQuad> getAddedQuads() { return this.addedQuads; }
-
+		
 		//endregion
-
-
-
+		
+		
+		
 		/**
 		 * Returns the same instance of this event.
 		 * Every handler adds to the same model.
@@ -125,7 +125,7 @@ public abstract class DhApiBlockModelOverrideEvent implements IDhApiEvent<DhApiB
 		public EventParam copy() { return this; }
 		@Override
 		public boolean getCopyBeforeFire() { return false; }
-
+		
 	}
-
+	
 }

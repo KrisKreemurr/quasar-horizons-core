@@ -75,7 +75,7 @@ public class ColumnRenderBufferBuilder
 	
 	/** The set of a point */
 	@Nullable
-	static BlockRenderSet getSet(BlockRenderSet @Nullable [] setsByPaletteIndex, ColumnRenderSource renderSource, int relX, int relZ, int index)
+	static BlockRenderSet getDataPointRenderSet(BlockRenderSet @Nullable [] setsByPaletteIndex, ColumnRenderSource renderSource, int relX, int relZ, int index)
 	{
 		if (setsByPaletteIndex == null)
 		{
@@ -116,9 +116,7 @@ public class ColumnRenderBufferBuilder
 		
 		// only formats with an offset can lower vertices
 		boolean lowerFluidSurfaces = (quadBuilder.getVertexFormat() == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET);
-		// models need the offset format too
-		boolean drawModels = lowerFluidSurfaces
-			&& BlockTextureRegistry.modelsDrawnAtDetailLevel(renderSource.getDataDetailLevel());
+		boolean drawModels = BlockTextureRegistry.modelsDrawnAtDetailLevel(renderSource.getDataDetailLevel());
 		
 		//===================//
 		// build each column //
@@ -142,7 +140,6 @@ public class ColumnRenderBufferBuilder
 			int[] adjustedFaceColors = new int[EDhDirection.ALL.length];
 			boolean[] hiddenModelSides = new boolean[EDhDirection.ALL.length];
 			byte[] modelSideLights = new byte[EDhDirection.ALL.length];
-			int[] modelAdjStartIndexes = new int[EDhDirection.CARDINAL_COMPASS.length];
 			BlockRenderSet[] setsByPaletteIndex = getSetsByPaletteIndex(renderSource);
 			
 			
@@ -338,7 +335,7 @@ public class ColumnRenderBufferBuilder
 							bottomDataPoint = columnRenderData.getVoid();
 						}
 						
-						BlockRenderSet renderSet = getSet(setsByPaletteIndex, renderSource, relX, relZ, i);
+						BlockRenderSet renderSet = getDataPointRenderSet(setsByPaletteIndex, renderSource, relX, relZ, i);
 						
 						// determine which textures this data point's quads should use
 						short[] faceTileIdsByDirectionOrdinal = null;
@@ -360,9 +357,9 @@ public class ColumnRenderBufferBuilder
 						BlockRenderSet bottomSet = null;
 						if (drawModels)
 						{
-							topSet = (i > 0) ? getSet(setsByPaletteIndex, renderSource, relX, relZ, i - 1) : null;
+							topSet = (i > 0) ? getDataPointRenderSet(setsByPaletteIndex, renderSource, relX, relZ, i - 1) : null;
 							boolean bottomIsInColumn = (i + 1 < columnRenderData.size) && columnRenderData.get(i + 1) != RenderDataPointUtil.EMPTY_DATA;
-							bottomSet = bottomIsInColumn ? getSet(setsByPaletteIndex, renderSource, relX, relZ, i + 1) : null;
+							bottomSet = bottomIsInColumn ? getDataPointRenderSet(setsByPaletteIndex, renderSource, relX, relZ, i + 1) : null;
 						}
 						
 						short topDrops = FluidSurfaceUtil.createNoDrop();
@@ -386,9 +383,9 @@ public class ColumnRenderBufferBuilder
 							clientLevelWrapper, phantomArrayCheckout,
 							data, topDataPoint, bottomDataPoint,
 							adjColumnViews, isSameDetailLevel, faceTileIdsByDirectionOrdinal, faceColors, adjustedFaceColors,
-							hiddenModelSides, modelSideLights, modelAdjStartIndexes,
+							hiddenModelSides, modelSideLights,
 							thisDetailLevel, relX, relZ,
-							quadBuilder, topDrops, modelSet,
+							quadBuilder, topDrops, modelSet, renderSource.usesTextures(),
 							topSet, bottomSet, adjColumnSets);
 					}
 				}// for z
@@ -402,9 +399,9 @@ public class ColumnRenderBufferBuilder
 			long renderData, long topRenderData, long bottomRenderData, 
 			ColumnRenderView[] adjColumnViews, boolean[] isSameDetailLevel, short @Nullable [] faceTileIdsByDirectionOrdinal, 
 			int @Nullable [] faceColors, int[] adjustedFaceColors,
-			boolean[] hiddenModelSides, byte[] modelSideLights, int[] modelAdjStartIndexes,
+			boolean[] hiddenModelSides, byte[] modelSideLights,
 			byte detailLevel, int renderSourceOffsetPosX, int renderSourceOffsetPosZ, 
-			LodQuadBuilder quadBuilder, short topDrops, @Nullable BlockRenderSet modelSet,
+			LodQuadBuilder quadBuilder, short topDrops, @Nullable BlockRenderSet modelSet, boolean useTextures,
 			@Nullable BlockRenderSet topSet, @Nullable BlockRenderSet bottomSet,
 			AdjacentColumnSets adjColumnSets)
 	{
@@ -535,8 +532,6 @@ public class ColumnRenderBufferBuilder
 		
 		if (modelSet != null)
 		{
-			// face tiles are only given with textures on
-			boolean useTextures = (faceTileIdsByDirectionOrdinal != null);
 			ColumnModel.addModelQuadsToBuilder(
 				quadBuilder, clientLevelWrapper,
 				modelSet, useTextures, debugging == EDhApiDebugRendering.OFF,
@@ -545,7 +540,7 @@ public class ColumnRenderBufferBuilder
 				RenderDataPointUtil.getLightSky(renderData),
 				fullBright ? LodUtil.MAX_MC_LIGHT : RenderDataPointUtil.getLightBlock(renderData),
 				topRenderData, bottomRenderData, topSet, bottomSet,
-				adjColumnViews, adjColumnSets, hiddenModelSides, modelSideLights, modelAdjStartIndexes);
+				adjColumnViews, adjColumnSets, hiddenModelSides, modelSideLights);
 			return;
 		}
 		

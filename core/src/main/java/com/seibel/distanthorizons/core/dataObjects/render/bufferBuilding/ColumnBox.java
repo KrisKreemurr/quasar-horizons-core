@@ -122,8 +122,8 @@ public class ColumnBox
 					&& (!isTopTransparent || (isTransparent && isSameTransparentBlock(topData, rawDataPointColor, irisBlockMaterialId)))
 					// lowered tops don't touch the block above
 					&& topDrops == 0
-					// models without a full bottom
-					&& ColumnModel.coversFace(topSet, EDhDirection.DOWN);
+					// models without a full bottom don't hide this face
+					&& ColumnModel.hasFullFace(topSet, EDhDirection.DOWN);
 			
 			if (!skipTop)
 			{
@@ -144,7 +144,8 @@ public class ColumnBox
 					&& (!isBottomTransparent || (isTransparent && isSameTransparentBlock(bottomData, rawDataPointColor, irisBlockMaterialId)))
 					// lowered fluids don't reach the bottom of the block above
 					&& !(RenderDataPointUtil.isFluid(bottomData) && RenderDataPointUtil.getBlockMaterialId(bottomData) != irisBlockMaterialId)
-					&& ColumnModel.coversFace(bottomSet, EDhDirection.UP);
+					// models without a full top don't hide this face
+					&& ColumnModel.hasFullFace(bottomSet, EDhDirection.UP);
 			if (!skipBottom)
 			{
 				int bottomColor = getFaceColor(color, faceColors, EDhDirection.DOWN);
@@ -379,10 +380,10 @@ public class ColumnBox
 				&& RenderDataPointUtil.getAlpha(adjPoint) < 255
 				&& transparencyEnabled;
 			
-			BlockRenderSet adjSet = (adjIndex != -1) ? adjColumnSets.getSet(direction, adjIndex) : null;
+			BlockRenderSet adjSet = (adjIndex != -1) ? adjColumnSets.getDataPointRenderSet(direction, adjIndex) : null;
 			// models without a full face toward this one
 			boolean adjSeeThrough = adjTransparent
-				|| !ColumnModel.coversFace(adjSet, direction.opposite());
+				|| !ColumnModel.hasFullFace(adjSet, direction.opposite());
 			
 			byte adjSkyLight = RenderDataPointUtil.getLightSky(adjPoint);
 			byte lightToApply;
