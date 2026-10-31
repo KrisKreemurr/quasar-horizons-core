@@ -597,7 +597,11 @@ public class FullDataSourceV2
 				this.columnGenerationSteps.set(recipientIndex, inputGenState);
 				// always overwrite the compression mode since we're replacing this column
 				this.columnWorldCompressionMode.set(recipientIndex, inputDataSource.columnWorldCompressionMode.getByte(recipientIndex));
-				this.columnGeneratedVersion.set(recipientIndex, inputDataSource.columnGeneratedVersion.getByte(recipientIndex));
+				
+				// a new version needs saving even if the blocks didn't change
+				byte inputVersion = inputDataSource.columnGeneratedVersion.getByte(recipientIndex);
+				dataChanged |= (this.columnGeneratedVersion.getByte(recipientIndex) != inputVersion);
+				this.columnGeneratedVersion.set(recipientIndex, inputVersion);
 				this.isEmpty = false;
 			}
 		}
