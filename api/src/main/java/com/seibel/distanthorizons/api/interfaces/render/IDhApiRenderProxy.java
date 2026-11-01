@@ -26,6 +26,7 @@ import com.seibel.distanthorizons.api.enums.config.EDhApiRenderingEngine;
 import com.seibel.distanthorizons.api.interfaces.config.IDhApiConfigValue;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.api.interfaces.world.IDhApiLevelWrapper;
+import com.seibel.distanthorizons.api.interfaces.world.IDhApiWorldProxy;
 import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiAfterDhInitEvent;
 import com.seibel.distanthorizons.api.objects.DhApiResult;
 import com.seibel.distanthorizons.api.objects.math.DhApiMat4f;
@@ -323,7 +324,8 @@ public interface IDhApiRenderProxy
 	 * @param minecraftModelViewMatrix Minecraft's Model View matrix used for this frame/render pass
 	 * @param minecraftProjectionMatrix Minecraft's Projection matrix used for this frame/render pass
 	 * @param partialTickTime the current partial ticks for this frame/render pass
-	 * @param clientLevelWrapper the level DH is going to render
+	 * @param clientLevelWrapper the level DH is going to render, 
+	 *                           recommended to be used alongside {@link IDhApiWorldProxy#getSinglePlayerLevel}
 	 * @param deferredLayer if DH is set to render deferred this controls whether the current pass is the opaque/combined pass or just the transparent/deferred pass
 	 *
 	 * @exception RuntimeException if any of the provided arguments are invalid
@@ -343,7 +345,8 @@ public interface IDhApiRenderProxy
 	 * @param minecraftModelViewMatrix Minecraft's Model View matrix used for this frame/render pass
 	 * @param minecraftProjectionMatrix Minecraft's Projection matrix used for this frame/render pass
 	 * @param partialTickTime the current partial ticks for this frame/render pass
-	 * @param clientLevelWrapper the level DH is going to render
+	 * @param clientLevelWrapper the level DH is going to render,
+	 *                          recommended to be used alongside {@link IDhApiWorldProxy#getSinglePlayerLevel}
 	 * @param transparentPass if true this 
 	 * 
 	 * @exception RuntimeException if any of the provided arguments are invalid
