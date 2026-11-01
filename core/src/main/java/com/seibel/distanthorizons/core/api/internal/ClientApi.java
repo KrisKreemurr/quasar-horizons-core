@@ -713,7 +713,7 @@ public class ClientApi
 	
 	public void renderFadeFromApi(EDhApiMcRenderingFadeMode fadeMode) { this.renderFadePass(fadeMode); }
 	
-	private void renderFadePass(EDhApiMcRenderingFadeMode fadeMode)
+	private void renderFadePass(EDhApiMcRenderingFadeMode expectedFadeMode)
 	{
 		// the definition may be null if we're in the middle of
 		// changing it, or if there was an issue
@@ -739,7 +739,7 @@ public class ClientApi
 		boolean renderFade =
 			(
 				// only fade when requested
-				Config.Client.Advanced.Graphics.Quality.vanillaFadeMode.get() != fadeMode
+				Config.Client.Advanced.Graphics.Quality.vanillaFadeMode.get() == expectedFadeMode
 				// or if LOD-only mode is enabled (fading is used to remove the MC render pass)
 				|| Config.Client.Advanced.Debugging.lodOnlyMode.get()
 			);
