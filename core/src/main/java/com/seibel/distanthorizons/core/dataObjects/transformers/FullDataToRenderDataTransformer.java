@@ -590,7 +590,8 @@ public class FullDataToRenderDataTransformer
 				// caves also ignore transparent/non-solid blocks (IE grass and plants) without each being defined
 				|| !block.isSolid()
 				|| block.isLiquid()
-				|| block.getOpacity() < LodUtil.BLOCK_FULLY_OPAQUE)
+				|| block.getOpacity() < LodUtil.BLOCK_FULLY_OPAQUE
+				|| isDrawnAsModel(block, modelsAtThisDetail))
 			{
 				if (caveCullingEnabled
 					// assume this data point is underground if it has no sky-light
