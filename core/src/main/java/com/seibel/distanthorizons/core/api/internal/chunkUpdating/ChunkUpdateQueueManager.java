@@ -278,7 +278,7 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 		if (MC_CLIENT != null && MC_CLIENT.playerExists())
 		{
 			// Local worlds & multiplayer
-			this.setCenter(MC_CLIENT.getPlayerChunkPos());
+			this.setCenterPacked(MC_CLIENT.getPlayerChunkPosPacked());
 			maxUpdateSizeMultiplier = MC_CLIENT.clientConnectedToDedicatedServer() ? 1 : MC_SHARED.getPlayerCount();
 		}
 		else
@@ -341,28 +341,27 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 	
 	private void tryDispatchReadyChunkUpdate()
 	{
-		ChunkUpdateData updateData = this.updateQueue.popClosest();
-		if (updateData == null)
+		ChunkUpdateData peekedUpdateData = this.updateQueue.peekClosest();
+		if (peekedUpdateData == null)
 		{
 			return;
 		}
 		
 		// wait for UPDATE_DEBOUNCE_NANOS before updating
 		// the chunk so we can make sure the neighbors are queued
-		long updateWaitNanoTime = System.nanoTime() - updateData.firstQueuedNanoTime;
+		long updateWaitNanoTime = System.nanoTime() - peekedUpdateData.firstQueuedNanoTime;
 		if (updateWaitNanoTime < UPDATE_DEBOUNCE_NANOS)
 		{
-			this.updateQueue.addItem(updateData.chunkWrapper.getChunkPos(), updateData);
 			return;
 		}
 		
 		AbstractExecutorService executor = ThreadPoolUtil.getChunkToLodBuilderExecutor();
 		if (executor == null)
 		{
-			this.updateQueue.addItem(updateData.chunkWrapper.getChunkPos(), updateData);
 			return;
 		}
 		
+		ChunkUpdateData updateData = this.updateQueue.popClosest();
 		try
 		{
 			executor.execute(() -> this.processChunkUpdate(updateData));
@@ -439,6 +438,12 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 	{
 		this.updateQueue.setCenter(newCenter);
 		this.preUpdateQueue.setCenter(newCenter);
+	}
+	
+	public void setCenterPacked(long packed)
+	{
+		this.updateQueue.setCenterPacked(packed);
+		this.preUpdateQueue.setCenterPacked(packed);
 	}
 	
 	//endregion

@@ -55,6 +55,9 @@ public interface IMinecraftClientWrapper extends IBindable
 	/** @return (0,0) if no player is loaded */
 	DhChunkPos getPlayerChunkPos();
 	
+	/** @return (0,0) if no player is loaded */
+	long getPlayerChunkPosPacked();
+	
 	
 	
 	//================//
