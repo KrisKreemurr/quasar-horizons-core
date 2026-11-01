@@ -31,6 +31,7 @@ import com.seibel.distanthorizons.core.logging.DhLogger;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.render.DhApiRenderProxy;
+import com.seibel.distanthorizons.core.render.DhBlockTextureAtlasUploadHandler;
 import com.seibel.distanthorizons.core.render.RenderBufferHandler;
 import com.seibel.distanthorizons.core.render.RenderParam;
 import com.seibel.distanthorizons.core.util.objects.SortedArraySet;
@@ -40,6 +41,7 @@ import com.seibel.distanthorizons.core.wrapperInterfaces.modAccessor.IIrisAccess
 import com.seibel.distanthorizons.coreapi.DependencyInjection.ApiEventInjector;
 
 import java.awt.*;
+import java.util.HashMap;
 
 /**
  * This is where all the magic happens. <br>
@@ -60,6 +62,8 @@ public class LodRenderer
 	private static final IIrisAccessor IRIS_ACCESSOR = ModAccessorInjector.INSTANCE.get(IIrisAccessor.class);
 	
 	public static final LodRenderer INSTANCE = new LodRenderer();
+	
+	private static final HashMap<AbstractDhApiRenderDefinition, DhBlockTextureAtlasUploadHandler> TEXTURE_UPLOAD_HANDLER_BY_RENDER_DEF = new HashMap<>(); 
 	
 	
 	private boolean vanillaSettingsOverridden = false;
@@ -208,6 +212,25 @@ public class LodRenderer
 					profiler.popPush("LOD Clear");
 					metaRenderer.clearDhDepthAndColorTextures(renderParams);
 				}
+				
+				
+				
+				//==================//
+				// texture handling //
+				//==================//
+				
+				// each render definition needs a separate render handler since each will have a
+				// different backend for the actual texture handling
+				DhBlockTextureAtlasUploadHandler textureUploadHandler = TEXTURE_UPLOAD_HANDLER_BY_RENDER_DEF.get(renderDefinition);
+				if (textureUploadHandler == null)
+				{
+					IDhApiBlockTextureAtlas textureAtlasWrapper = renderDefinition.getTextureAtlasWrapper();
+					textureUploadHandler = new DhBlockTextureAtlasUploadHandler(textureAtlasWrapper);
+					TEXTURE_UPLOAD_HANDLER_BY_RENDER_DEF.put(renderDefinition, textureUploadHandler);
+				}
+				
+				profiler.popPush("block texture upload");
+				textureUploadHandler.uploadPendingTiles();
 				
 				
 				

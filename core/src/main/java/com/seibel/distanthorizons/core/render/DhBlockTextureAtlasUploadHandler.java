@@ -1,5 +1,6 @@
 package com.seibel.distanthorizons.core.render;
 
+import com.seibel.distanthorizons.api.interfaces.render.renderDef.IDhApiBlockTextureAtlas;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout;
@@ -8,7 +9,7 @@ import com.seibel.distanthorizons.coreapi.util.TextureUtil;
 
 import java.nio.ByteBuffer;
 
-public abstract class AbstractBlockTextureAtlas
+public class DhBlockTextureAtlasUploadHandler
 {
 	/**
 	 * Must match the tile lookup in the Blaze LOD fragment shader. <br>
@@ -28,28 +29,19 @@ public abstract class AbstractBlockTextureAtlas
 	
 	protected boolean atlasCreated = false;
 	
+	protected final IDhApiBlockTextureAtlas textureAtlasWrapper;
 	
 	
-	//==================//
-	// abstract methods //
-	//==================//
+	
+	//=============//
+	// constructor //
+	//=============//
 	//region
 	
-	protected abstract void tryCreateOrResize(int width, int height);
-	
-	protected abstract void writeToTexture(
-		ByteBuffer pixelBuffer,
-		int destinationX, int destinationY,
-		int tileWidth, int tileHeight);
-	
-	
-	
-	// optional //
-	
-	/** can be implemented for pre-upload setup */
-	protected abstract void beforeWriteToTexture();
-	/** can be implemented for post-upload cleanup */
-	protected abstract void afterWriteToTexture();
+	public DhBlockTextureAtlasUploadHandler(IDhApiBlockTextureAtlas textureAtlasWrapper)
+	{
+		this.textureAtlasWrapper = textureAtlasWrapper;
+	}
 	
 	//endregion
 	
@@ -99,7 +91,7 @@ public abstract class AbstractBlockTextureAtlas
 		
 		try(PhantomArrayListCheckout checkout = ARRAY_LIST_POOL.checkoutByteBuffers(1))
 		{
-			this.beforeWriteToTexture();
+			this.textureAtlasWrapper.beforeWriteToTexture();
 			
 			ByteBuffer pixelBuffer = checkout.getByteBuffer(0, BlockTextureRegistry.TILE_BYTE_COUNT);
 			for (int i = 0; i < pendingTiles.tilePixels.length; i++)
@@ -118,7 +110,7 @@ public abstract class AbstractBlockTextureAtlas
 				int destinationX = (tileId % TILES_PER_ROW) * TextureUtil.TEXTURE_WIDTH_AND_HEIGHT;
 				int destinationY = (tileId / TILES_PER_ROW) * TextureUtil.TEXTURE_WIDTH_AND_HEIGHT;
 				
-				this.writeToTexture(
+				this.textureAtlasWrapper.writeToTexture(
 					pixelBuffer,
 					destinationX,
 					destinationY,
@@ -127,7 +119,7 @@ public abstract class AbstractBlockTextureAtlas
 				);
 			}
 			
-			this.afterWriteToTexture();
+			this.textureAtlasWrapper.afterWriteToTexture();
 		}
 		this.uploadedTileCount = pendingTiles.firstTileId + pendingTiles.tilePixels.length;
 	}
@@ -142,7 +134,7 @@ public abstract class AbstractBlockTextureAtlas
 		
 		int width = TILES_PER_ROW * TextureUtil.TEXTURE_WIDTH_AND_HEIGHT;
 		int height = newRowCount * TextureUtil.TEXTURE_WIDTH_AND_HEIGHT;
-		this.tryCreateOrResize(width, height);
+		this.textureAtlasWrapper.tryCreateOrResize(width, height);
 		
 		this.allocatedTileCount = newRowCount * TILES_PER_ROW;
 		// all tiles need to be re-uploaded into the new texture

@@ -74,6 +74,7 @@ public abstract class AbstractDhApiRenderDefinition implements IDhApiOverrideabl
 	public abstract IDhApiVanillaFadeRenderer getVanillaFadeRenderer();
 	public abstract IDhApiTestTriangleRenderer getTestTriangleRenderer();
 	public abstract IDhApiGenericRenderer getGenericRenderer();
+	public abstract IDhApiBlockTextureAtlas getTextureAtlasWrapper();
 	
 	//endregion
 	
