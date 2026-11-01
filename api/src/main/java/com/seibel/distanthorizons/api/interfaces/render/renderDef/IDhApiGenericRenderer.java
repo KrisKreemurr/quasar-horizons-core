@@ -28,7 +28,7 @@ import com.seibel.distanthorizons.api.methods.events.sharedParameterObjects.DhAp
  * generic objects (ie clouds and beacons).
  *
  * @since API 7.3.0
- * @version 2026-10-02
+ * @version 2026-10-31
  */
 public interface IDhApiGenericRenderer extends AutoCloseable
 {
@@ -38,7 +38,7 @@ public interface IDhApiGenericRenderer extends AutoCloseable
 	 */
 	void preRender(DhApiRenderParam renderEventParam);
 	
-	void render(DhApiRenderParam renderEventParam, IDhApiRenderableBoxGroup apiBoxGroup);
+	void render(DhApiRenderParam renderEventParam, IDhApiRenderableBoxGroup boxGroup);
 	
 	/**
 	 * Called after {@link #render(DhApiRenderParam, IDhApiRenderableBoxGroup)}. <br>
