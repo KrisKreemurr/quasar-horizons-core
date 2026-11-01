@@ -38,6 +38,7 @@ import com.seibel.distanthorizons.core.render.renderer.IDebugRenderable;
 import com.seibel.distanthorizons.core.sql.dto.FullDataSourceV2DTO;
 import com.seibel.distanthorizons.core.sql.repo.AbstractDhRepo;
 import com.seibel.distanthorizons.core.sql.repo.FullDataSourceV2Repo;
+import com.seibel.distanthorizons.core.util.WorldGenUtil;
 import com.seibel.distanthorizons.core.util.objects.DataCorruptedException;
 import com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.ILevelWrapper;
@@ -409,6 +410,15 @@ public class FullDataSourceProviderV2 implements IDebugRenderable, AutoCloseable
 		// legacy data sources are present.
 		// If retrieval was allowed we might run into concurrency issues.
 		return !this.dataMigratorV1.migrationThreadRunning.get();
+	}
+
+	/** Checks bounds before submitting a missing section to the retrieval queue. */
+	public boolean isRetrievalAllowed(long pos)
+	{
+		return WorldGenUtil.isPosInWorldGenRange(
+			pos,
+			Config.Common.WorldGenerator.generationCenterChunkX.get(), Config.Common.WorldGenerator.generationCenterChunkZ.get(),
+			Config.Common.WorldGenerator.generationMaxChunkRadius.get());
 	}
 	
 	/**

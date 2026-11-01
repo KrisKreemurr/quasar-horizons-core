@@ -885,12 +885,7 @@ public class LodQuadTree extends QuadTree<LodRenderSection> implements IDebugRen
 			long missingPos = this.sortedMissingPosList.get(i);
 			
 			// is this position within acceptable generator range?
-			boolean posInRange = WorldGenUtil.isPosInWorldGenRange(
-				missingPos,
-				Config.Common.WorldGenerator.generationCenterChunkX.get(), Config.Common.WorldGenerator.generationCenterChunkZ.get(),
-				Config.Common.WorldGenerator.generationMaxChunkRadius.get()
-			);
-			if (!posInRange)
+			if (!this.fullDataSourceProvider.isRetrievalAllowed(missingPos))
 			{
 				continue;
 			}
