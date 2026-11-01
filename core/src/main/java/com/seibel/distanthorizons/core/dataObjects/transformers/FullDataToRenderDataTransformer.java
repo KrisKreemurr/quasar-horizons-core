@@ -198,6 +198,43 @@ public class FullDataToRenderDataTransformer
 		return null;
 	}
 	
+	/** The brightest sky light from the see-through blocks next to this block */
+	private static int getSideSkyLight(FullDataSourceV2 fullDataSource, IBlockStateWrapper block, int blockX, int blockZ, int blockY)
+	{
+		int relX = blockX & (FullDataSourceV2.WIDTH - 1);
+		int relZ = blockZ & (FullDataSourceV2.WIDTH - 1);
+		
+		int brightestLight = LodUtil.MIN_MC_LIGHT;
+		for (EDhDirection direction : EDhDirection.CARDINAL_COMPASS)
+		{
+			// full faces block the light
+			if (block.isFaceFull(direction))
+			{
+				continue;
+			}
+			
+			LongArrayList adjColumn = fullDataSource.tryGetColumnAtRelPos(relX + direction.normal.x, relZ + direction.normal.z);
+			IBlockStateWrapper adjBlock = (adjColumn != null) ? getBlockAtY(fullDataSource, adjColumn, blockY) : null;
+			if (adjBlock == null
+				|| adjBlock.getOpacity() != LodUtil.BLOCK_FULLY_TRANSPARENT)
+			{
+				continue;
+			}
+			
+			// the column is sorted top down
+			for (int i = 0; i < adjColumn.size(); i++)
+			{
+				long adjData = adjColumn.getLong(i);
+				if (FullDataPointUtil.getBottomY(adjData) <= blockY)
+				{
+					brightestLight = Math.max(brightestLight, FullDataPointUtil.getSkyLight(adjData) - 1);
+					break;
+				}
+			}
+		}
+		return brightestLight;
+	}
+	
 	/** Updates the given {@link ColumnRenderView} to match the incoming Full data {@link LongArrayList} */
 	private static void updateOrReplaceRenderDataViewColumnWithFullDataColumn(
 		IClientLevelWrapper levelWrapper,
@@ -796,6 +833,13 @@ public class FullDataToRenderDataTransformer
 					blockLight = blocklightToApplyToNextBlock;
 					blocklightToApplyToNextBlock = -1;
 				}
+			}
+			
+			// models aren't lit from the side by the sky light pass
+			if (skyLight == LodUtil.MIN_MC_LIGHT
+				&& isDrawnAsModel(block, modelsAtThisDetail))
+			{
+				skyLight = getSideSkyLight(fullDataSource, block, blockX, blockZ, topY - 1);
 			}
 			
 			
