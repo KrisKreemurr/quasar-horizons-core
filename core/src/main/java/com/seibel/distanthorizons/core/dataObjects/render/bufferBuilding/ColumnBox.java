@@ -381,7 +381,8 @@ public class ColumnBox
 				&& transparencyEnabled;
 			
 			BlockRenderSet adjSet = (adjIndex != -1) ? adjColumnSets.getDataPointRenderSet(direction, adjIndex) : null;
-			// models without a full face toward this one
+			// models without a full face toward this one can't hide its side,
+			// otherwise a slab placed next to stone would leave a hole in the stone
 			boolean adjSeeThrough = adjTransparent
 				|| !ColumnModel.hasFullFace(adjSet, direction.opposite());
 			
