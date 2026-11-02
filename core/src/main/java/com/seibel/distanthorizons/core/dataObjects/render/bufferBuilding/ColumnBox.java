@@ -123,10 +123,11 @@ public class ColumnBox
 			
 			if (!skipTop)
 			{
+				int topColor = getFaceColor(color, faceColors, EDhDirection.UP);
 				builder.addQuadUp(
 					minX, maxY, minZ, 
 					blockWidth, 
-					ColorUtil.applyShade(color, clientLevelWrapper.getShade(EDhDirection.UP)), tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.UP),
+					ColorUtil.applyShade(topColor, clientLevelWrapper.getShade(EDhDirection.UP)), tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.UP),
 					irisBlockMaterialId, 
 					skyLightTop, blockLight, topDrops);
 			}

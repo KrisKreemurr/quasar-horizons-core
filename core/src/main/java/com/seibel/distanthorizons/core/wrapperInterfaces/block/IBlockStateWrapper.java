@@ -82,6 +82,9 @@ public interface IBlockStateWrapper extends IDhApiBlockStateWrapper
 	/** Blocks with water in them that aren't fluid blocks (a waterlogged slab) */
 	boolean isWaterlogged();
 	
+	/** Blocks that lie along an axis, like logs */
+	boolean isRotatedPillar();
+	
 	/**
 	 * Some blocks don't pull their texture properly (like bamboo).
 	 * In those cases it's best to just render their base color.
