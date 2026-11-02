@@ -103,11 +103,17 @@ public abstract class DhApiBlockModelOverrideEvent implements IDhApiEvent<DhApiB
 		/** Adds the Minecraft model of the given block */
 		public void addModelFromBlock(IDhApiBlockStateWrapper blockStateWrapper) { this.copiedBlocks.add(blockStateWrapper); }
 		
-		/** should only be used by internal DH functions */
+		//endregion
+		
+		
+		
+		//=========================//
+		// internal DH API methods //
+		//=========================//
+		//region
+		
 		public boolean getKeepBlockModel() { return this.keepBlockModel; }
-		/** should only be used by internal DH functions */
 		public List<IDhApiBlockStateWrapper> getCopiedBlocks() { return this.copiedBlocks; }
-		/** should only be used by internal DH functions */
 		public List<DhApiModelQuad> getAddedQuads() { return this.addedQuads; }
 		
 		//endregion
