@@ -197,6 +197,12 @@ public class BlockTextureRegistry
 			anyFaceTextured |= (faceTileIds[faceIndex] != UNTEXTURED_ID);
 		}
 		
+		// only pillars have a top that doesn't match the LOD's color
+		if (!blockState.isRotatedPillar())
+		{
+			faceColors[EDhDirection.UP.faceIndex] = BlockTextureSet.USE_LOD_COLOR;
+		}
+		
 		BlockFaceTexture flowTexture = isFluidBlock ? TEXTURE_PROVIDER.getFaceTexture(blockState, EDhDirection.UP) : null;
 		if (flowTexture != null)
 		{
