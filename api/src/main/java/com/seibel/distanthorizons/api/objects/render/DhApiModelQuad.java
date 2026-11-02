@@ -21,6 +21,7 @@ package com.seibel.distanthorizons.api.objects.render;
 
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiDirection;
 import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiBlockModelOverrideEvent;
+import com.seibel.distanthorizons.coreapi.util.TextureUtil;
 
 /**
  * One quad of a block's model, see {@link DhApiBlockModelOverrideEvent}. <br><br>
@@ -29,7 +30,7 @@ import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiBlockMo
  * the same order Minecraft's baked quads use.
  *
  * @author Luis Vervaet
- * @version 2026-10-29
+ * @version 2026-11-02
  * @since API 7.3.0
  */
 public class DhApiModelQuad
@@ -38,11 +39,11 @@ public class DhApiModelQuad
 	public final float[] xByCorner;
 	public final float[] yByCorner;
 	public final float[] zByCorner;
-	/** 0 to 1 across the sprite, (0,0) is the top left */
+	/** 0 to 1 across the texture, (0,0) is the top left */
 	public final float[] uByCorner;
 	public final float[] vByCorner;
-	/** Minecraft's TextureAtlasSprite from the block atlas */
-	public final Object sprite;
+	/** 16 by 16 ARGB pixels, indexed with {@link TextureUtil#getPixelIndex(int, int)} */
+	public final int[] argbPixels;
 	/** the side whose neighbor can hide this quad, null if no neighbor can */
 	public final EDhApiDirection cullDirection;
 	
@@ -51,7 +52,7 @@ public class DhApiModelQuad
 	public DhApiModelQuad(
 		float[] xByCorner, float[] yByCorner, float[] zByCorner,
 		float[] uByCorner, float[] vByCorner,
-		Object sprite, EDhApiDirection cullDirection) throws IllegalArgumentException
+		int[] argbPixels, EDhApiDirection cullDirection) throws IllegalArgumentException
 	{
 		throwIfNotFourCorners("xByCorner", xByCorner);
 		throwIfNotFourCorners("yByCorner", yByCorner);
@@ -59,12 +60,18 @@ public class DhApiModelQuad
 		throwIfNotFourCorners("uByCorner", uByCorner);
 		throwIfNotFourCorners("vByCorner", vByCorner);
 		
+		int pixelCount = TextureUtil.TEXTURE_WIDTH_AND_HEIGHT * TextureUtil.TEXTURE_WIDTH_AND_HEIGHT;
+		if (argbPixels == null || argbPixels.length != pixelCount)
+		{
+			throw new IllegalArgumentException("[argbPixels] must have ["+pixelCount+"] values, one per pixel.");
+		}
+		
 		this.xByCorner = xByCorner;
 		this.yByCorner = yByCorner;
 		this.zByCorner = zByCorner;
 		this.uByCorner = uByCorner;
 		this.vByCorner = vByCorner;
-		this.sprite = sprite;
+		this.argbPixels = argbPixels;
 		this.cullDirection = cullDirection;
 	}
 	
