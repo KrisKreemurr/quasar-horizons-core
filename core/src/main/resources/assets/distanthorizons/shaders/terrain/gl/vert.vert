@@ -72,6 +72,11 @@ void main()
     if (uHasOffsetData)
     {
         position += vec3(offsetData.xyz) / 256.0;
+        // model positions are signed
+        if ((offsetData.w & 1u) != 0u)
+        {
+            position -= vec3(greaterThan(vPosition.xyz, uvec3(32767u))) * 65536.0;
+        }
         vModelUv = vec2(uvNormal.xy) / 255.0;
         vUsesModelUv = offsetData.w & 1u;
     }

@@ -71,6 +71,11 @@ void main()
     vec3 vPosition = vPositionAndMeta.xyz;
     uint meta = vPositionAndMeta.w;
     vPosition += vec3(offsetData.xyz) / 256.0;
+    // model positions are signed
+    if ((offsetData.w & 1u) != 0u)
+    {
+        vPosition -= vec3(greaterThan(vPositionAndMeta.xyz, uvec3(32767u))) * 65536.0;
+    }
     
     vPos = vPosition; // This is so it can be passed to the fragment shader
     

@@ -26,7 +26,7 @@ package com.seibel.distanthorizons.api.enums.rendering;
  * The layout of each vertex in DH's terrain buffers.
  *
  * @since API 7.3.0
- * @version 2026-10-29
+ * @version 2026-11-01
  */
 public enum EDhApiTerrainVertexFormat
 {
@@ -57,7 +57,8 @@ public enum EDhApiTerrainVertexFormat
 	 * ushort normal
 	 * </code>
 	 * The offsets are in 256ths of a block and are added to the position (lowered fluid surfaces). <br>
-	 * Model vertices set flag bit 0 and use u, v, box faces leave the flags, u, v, and normal as 0.
+	 * Model vertices set flag bit 0 and use u, v, box faces leave the flags, u, v, and normal as 0. <br>
+	 * Model vertices read x, y, z as signed shorts since their corners can be below 0.
 	 */
 	POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET(24);
 	
