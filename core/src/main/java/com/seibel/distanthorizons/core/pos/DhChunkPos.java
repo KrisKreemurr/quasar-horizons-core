@@ -127,10 +127,6 @@ public class DhChunkPos
 	public double squaredDistance(DhChunkPos other)
 	{ return Math.pow(this.x - other.x, 2) + Math.pow(this.z - other.z, 2); }
 	
-	/** @param packedCenter x in the high 32 bits, z in the low 32 bits, see {@link BitShiftUtil#packInts} */
-	public long squaredDistance(long packedCenter)
-	{ return this.squaredDistance(BitShiftUtil.unpackHigh(packedCenter), BitShiftUtil.unpackLow(packedCenter)); }
-	
 	public long squaredDistance(int otherX, int otherZ)
 	{
 		long dx = (long) this.x - otherX;

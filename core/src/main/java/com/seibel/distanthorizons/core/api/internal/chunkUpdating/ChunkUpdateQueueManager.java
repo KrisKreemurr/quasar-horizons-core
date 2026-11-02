@@ -12,6 +12,7 @@ import com.seibel.distanthorizons.core.level.IDhLevel;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.logging.f3.F3Screen;
 import com.seibel.distanthorizons.core.pos.DhChunkPos;
+import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPosMutable;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.ThreadUtil;
 import com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil;
@@ -63,6 +64,8 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 	
 	public final ChunkPosQueue updateQueue;
 	public final ChunkPosQueue preUpdateQueue;
+	
+	private final DhBlockPosMutable playerBlockPos = new DhBlockPosMutable(0,0, 0);
 	
 	/** 
 	 * tracking nearby chunks is necessary for lighting
@@ -278,7 +281,8 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 		if (MC_CLIENT != null && MC_CLIENT.playerExists())
 		{
 			// Local worlds & multiplayer
-			this.setCenterPacked(MC_CLIENT.getPlayerChunkPosPacked());
+			MC_CLIENT.getPlayerBlockPosMutable(this.playerBlockPos);
+			this.setCenter(this.playerBlockPos);
 			maxUpdateSizeMultiplier = MC_CLIENT.clientConnectedToDedicatedServer() ? 1 : MC_SHARED.getPlayerCount();
 		}
 		else
@@ -434,16 +438,10 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 	//==================//
 	//region
 	
-	public void setCenter(DhChunkPos newCenter)
+	public void setCenter(DhBlockPosMutable newCenter)
 	{
 		this.updateQueue.setCenter(newCenter);
 		this.preUpdateQueue.setCenter(newCenter);
-	}
-	
-	public void setCenterPacked(long packed)
-	{
-		this.updateQueue.setCenterPacked(packed);
-		this.preUpdateQueue.setCenterPacked(packed);
 	}
 	
 	//endregion

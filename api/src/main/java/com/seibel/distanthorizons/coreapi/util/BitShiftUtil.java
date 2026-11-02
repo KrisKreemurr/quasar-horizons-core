@@ -94,15 +94,4 @@ public class BitShiftUtil
 	/** see {@link BitShiftUtil#pow(int, int)} for documentation */
 	public static long pow(long value, long power) { return value << power; }
 	
-	/**
-	 * Packs two ints into one long: x in the high 32 bits, z in the low 32 bits. <br>
-	 * The mask on z stops sign extension from corrupting x when z is negative.
-	 */
-	public static long packInts(int high, int low) { return ((long) high << 32) | (low & 0xFFFFFFFFL); }
-	
-	/** see {@link BitShiftUtil#packInts(int, int)} */
-	public static int unpackHigh(long packed) { return (int) (packed >> 32); }
-	
-	/** see {@link BitShiftUtil#packInts(int, int)} */
-	public static int unpackLow(long packed) { return (int) packed; }
 }
