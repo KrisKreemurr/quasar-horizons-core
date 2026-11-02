@@ -1,7 +1,6 @@
 package com.seibel.distanthorizons.core.file.fullDatafile.V2;
 
 import com.seibel.distanthorizons.api.enums.config.EDhApiDataCompressionMode;
-import com.seibel.distanthorizons.api.enums.worldGeneration.EDhApiWorldGenerationStep;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.IDhApiDebugWireframeRenderer;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
@@ -184,51 +183,6 @@ public class FullDataUpdaterV2 implements IDebugRenderable, AutoCloseable
 		{
 			updateLock.unlock();
 			this.lockedPosSet.remove(updatePos);
-		}
-	}
-	
-	/** Marks old columns that need rebuilding as down sampled */
-	public void upgradeOldColumns(long pos)
-	{
-		ReentrantLock updateLock = this.updateLockProvider.getLock(pos);
-		try
-		{
-			updateLock.lock();
-			this.lockedPosSet.add(pos);
-			
-			try (FullDataSourceV2 dataSource = this.provider.get(pos))
-			{
-				if (dataSource == null) // will be null if the repo was shut down
-				{
-					return;
-				}
-				
-				for (int i = 0; i < FullDataSourceV2.WIDTH * FullDataSourceV2.WIDTH; i++)
-				{
-					if (dataSource.columnNeedsRebuild(i))
-					{
-						dataSource.columnGenerationSteps.set(i, EDhApiWorldGenerationStep.DOWN_SAMPLED.value);
-					}
-					dataSource.columnGeneratedVersion.set(i, FullDataSourceV2.GENERATED_VERSION);
-				}
-				
-				try (FullDataSourceV2DTO dto = this.createDtoFromDataSource(dataSource))
-				{
-					if (dto != null)
-					{
-						this.provider.repo.save(dto);
-					}
-				}
-			}
-		}
-		catch (Exception e)
-		{
-			LOGGER.error("Error upgrading pos ["+DhSectionPos.toString(pos)+"], error: "+e.getMessage(), e);
-		}
-		finally
-		{
-			updateLock.unlock();
-			this.lockedPosSet.remove(pos);
 		}
 	}
 	

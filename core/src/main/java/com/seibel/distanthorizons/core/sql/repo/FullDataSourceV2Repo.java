@@ -130,7 +130,6 @@ public class FullDataSourceV2Repo extends AbstractDhRepo<Long, FullDataSourceV2D
 		dto.compressedDataByteArray = putAllBytes(resultSet.getBinaryStream("Data"), dto.compressedDataByteArray);
 		dto.compressedColumnGenStepByteArray = putAllBytes(resultSet.getBinaryStream("ColumnGenerationStep"), dto.compressedColumnGenStepByteArray);
 		dto.compressedWorldCompressionModeByteArray = putAllBytes(resultSet.getBinaryStream("ColumnWorldCompressionMode"), dto.compressedWorldCompressionModeByteArray);
-		dto.compressedColumnGeneratedVersionByteArray = putAllBytes(resultSet.getBinaryStream("ColumnGeneratedVersion"), dto.compressedColumnGeneratedVersionByteArray);
 		dto.compressedMappingByteArray = putAllBytes(resultSet.getBinaryStream("Mapping"), dto.compressedMappingByteArray);
 		
 		// adjacent full data
@@ -189,7 +188,6 @@ public class FullDataSourceV2Repo extends AbstractDhRepo<Long, FullDataSourceV2D
 		dto.compressedDataByteArray = putAllBytes(resultSet.getBinaryStream("AdjData"), dto.compressedDataByteArray);
 		dto.compressedColumnGenStepByteArray = putAllBytes(resultSet.getBinaryStream("ColumnGenerationStep"), dto.compressedColumnGenStepByteArray);
 		dto.compressedWorldCompressionModeByteArray = putAllBytes(resultSet.getBinaryStream("ColumnWorldCompressionMode"), dto.compressedWorldCompressionModeByteArray);
-		dto.compressedColumnGeneratedVersionByteArray = putAllBytes(resultSet.getBinaryStream("ColumnGeneratedVersion"), dto.compressedColumnGeneratedVersionByteArray);
 		dto.compressedMappingByteArray = putAllBytes(resultSet.getBinaryStream("Mapping"), dto.compressedMappingByteArray);
 		
 		// set individual variables
@@ -218,14 +216,14 @@ public class FullDataSourceV2Repo extends AbstractDhRepo<Long, FullDataSourceV2D
 			"INSERT INTO " + this.getTableName() + " (\n" +
 			"   DetailLevel, PosX, PosZ, \n" +
 			"   MinY, DataChecksum, \n" +
-			"   Data, ColumnGenerationStep, ColumnWorldCompressionMode, ColumnGeneratedVersion, Mapping, \n" +
+			"   Data, ColumnGenerationStep, ColumnWorldCompressionMode, Mapping, \n" +
 			"   NorthAdjData, SouthAdjData, EastAdjData, WestAdjData, \n" +
 			"   DataFormatVersion, CompressionMode, ApplyToParent, ApplyToChildren, Regenerate, \n" +
 			"   LastModifiedUnixDateTime, CreatedUnixDateTime) \n" +
 			"VALUES( \n" +
 			"    ?, ?, ?, \n" +
 			"    ?, ?, \n" +
-			"    ?, ?, ?, ?, ?, \n" +
+			"    ?, ?, ?, ?, \n" +
 			"    ?, ?, ?, ?, \n" +
 			"    ?, ?, ?, ?, ?, \n" +
 			"    ?, ? \n" +
@@ -236,7 +234,6 @@ public class FullDataSourceV2Repo extends AbstractDhRepo<Long, FullDataSourceV2D
 			"   ,Data = excluded.Data \n" +
 			"   ,ColumnGenerationStep = excluded.ColumnGenerationStep \n" +
 			"   ,ColumnWorldCompressionMode = excluded.ColumnWorldCompressionMode \n" +
-			"   ,ColumnGeneratedVersion = excluded.ColumnGeneratedVersion \n" +
 			"   ,Mapping = excluded.Mapping \n" +
 			"   ,NorthAdjData = excluded.NorthAdjData, SouthAdjData = excluded.SouthAdjData \n" +
 			"   ,EastAdjData = excluded.EastAdjData, WestAdjData = excluded.WestAdjData \n" +
@@ -274,7 +271,6 @@ public class FullDataSourceV2Repo extends AbstractDhRepo<Long, FullDataSourceV2D
 		statement.setBinaryStream(i++, new ByteArrayInputStream(dto.compressedDataByteArray.elements()), dto.compressedDataByteArray.size());
 		statement.setBinaryStream(i++, new ByteArrayInputStream(dto.compressedColumnGenStepByteArray.elements()), dto.compressedColumnGenStepByteArray.size());
 		statement.setBinaryStream(i++, new ByteArrayInputStream(dto.compressedWorldCompressionModeByteArray.elements()), dto.compressedWorldCompressionModeByteArray.size());
-		statement.setBinaryStream(i++, new ByteArrayInputStream(dto.compressedColumnGeneratedVersionByteArray.elements()), dto.compressedColumnGeneratedVersionByteArray.size());
 		statement.setBinaryStream(i++, new ByteArrayInputStream(dto.compressedMappingByteArray.elements()), dto.compressedMappingByteArray.size());
 		// adjacent full data
 		statement.setBinaryStream(i++, new ByteArrayInputStream(dto.compressedNorthAdjDataByteArray.elements()), dto.compressedNorthAdjDataByteArray.size());
@@ -307,7 +303,7 @@ public class FullDataSourceV2Repo extends AbstractDhRepo<Long, FullDataSourceV2D
 	private final String getAdjForDirectionSqlTemplate =
 			"SELECT \n" +
 					"   DataChecksum, \n" +
-					"   ColumnGenerationStep, ColumnWorldCompressionMode, ColumnGeneratedVersion, Mapping, \n" +
+					"   ColumnGenerationStep, ColumnWorldCompressionMode, Mapping, \n" +
 					"   DataFormatVersion, CompressionMode, ApplyToParent, ApplyToChildren, Regenerate, \n" +
 					"   LastModifiedUnixDateTime, CreatedUnixDateTime, \n" +
 					"   DIRECTION_ENUM as AdjData \n" +
@@ -575,21 +571,13 @@ public class FullDataSourceV2Repo extends AbstractDhRepo<Long, FullDataSourceV2D
 	
 	
 	private final String getColumnGenerationStepSql =
-			"select ColumnGenerationStep as ColumnBytes, CompressionMode " +
+			"select ColumnGenerationStep, CompressionMode, DataFormatVersion " +
 			"from "+this.getTableName()+" " +
 			"WHERE DetailLevel = ? AND PosX = ? AND PosZ = ?";
-	private final String getColumnGeneratedVersionSql =
-			"select ColumnGeneratedVersion as ColumnBytes, CompressionMode " +
-			"from "+this.getTableName()+" " +
-			"WHERE DetailLevel = ? AND PosX = ? AND PosZ = ? AND ColumnGeneratedVersion IS NOT NULL";
-	
 	/** @return null if nothing exists for this position */
-	public void getColumnGenerationStepForPos(long pos, ByteArrayList outputByteArray) { this.getColumnBytesForPos(this.getColumnGenerationStepSql, pos, outputByteArray); }
-	/** stays empty for sections saved before versions were stored */
-	public void getColumnGeneratedVersionForPos(long pos, ByteArrayList outputByteArray) { this.getColumnBytesForPos(this.getColumnGeneratedVersionSql, pos, outputByteArray); }
-	private void getColumnBytesForPos(String sql, long pos, ByteArrayList outputByteArray)
+	public void getColumnGenerationStepForPos(long pos, ByteArrayList outputByteArray)
 	{
-		try (PreparedStatement statement = this.createPreparedStatement(sql))
+		try (PreparedStatement statement = this.createPreparedStatement(this.getColumnGenerationStepSql))
 		{
 			if (statement == null)
 			{
@@ -617,21 +605,23 @@ public class FullDataSourceV2Repo extends AbstractDhRepo<Long, FullDataSourceV2D
 				
 				byte compressionModeEnumValue = result.getByte("CompressionMode");
 				EDhApiDataCompressionMode compressionModeEnum = EDhApiDataCompressionMode.getFromValue(compressionModeEnumValue);
+				byte dataFormatVersion = result.getByte("DataFormatVersion");
 				
 				// decompress the data
 				try
 				{
 					ByteArrayList byteArrayList = new ByteArrayList();
-					putAllBytes(result.getBinaryStream("ColumnBytes"), byteArrayList);
+					putAllBytes(result.getBinaryStream("ColumnGenerationStep"), byteArrayList);
 					try(PhantomArrayListCheckout checkout = FullDataSourceV2DTO.ARRAY_LIST_POOL.checkoutByteArrays(1);
 						DhDataInputStream compressedIn = DhDataInputStream.create(byteArrayList, compressionModeEnum, checkout))
 					{
 						putAllBytes(compressedIn, outputByteArray);
 					}
+					FullDataSourceV2DTO.convertOldGenerationSteps(outputByteArray, dataFormatVersion);
 				}
 				catch (IOException e)
 				{
-					LOGGER.warn("Decompression issue when getting column data for pos: [" + DhSectionPos.toString(pos) + "], deleting corrupted data.", e);
+					LOGGER.warn("Decompression issue when getting column gen steps for pos: [" + DhSectionPos.toString(pos) + "], deleting corrupted data.", e);
 					
 					this.deleteWithKey(pos);
 					ListUtil.clearAndSetSize(outputByteArray, FullDataSourceV2.WIDTH * FullDataSourceV2.WIDTH);

@@ -32,20 +32,16 @@ import com.seibel.distanthorizons.core.generation.tasks.DataSourceRetrievalResul
 import com.seibel.distanthorizons.core.level.IDhLevel;
 import com.seibel.distanthorizons.core.logging.DhLogger;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
-import com.seibel.distanthorizons.core.pos.DhChunkPos;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.render.renderer.DebugWireframeHandler;
 import com.seibel.distanthorizons.core.render.renderer.IDebugRenderable;
 import com.seibel.distanthorizons.core.sql.dto.FullDataSourceV2DTO;
 import com.seibel.distanthorizons.core.sql.repo.AbstractDhRepo;
 import com.seibel.distanthorizons.core.sql.repo.FullDataSourceV2Repo;
-import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.WorldGenUtil;
 import com.seibel.distanthorizons.core.util.objects.DataCorruptedException;
-import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout;
 import com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.ILevelWrapper;
-import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -368,41 +364,6 @@ public class FullDataSourceProviderV2 implements IDebugRenderable, AutoCloseable
 		
 		// an error occurred
 		return null;
-	}
-	
-	/** @return true if this chunk's LOD was built by an older {@link FullDataSourceV2#GENERATED_VERSION} */
-	public boolean isChunkLodOutdated(DhChunkPos chunkPos)
-	{
-		long pos = DhSectionPos.encodeContaining(DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL, chunkPos);
-		int minRelX = (chunkPos.getX() & (FullDataSourceV2.NUMB_OF_CHUNKS_WIDE - 1)) * LodUtil.CHUNK_WIDTH;
-		int minRelZ = (chunkPos.getZ() & (FullDataSourceV2.NUMB_OF_CHUNKS_WIDE - 1)) * LodUtil.CHUNK_WIDTH;
-		return this.hasOutdatedColumns(pos, minRelX, minRelZ, LodUtil.CHUNK_WIDTH);
-	}
-	/** @return true if any column in this area was built by an older {@link FullDataSourceV2#GENERATED_VERSION} */
-	public boolean hasOutdatedColumns(long pos, int minRelX, int minRelZ, int width)
-	{
-		try (PhantomArrayListCheckout checkout = FullDataSourceV2DTO.ARRAY_LIST_POOL.checkoutByteArrays(1))
-		{
-			ByteArrayList columnVersions = checkout.getByteArray(0, 0);
-			this.repo.getColumnGeneratedVersionForPos(pos, columnVersions);
-			// saved before versions were stored
-			if (columnVersions.isEmpty())
-			{
-				return true;
-			}
-			
-			for (int relX = minRelX; relX < minRelX + width; relX++)
-			{
-				for (int relZ = minRelZ; relZ < minRelZ + width; relZ++)
-				{
-					if (columnVersions.getByte(FullDataSourceV2.relativePosToIndex(relX, relZ)) < FullDataSourceV2.GENERATED_VERSION)
-					{
-						return true;
-					}
-				}
-			}
-			return false;
-		}
 	}
 	
 	//endregion

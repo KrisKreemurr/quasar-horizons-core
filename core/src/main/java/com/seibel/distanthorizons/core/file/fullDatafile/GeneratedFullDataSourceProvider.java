@@ -31,7 +31,6 @@ import com.seibel.distanthorizons.core.generation.queues.IFullDataSourceRetrieva
 import com.seibel.distanthorizons.core.generation.tasks.DataSourceRetrievalResult;
 import com.seibel.distanthorizons.core.generation.tasks.ERetrievalResultState;
 import com.seibel.distanthorizons.core.level.IDhLevel;
-import com.seibel.distanthorizons.core.level.IDhServerLevel;
 import com.seibel.distanthorizons.core.logging.DhLogger;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout;
@@ -345,14 +344,34 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 	public void clearRetrievalQueue() { this.worldGenQueueRef.set(null); }
 	
 	
-	public boolean generationStepsAreFullyGenerated(ByteArrayList columnGenerationSteps)
+	/** The step every column at this position needs to reach */
+	private EDhApiWorldGenerationStep getRequiredWorldGenStep(long pos)
 	{
+		EDhApiGeneratorPlan genPlan = this.getGeneratorPlan();
+		if (genPlan == EDhApiGeneratorPlan.SURFACE_ONLY)
+		{
+			return EDhApiWorldGenerationStep.SURFACE;
+		}
+		else if (genPlan.surfaceGenEnabled
+			&& DhSectionPos.getDetailLevel(pos) > DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL)
+		{
+			return EDhApiWorldGenerationStep.SURFACE;
+		}
+		return EDhApiWorldGenerationStep.FEATURES;
+	}
+	
+	public boolean generationStepsAreFullyGenerated(long pos, ByteArrayList columnGenerationSteps)
+	{
+		// old LODs are generated again when chunks can be generated
+		boolean regenAllowed = WorldGenUtil.regenAllowed(this);
+		byte requiredStep = this.getRequiredWorldGenStep(pos).value;
 		return IntStream.range(0, columnGenerationSteps.size())
 			.noneMatch((int intValue) ->
 			{
 				byte value = columnGenerationSteps.getByte(intValue);
 				return value == EDhApiWorldGenerationStep.EMPTY.value
-					|| value == EDhApiWorldGenerationStep.DOWN_SAMPLED.value;
+					|| value == EDhApiWorldGenerationStep.DOWN_SAMPLED.value
+					|| (regenAllowed && value < requiredStep);
 			});
 	}
 	
@@ -367,36 +386,13 @@ public class GeneratedFullDataSourceProvider extends FullDataSourceProviderV2 im
 		}
 		
 		
-		EDhApiWorldGenerationStep requiredWorldGenStep;
-		EDhApiGeneratorPlan genPlan = this.getGeneratorPlan();
-		if (genPlan == EDhApiGeneratorPlan.SURFACE_ONLY)
-		{
-			requiredWorldGenStep = EDhApiWorldGenerationStep.SURFACE;
-		}
-		else if (genPlan.surfaceGenEnabled
-			&& DhSectionPos.getDetailLevel(pos) > DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL)
-		{
-			requiredWorldGenStep = EDhApiWorldGenerationStep.SURFACE;
-		}
-		else
-		{
-			requiredWorldGenStep = EDhApiWorldGenerationStep.FEATURES;
-		}
+		EDhApiWorldGenerationStep requiredWorldGenStep = this.getRequiredWorldGenStep(pos);
 		
 		
 		
 		// don't check any child positions if this position is already fully generated 
 		if (this.repo.existsWithKey(pos))
 		{
-			// old full detail LODs are rebuilt by local world gen
-			if (this.level instanceof IDhServerLevel
-				&& WorldGenUtil.regenAllowed(this)
-				&& DhSectionPos.getDetailLevel(pos) == DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL
-				&& this.hasOutdatedColumns(pos, 0, 0, FullDataSourceV2.WIDTH))
-			{
-				this.dataUpdater.upgradeOldColumns(pos);
-			}
-			
 			try(PhantomArrayListCheckout checkout = ARRAY_LIST_POOL.checkoutByteArrays(1))
 			{
 				ByteArrayList columnGenStepArray = checkout.getByteArray(0, FullDataSourceV2.WIDTH*FullDataSourceV2.WIDTH);
