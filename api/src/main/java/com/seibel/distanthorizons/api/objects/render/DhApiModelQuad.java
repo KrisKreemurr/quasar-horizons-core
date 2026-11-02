@@ -24,7 +24,8 @@ import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiBlockMo
 import com.seibel.distanthorizons.coreapi.util.TextureUtil;
 
 /**
- * One quad of a block's model, see {@link DhApiBlockModelOverrideEvent}. <br><br>
+ * One quad of a block's model, see {@link DhApiBlockModelOverrideEvent}. <br>
+ * Each ByCorner array has 4 values, one per corner of this quad. <br><br>
  *
  * Corners go counter-clockwise when looking at the quad's visible side,
  * the same order Minecraft's baked quads use.
