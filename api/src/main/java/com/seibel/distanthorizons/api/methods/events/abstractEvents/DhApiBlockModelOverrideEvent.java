@@ -38,10 +38,7 @@ import java.util.List;
  *
  * This event will only trigger for {@link IDhApiBlockStateWrapper}s that have been registered
  * via {@link DhApiBlockStateWrapperCreatedEvent.EventParam#setAllowApiModelOverride(boolean)}. <br>
- * It can fire on any of DH's threads. <br><br>
- *
- * Models are only drawn at the highest detail level, not while a shader pack is in use
- * and not on Minecraft 1.7.10.
+ * It can fire on any of DH's threads.
  *
  * @author Luis Vervaet
  * @version 2026-10-29

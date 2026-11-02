@@ -118,7 +118,11 @@ public abstract class   DhApiBlockStateWrapperCreatedEvent implements IDhApiEven
 		}
 		public Boolean getAllowApiTextureOverride() { return this.allowApiTextureOverride; }
 		
-		/** if set to true, {@link DhApiBlockModelOverrideEvent} events will be triggered when this block's model is first needed. */
+		/**
+		 * if set to true, {@link DhApiBlockModelOverrideEvent} events will be triggered when this block's model is first needed.
+		 *
+		 * @since API 7.3.0
+		 */
 		public void setAllowApiModelOverride(boolean allowApiModelOverride)
 		{
 			this.allowApiModelOverride = allowApiModelOverride;
