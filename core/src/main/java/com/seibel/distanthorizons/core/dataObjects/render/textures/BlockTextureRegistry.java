@@ -32,6 +32,7 @@ import com.seibel.distanthorizons.coreapi.util.ColorUtil;
 import com.seibel.distanthorizons.coreapi.util.TextureUtil;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -79,16 +80,18 @@ public class BlockTextureRegistry
 	/** indexed by tile id, holds the ratio-encoded RGBA pixels ready for GPU upload */
 	private final ArrayList<byte[]> tilePixelsById = new ArrayList<>();
 	/** used to dedupe tiles so block faces sharing a texture share a tile */
-	private final HashMap<TileKey, Short> tileIdByContent = new HashMap<>();
+	private final HashMap<ContentKey, Short> tileIdByContent = new HashMap<>();
 	/** tiles that haven't been uploaded to the GPU yet, drained by the render thread */
 	private int firstTileIdPendingUpload = 0;
 	
 	/** 
 	 * indexed by set id (stored by {@link BlockTextureRegistry#setIdByBlockStateWrapper}), 
-	 * holds the face tiles, colors and model for one block state.
+	 * holds the face tiles, colors and model shared by block states that look the same.
 	 */
 	private final ArrayList<BlockRenderSet> renderSetsById = new ArrayList<>();
 	private final ConcurrentHashMap<IBlockStateWrapper, Short> setIdByBlockStateWrapper = new ConcurrentHashMap<>();
+	/** used to dedupe sets so block states that look the same share a set */
+	private final HashMap<ContentKey, Short> setIdByContent = new HashMap<>();
 	
 	
 	
@@ -155,6 +158,46 @@ public class BlockTextureRegistry
 			return null;
 		}
 		return this.renderSetsById.get(setId);
+	}
+	
+	/** everything a set draws, so block states that look the same share a set */
+	private static ContentKey createSetContentKey(short[] faceTileIds, int[] faceColors, BlockModelQuad[] modelQuads, short[] modelQuadTileIds, int[] modelQuadColors)
+	{
+		int byteCount = (2 * Integer.BYTES) + (faceTileIds.length * Short.BYTES) + (faceColors.length * Integer.BYTES);
+		for (BlockModelQuad quad : modelQuads)
+		{
+			// corners, uvs, cull and shade side, normal, tile id, color
+			byteCount += (quad.cornerPositions.length * Integer.BYTES) + quad.cornerUvBytes.length + (2 * Byte.BYTES) + (2 * Short.BYTES) + Integer.BYTES;
+		}
+		ByteBuffer buffer = ByteBuffer.allocate(byteCount);
+		
+		// lengths first so different sized sets can't match
+		buffer.putInt(faceTileIds.length);
+		buffer.putInt(modelQuads.length);
+		for (short tileId : faceTileIds)
+		{
+			buffer.putShort(tileId);
+		}
+		for (int color : faceColors)
+		{
+			buffer.putInt(color);
+		}
+		
+		for (int quadIndex = 0; quadIndex < modelQuads.length; quadIndex++)
+		{
+			BlockModelQuad quad = modelQuads[quadIndex];
+			for (int position : quad.cornerPositions)
+			{
+				buffer.putInt(position);
+			}
+			buffer.put(quad.cornerUvBytes);
+			buffer.put((byte) ((quad.cullDirection != null) ? quad.cullDirection.faceIndex : -1));
+			buffer.put((byte) quad.shadeDirection.faceIndex);
+			buffer.putShort(quad.packedNormal);
+			buffer.putShort(modelQuadTileIds[quadIndex]);
+			buffer.putInt(modelQuadColors[quadIndex]);
+		}
+		return new ContentKey(buffer.array());
 	}
 	
 	private short registerBlockState(IBlockStateWrapper blockState, IClientLevelWrapper levelWrapper)
@@ -253,10 +296,17 @@ public class BlockTextureRegistry
 		}
 		else
 		{
+			ContentKey contentKey = createSetContentKey(faceTileIds, faceColors, modelQuads, modelQuadTileIds, modelQuadColors);
+			
 			// synchronized to prevent concurrent array modifications
 			synchronized (this)
 			{
-				if (this.renderSetsById.size() >= MAX_TILE_COUNT)
+				Short sameContentSetId = this.setIdByContent.get(contentKey);
+				if (sameContentSetId != null)
+				{
+					setId = sameContentSetId;
+				}
+				else if (this.renderSetsById.size() >= MAX_TILE_COUNT)
 				{
 					setId = FLAT_SET_ID;
 				}
@@ -264,6 +314,7 @@ public class BlockTextureRegistry
 				{
 					setId = (short) this.renderSetsById.size();
 					this.renderSetsById.add(new BlockRenderSet(faceTileIds, faceColors, modelQuads, modelQuadTileIds, modelQuadColors, blockState));
+					this.setIdByContent.put(contentKey, setId);
 				}
 			}
 		}
@@ -326,7 +377,7 @@ public class BlockTextureRegistry
 			return UNTEXTURED_ID;
 		}
 		
-		TileKey key = new TileKey(ratioPixels);
+		ContentKey key = new ContentKey(ratioPixels);
 		Short existingId = this.tileIdByContent.get(key);
 		if (existingId != null)
 		{
@@ -499,6 +550,7 @@ public class BlockTextureRegistry
 		BlockRenderSet flatSet = this.renderSetsById.get(FLAT_SET_ID);
 		this.renderSetsById.clear();
 		this.renderSetsById.add(flatSet);
+		this.setIdByContent.clear();
 		
 		this.tileIdByContent.clear();
 		byte[] flatTile = this.tilePixelsById.get(UNTEXTURED_ID);
@@ -522,16 +574,16 @@ public class BlockTextureRegistry
 	//================//
 	//region
 	
-	/** wraps tile pixels so they can be used as a hash map key for deduplication */
-	private static class TileKey
+	/** wraps tile pixels or set content so they can be used as a hash map key for deduplication */
+	private static class ContentKey
 	{
-		private final byte[] pixels;
+		private final byte[] content;
 		private final int hash;
 		
-		public TileKey(byte[] pixels)
+		public ContentKey(byte[] content)
 		{
-			this.pixels = pixels;
-			this.hash = Arrays.hashCode(pixels);
+			this.content = content;
+			this.hash = Arrays.hashCode(content);
 		}
 		
 		@Override
@@ -545,12 +597,12 @@ public class BlockTextureRegistry
 				return true; 
 			}
 			
-			if (!(obj instanceof TileKey)) 
+			if (!(obj instanceof ContentKey)) 
 			{
 				return false; 
 			}
 			
-			return Arrays.equals(this.pixels, ((TileKey) obj).pixels);
+			return Arrays.equals(this.content, ((ContentKey) obj).content);
 		}
 		
 	}
