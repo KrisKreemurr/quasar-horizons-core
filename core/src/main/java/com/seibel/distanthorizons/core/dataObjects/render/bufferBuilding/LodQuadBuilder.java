@@ -36,7 +36,6 @@ import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.ByteBufferCheckoutWrapper;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListPool;
-import com.seibel.distanthorizons.coreapi.DependencyInjection.OverrideInjector;
 import com.seibel.distanthorizons.coreapi.util.ColorUtil;
 import com.seibel.distanthorizons.core.wrapperInterfaces.minecraft.IMinecraftRenderWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.IClientLevelWrapper;
@@ -155,13 +154,13 @@ public class LodQuadBuilder implements AutoCloseable
 		}
 	}
 	
-	public static LodQuadBuilder getBuilder(boolean doTransparency, IClientLevelWrapper clientLevelWrapper)
+	public static LodQuadBuilder getBuilder(boolean doTransparency, IClientLevelWrapper clientLevelWrapper, AbstractDhApiRenderDefinition renderDefinition)
 	{
 		LodQuadBuilder builder = THREAD_LOCAL.get();
-		builder.set(doTransparency, clientLevelWrapper);
+		builder.set(doTransparency, clientLevelWrapper, renderDefinition);
 		return builder;
 	}
-	private void set(boolean doTransparency, IClientLevelWrapper clientLevelWrapper)
+	private void set(boolean doTransparency, IClientLevelWrapper clientLevelWrapper, AbstractDhApiRenderDefinition renderDefinition)
 	{
 		this.doTransparency = doTransparency;
 		
@@ -169,7 +168,7 @@ public class LodQuadBuilder implements AutoCloseable
 		
 		this.debugRenderingMode = Config.Client.Advanced.Debugging.debugRenderingColors.get();
 		this.grassSideRenderingMode = Config.Client.Advanced.Graphics.Quality.grassSideRendering.get();
-		this.vertexFormat = OverrideInjector.INSTANCE.get(AbstractDhApiRenderDefinition.class).getTerrainVertexFormat();
+		this.vertexFormat = renderDefinition.getTerrainVertexFormat();
 		
 		this.premergeCount = 0;
 	}

@@ -28,7 +28,6 @@ import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateFaceTextureProvider;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.IClientLevelWrapper;
-import com.seibel.distanthorizons.coreapi.DependencyInjection.OverrideInjector;
 import com.seibel.distanthorizons.coreapi.util.ColorUtil;
 import com.seibel.distanthorizons.coreapi.util.TextureUtil;
 import org.jetbrains.annotations.Nullable;
@@ -303,11 +302,11 @@ public class BlockTextureRegistry
 	}
 	
 	/** Models are only drawn at block detail and need the offset format */
-	public static boolean modelsDrawnAtDetailLevel(byte dataDetailLevel)
+	public static boolean modelsDrawnAtDetailLevel(byte dataDetailLevel, AbstractDhApiRenderDefinition renderDefinition)
 	{
 		return Config.Client.Advanced.Graphics.Quality.enableBlockModels.get()
 			&& dataDetailLevel == LodUtil.BLOCK_DETAIL_LEVEL
-			&& OverrideInjector.INSTANCE.get(AbstractDhApiRenderDefinition.class).getTerrainVertexFormat() == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET;
+			&& renderDefinition.getTerrainVertexFormat() == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET;
 	}
 	
 	//endregion

@@ -21,6 +21,7 @@ package com.seibel.distanthorizons.core.dataObjects.transformers;
 
 import com.seibel.distanthorizons.api.enums.config.EDhApiBlocksToAvoid;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiBlockMaterial;
+import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.FullDataPointIdMap;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
@@ -73,7 +74,7 @@ public class FullDataToRenderDataTransformer
 	
 	@Nullable
 	public static ColumnRenderSource transformFullDataToRenderSource(
-			@Nullable FullDataSourceV2 fullDataSource, @Nullable IClientLevelWrapper levelWrapper)
+			@Nullable FullDataSourceV2 fullDataSource, @Nullable IClientLevelWrapper levelWrapper, AbstractDhApiRenderDefinition renderDefinition)
 	{
 		if (fullDataSource == null)
 		{
@@ -88,7 +89,7 @@ public class FullDataToRenderDataTransformer
 		
 		try
 		{
-			return transformCompleteFullDataToColumnData(levelWrapper, fullDataSource);
+			return transformCompleteFullDataToColumnData(levelWrapper, renderDefinition, fullDataSource);
 		}
 		catch (InterruptedException e)
 		{
@@ -113,7 +114,7 @@ public class FullDataToRenderDataTransformer
 	 * Generally thrown if the method is running after the client leaves the current world.
 	 */
 	private static ColumnRenderSource transformCompleteFullDataToColumnData(
-		IClientLevelWrapper levelWrapper, FullDataSourceV2 fullDataSource) throws InterruptedException
+		IClientLevelWrapper levelWrapper, AbstractDhApiRenderDefinition renderDefinition, FullDataSourceV2 fullDataSource) throws InterruptedException
 	{
 		final long pos = fullDataSource.getPos();
 		final byte dataDetail = fullDataSource.getDataDetailLevel();
@@ -122,7 +123,7 @@ public class FullDataToRenderDataTransformer
 		
 		
 		
-		final ColumnRenderSource columnSource = ColumnRenderSource.createEmpty(pos, maxVertSliceCount, levelWrapper.getMinHeight());
+		final ColumnRenderSource columnSource = ColumnRenderSource.createEmpty(pos, maxVertSliceCount, levelWrapper.getMinHeight(), renderDefinition);
 		if (fullDataSource.isEmpty)
 		{
 			return columnSource;
@@ -146,7 +147,7 @@ public class FullDataToRenderDataTransformer
 					LongArrayList dataColumn = fullDataSource.getColumnAtRelPos(x, z);
 					
 					updateOrReplaceRenderDataViewColumnWithFullDataColumn(
-						levelWrapper, fullDataSource,
+						levelWrapper, renderDefinition, fullDataSource,
 						// bit shift is to account for LODs with a detail level greater than 0 so the block pos is correct
 						baseX + BitShiftUtil.pow(x, dataDetail), baseZ + BitShiftUtil.pow(z, dataDetail),
 						columnArrayView, dataColumn,
@@ -237,7 +238,7 @@ public class FullDataToRenderDataTransformer
 	
 	/** Updates the given {@link ColumnRenderView} to match the incoming Full data {@link LongArrayList} */
 	private static void updateOrReplaceRenderDataViewColumnWithFullDataColumn(
-		IClientLevelWrapper levelWrapper,
+		IClientLevelWrapper levelWrapper, AbstractDhApiRenderDefinition renderDefinition,
 		FullDataSourceV2 fullDataSource, int blockX, int blockZ, 
 		ColumnRenderView columnArrayView, 
 		LongArrayList fullDataColumn,
@@ -258,7 +259,7 @@ public class FullDataToRenderDataTransformer
 		if (fullDataLength <= columnArrayView.maxVerticalSliceCount)
 		{
 			// Directly use the arrayView since it fits.
-			setRenderColumnView(levelWrapper, fullDataSource, blockX, blockZ, columnArrayView, fullDataColumn, mutableBlockPos);
+			setRenderColumnView(levelWrapper, renderDefinition, fullDataSource, blockX, blockZ, columnArrayView, fullDataColumn, mutableBlockPos);
 		}
 		else
 		{
@@ -269,10 +270,10 @@ public class FullDataToRenderDataTransformer
 			tempExpandingColumnView.populate(
 				dataArrayList, voidDataArrayList,
 				fullDataLength, 0, 0, fullDataLength);
-			setRenderColumnView(levelWrapper, fullDataSource, blockX, blockZ, tempExpandingColumnView, fullDataColumn, mutableBlockPos);
+			setRenderColumnView(levelWrapper, renderDefinition, fullDataSource, blockX, blockZ, tempExpandingColumnView, fullDataColumn, mutableBlockPos);
 			
 			LongPredicate pointIsModel = (renderData) -> false;
-			if (BlockTextureRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel()))
+			if (BlockTextureRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel(), renderDefinition))
 			{
 				pointIsModel = (renderData) ->
 				{
@@ -438,7 +439,7 @@ public class FullDataToRenderDataTransformer
 	}
 	
 	private static void setRenderColumnView(
-			IClientLevelWrapper levelWrapper, FullDataSourceV2 fullDataSource,
+			IClientLevelWrapper levelWrapper, AbstractDhApiRenderDefinition renderDefinition, FullDataSourceV2 fullDataSource,
 			int blockX, int blockZ,
 			ColumnRenderView renderColumnData, LongArrayList fullColumnData, DhBlockPosMutable mutableBlockPos)
 	{
@@ -448,7 +449,7 @@ public class FullDataToRenderDataTransformer
 		
 		boolean ignoreNonCollidingBlocks = (Config.Client.Advanced.Graphics.Culling.blocksToIgnore.get() == EDhApiBlocksToAvoid.NON_COLLIDING);
 		boolean colorBelowWithAvoidedBlocks = Config.Client.Advanced.Graphics.Culling.tintWithAvoidedBlocks.get();
-		boolean modelsAtThisDetail = BlockTextureRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel());
+		boolean modelsAtThisDetail = BlockTextureRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel(), renderDefinition);
 		
 		final ObjectOpenHashSet<IBlockStateWrapper> blockStatesToIgnore = WRAPPER_FACTORY.getRendererIgnoredBlocks(levelWrapper);
 		final ObjectOpenHashSet<IBlockStateWrapper> caveBlockStatesToIgnore = WRAPPER_FACTORY.getRendererIgnoredCaveBlocks(levelWrapper);

@@ -22,6 +22,7 @@ package com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiBlockMaterial;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiTerrainVertexFormat;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiDebugRendering;
+import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
@@ -88,7 +89,7 @@ public class ColumnRenderBufferBuilder
 	}
 	
 	public static void makeLodRenderData(
-			LodQuadBuilder quadBuilder, ColumnRenderSource renderSource, IClientLevelWrapper clientLevelWrapper,
+			LodQuadBuilder quadBuilder, ColumnRenderSource renderSource, IClientLevelWrapper clientLevelWrapper, AbstractDhApiRenderDefinition renderDefinition,
 			ColumnRenderSource[] adjRegions, ColumnRenderSource[][] diagonalRegions, boolean[] isSameDetailLevel)
 	{
 		//=============//
@@ -116,7 +117,7 @@ public class ColumnRenderBufferBuilder
 		
 		// only formats with an offset can lower vertices
 		boolean lowerFluidSurfaces = (quadBuilder.getVertexFormat() == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET);
-		boolean drawModels = BlockTextureRegistry.modelsDrawnAtDetailLevel(renderSource.getDataDetailLevel());
+		boolean drawModels = BlockTextureRegistry.modelsDrawnAtDetailLevel(renderSource.getDataDetailLevel(), renderDefinition);
 		
 		//===================//
 		// build each column //

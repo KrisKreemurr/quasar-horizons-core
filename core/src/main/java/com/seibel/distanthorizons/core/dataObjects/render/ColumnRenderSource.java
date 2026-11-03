@@ -20,6 +20,7 @@
 package com.seibel.distanthorizons.core.dataObjects.render;
 
 import com.seibel.distanthorizons.api.enums.config.EDhApiVerticalQuality;
+import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.util.RenderDataPointReducingList;
@@ -93,15 +94,15 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	//==============//
 	//region
 	
-	public static ColumnRenderSource createEmpty(long pos, int maxVertSliceCount, int yOffset)
-	{ return new ColumnRenderSource(pos, maxVertSliceCount, yOffset); }
+	public static ColumnRenderSource createEmpty(long pos, int maxVertSliceCount, int yOffset, AbstractDhApiRenderDefinition renderDefinition)
+	{ return new ColumnRenderSource(pos, maxVertSliceCount, yOffset, renderDefinition); }
 	/**
 	 * Creates an empty ColumnRenderSource.
 	 *
 	 * @param pos the relative position of the container
 	 * @param maxVertSliceCount the maximum vertical size of the container
 	 */
-	private ColumnRenderSource(long pos, int maxVertSliceCount, int yOffset)
+	private ColumnRenderSource(long pos, int maxVertSliceCount, int yOffset, AbstractDhApiRenderDefinition renderDefinition)
 	{
 		super(ARRAY_LIST_POOL, 1, 0, 2, 0, 0);
 		
@@ -117,7 +118,7 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 		// set ids are only stored for high detail sections that use textures or block models
 		this.usesTextures = texturedLodsEnabledAtDetailLevel(this.getDataDetailLevel());
 		this.storesSetIds = this.usesTextures
-			|| BlockTextureRegistry.modelsDrawnAtDetailLevel(this.getDataDetailLevel());
+			|| BlockTextureRegistry.modelsDrawnAtDetailLevel(this.getDataDetailLevel(), renderDefinition);
 		this.setPalette.add(BlockTextureRegistry.FLAT_SET_ID);
 		this.paletteIndexBySetId.put(BlockTextureRegistry.FLAT_SET_ID, 0);
 		
