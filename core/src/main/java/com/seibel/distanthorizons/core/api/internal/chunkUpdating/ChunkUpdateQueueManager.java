@@ -142,6 +142,21 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 	public void addItemToPreUpdateQueue(DhChunkPos pos, ChunkUpdateData updateData)
 	{ this.addItemToQueue(pos, updateData, this.preUpdateQueue); }
 	
+	/**
+	 * Same as {@link #addItemToPreUpdateQueue} but an update already queued for this pos is replaced instead of kept. <br>
+	 * The queued one may be outdated (IE world generation changed the chunk since), 
+	 * so dropping the newer data could leave the LOD outdated with nothing left to fix it.
+	 */
+	public void replaceItemInPreUpdateQueue(DhChunkPos pos, ChunkUpdateData updateData)
+	{
+		// the new update has to go through the pre-update again for its height maps and hash
+		this.preUpdateQueue.remove(pos);
+		this.updateQueue.remove(pos);
+		this.addItemToPreUpdateQueue(pos, updateData);
+	}
+	
+	public boolean isIgnored(DhChunkPos pos) { return this.ignoredChunkPosSet.contains(pos); }
+	
 	public void addItemToUpdateQueue(DhChunkPos pos, ChunkUpdateData updateData)
 	{ this.addItemToQueue(pos, updateData, this.updateQueue); }
 	

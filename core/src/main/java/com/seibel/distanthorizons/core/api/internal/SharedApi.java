@@ -191,6 +191,21 @@ public class SharedApi
 		return manager.contains(new DhChunkPos(new DhBlockPos2D(blockPosX, blockPosZ))); 
 	}
 	
+	/** 
+	 * Unlike {@link #isChunkAtChunkPosAlreadyUpdating} this doesn't include already queued updates, 
+	 * for events that replace those. 
+	 */
+	public static boolean isChunkAtChunkPosIgnored(ILevelWrapper levelWrapper, int chunkPosX, int chunkPosZ)
+	{
+		ChunkUpdateQueueManager manager = WORLD_CHUNK_UPDATE_MANAGER.getByLevelWrapper(levelWrapper);
+		if (manager == null)
+		{
+			return true;
+		}
+		
+		return manager.isIgnored(new DhChunkPos(chunkPosX, chunkPosZ)); 
+	}
+	
 	public static boolean isChunkAtChunkPosAlreadyUpdating(ILevelWrapper levelWrapper, int chunkPosX, int chunkPosZ)
 	{
 		ChunkUpdateQueueManager manager = WORLD_CHUNK_UPDATE_MANAGER.getByLevelWrapper(levelWrapper);
@@ -205,6 +220,12 @@ public class SharedApi
 	
 	
 	public void applyChunkUpdate(IChunkWrapper chunkWrapper, ILevelWrapper levelWrapper, boolean waitForLoadedWorld)
+	{ this.applyChunkUpdate(chunkWrapper, levelWrapper, waitForLoadedWorld, false); }
+	/** 
+	 * @param replaceQueued if true an update already queued for this chunk is replaced instead of dropping this one. 
+	 *                      Meant for rare events, frequent ones would keep pushing the update back. 
+	 */
+	public void applyChunkUpdate(IChunkWrapper chunkWrapper, ILevelWrapper levelWrapper, boolean waitForLoadedWorld, boolean replaceQueued)
 	{
 		// Chunky may not finish it's first time startup until quite late in
 		// the level life cycle, but once we start receiving chunks,
@@ -299,20 +320,27 @@ public class SharedApi
 		// ignore the wrong level wrapper type or
 		// if the chunk is already queued for handling
 		if (chunkManager == null 
-			|| chunkManager.contains(chunkWrapper.getChunkPos()))
+			|| (replaceQueued ? chunkManager.isIgnored(chunkWrapper.getChunkPos()) : chunkManager.contains(chunkWrapper.getChunkPos())))
 		{
 			return;
 		}
 		
 		
-		queueChunkUpdate(chunkManager, chunkWrapper, dhLevel);
+		queueChunkUpdate(chunkManager, chunkWrapper, dhLevel, replaceQueued);
 	}
 	
-	private static void queueChunkUpdate(ChunkUpdateQueueManager chunkManager, IChunkWrapper chunkWrapper, IDhLevel dhLevel)
+	private static void queueChunkUpdate(ChunkUpdateQueueManager chunkManager, IChunkWrapper chunkWrapper, IDhLevel dhLevel, boolean replaceQueued)
 	{
 		// add chunk update data to preUpdate queue
 		ChunkUpdateData updateData = new ChunkUpdateData(chunkWrapper, dhLevel);
-		chunkManager.addItemToPreUpdateQueue(chunkWrapper.getChunkPos(), updateData);
+		if (replaceQueued)
+		{
+			chunkManager.replaceItemInPreUpdateQueue(chunkWrapper.getChunkPos(), updateData);
+		}
+		else
+		{
+			chunkManager.addItemToPreUpdateQueue(chunkWrapper.getChunkPos(), updateData);
+		}
 	}
 	
 	//endregion
