@@ -39,6 +39,9 @@ import java.util.List;
  * This event will only trigger for {@link IDhApiBlockStateWrapper}s that have been registered
  * via {@link DhApiBlockStateWrapperCreatedEvent.EventParam#setAllowApiModelOverride(boolean)}. <br>
  * It can fire on any of DH's threads.
+ * <Br><Br>
+ *
+ * Quads are rendered in order: the block's own model, then copied blocks, then added quads.
  *
  * @author Luis Vervaet
  * @version 2026-10-29
