@@ -161,9 +161,9 @@ public class BlockTextureRegistry
 	}
 	
 	/** everything a set draws, so block states that look the same share a set */
-	private static ContentKey createSetContentKey(short[] faceTileIds, int[] faceColors, BlockModelQuad[] modelQuads, short[] modelQuadTileIds, int[] modelQuadColors)
+	private static ContentKey createSetContentKey(short[] faceTileIds, int[] faceColors, BlockModelQuad[] modelQuads, short[] modelQuadTileIds, int[] modelQuadColors, boolean waterlogged)
 	{
-		int byteCount = (2 * Integer.BYTES) + (faceTileIds.length * Short.BYTES) + (faceColors.length * Integer.BYTES);
+		int byteCount = (2 * Integer.BYTES) + Byte.BYTES + (faceTileIds.length * Short.BYTES) + (faceColors.length * Integer.BYTES);
 		for (BlockModelQuad quad : modelQuads)
 		{
 			// corners, uvs, cull and shade side, normal, tile id, color
@@ -174,6 +174,8 @@ public class BlockTextureRegistry
 		// lengths first so different sized sets can't match
 		buffer.putInt(faceTileIds.length);
 		buffer.putInt(modelQuads.length);
+		// waterlogged blocks may draw differently
+		buffer.put((byte) (waterlogged ? 1 : 0));
 		for (short tileId : faceTileIds)
 		{
 			buffer.putShort(tileId);
@@ -296,7 +298,7 @@ public class BlockTextureRegistry
 		}
 		else
 		{
-			ContentKey contentKey = createSetContentKey(faceTileIds, faceColors, modelQuads, modelQuadTileIds, modelQuadColors);
+			ContentKey contentKey = createSetContentKey(faceTileIds, faceColors, modelQuads, modelQuadTileIds, modelQuadColors, blockState.isWaterlogged());
 			
 			// synchronized to prevent concurrent array modifications
 			synchronized (this)
