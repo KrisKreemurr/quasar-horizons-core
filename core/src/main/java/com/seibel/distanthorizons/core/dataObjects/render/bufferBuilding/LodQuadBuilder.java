@@ -423,6 +423,7 @@ public class LodQuadBuilder implements AutoCloseable
 		int unitsPerBlock = BlockModelQuad.CORNER_UNITS_PER_BLOCK;
 		for (int i = 0; i < 4; i++)
 		{
+			// how far into the block this corner is, in 256ths of a block
 			int x256 = corners[i * 3];
 			int y256 = corners[i * 3 + 1];
 			int z256 = corners[i * 3 + 2];
