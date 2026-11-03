@@ -184,7 +184,7 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	public boolean usesTextures() { return this.usesTextures; }
 	
 	public int getPaletteSize() { return this.setPalette.size(); }
-	public short getPaletteSetId(int paletteIndex) { return this.setPalette.getShort(paletteIndex); }
+	public int getPaletteSetId(int paletteIndex) { return this.setPalette.getShort(paletteIndex) & 0xFFFF; }
 	
 	/** Sets the set id and fluid data for the given data point */
 	public void setDataPointAttributes(int posX, int posZ, int verticalIndex, short setId, int fluidAmount, boolean waterlogged)
