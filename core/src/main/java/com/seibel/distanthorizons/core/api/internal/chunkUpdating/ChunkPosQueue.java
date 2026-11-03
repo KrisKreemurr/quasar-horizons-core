@@ -46,6 +46,15 @@ public class ChunkPosQueue
 		this.furthestQueue.clear();
 	}
 	
+	public void remove(DhChunkPos pos)
+	{
+		if (this.updateDataByChunkPos.remove(pos) != null)
+		{
+			this.closestQueue.remove(pos);
+			this.furthestQueue.remove(pos);
+		}
+	}
+	
 	public void addItem(DhChunkPos pos, ChunkUpdateData updateData)
 	{
 		if (this.updateDataByChunkPos.containsKey(pos))

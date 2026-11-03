@@ -63,6 +63,14 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 	
 	public final ChunkPosQueue updateQueue;
 	public final ChunkPosQueue preUpdateQueue;
+	/** 
+	 * When world generation last picked up each chunk, updates queued before that are outdated. 
+	 * Expires since updates don't wait that long.
+	 */
+	private final Cache<DhChunkPos, Long> invalidatedNanoTimeByPos = 
+		CacheBuilder.newBuilder()
+		.expireAfterWrite(10, TimeUnit.MINUTES)
+		.build();
 	
 	/** 
 	 * tracking nearby chunks is necessary for lighting
@@ -117,6 +125,7 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 		this.updateQueue.clear();
 		this.preUpdateQueue.clear();
 		this.ignoredChunkPosSet.clear();
+		this.invalidatedNanoTimeByPos.invalidateAll();
 	}
 	public int getQueuedCount() { return this.updateQueue.getQueuedCount() + this.preUpdateQueue.getQueuedCount(); }
 	
@@ -227,6 +236,20 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 	
 	public void addPosToIgnore(DhChunkPos chunkPos) { this.ignoredChunkPosSet.add(chunkPos); }
 	public void removePosToIgnore(DhChunkPos chunkPos) { this.ignoredChunkPosSet.remove(chunkPos); }
+	
+	/**
+	 * Drops the queued or currently processed update for this pos, if there is one. <br>
+	 * Should be called when newer data for the chunk is on its way, IE when world generation picks it up:
+	 * the update may already be outdated and would overwrite that newer LOD.
+	 */
+	public void invalidatePendingUpdate(DhChunkPos chunkPos)
+	{
+		this.invalidatedNanoTimeByPos.put(chunkPos, System.nanoTime());
+		
+		// removed so they don't block newer saves of this chunk from being queued
+		this.preUpdateQueue.remove(chunkPos);
+		this.updateQueue.remove(chunkPos);
+	}
 	
 	//endregion
 	
@@ -390,6 +413,12 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 			dhLevel.updateBeaconBeamsForChunk(chunkWrapper, nearbyChunkList);
 			
 			int newChunkHash = chunkWrapper.getBlockBiomeHashCode();
+			// checked right before the LOD is written so it also covers updates that were already running
+			Long invalidatedNanoTime = this.invalidatedNanoTimeByPos.getIfPresent(chunkWrapper.getChunkPos());
+			if (invalidatedNanoTime != null && invalidatedNanoTime - updateData.firstQueuedNanoTime >= 0)
+			{
+				return;
+			}
 			dhLevel.updateChunkAsync(chunkWrapper, newChunkHash);
 		}
 		catch (Exception e)
