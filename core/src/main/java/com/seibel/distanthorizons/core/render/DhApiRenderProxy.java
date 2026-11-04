@@ -29,7 +29,7 @@ import com.seibel.distanthorizons.api.objects.DhApiResult;
 import com.seibel.distanthorizons.api.objects.math.DhApiMat4f;
 import com.seibel.distanthorizons.core.api.internal.ClientApi;
 import com.seibel.distanthorizons.core.api.internal.SharedApi;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.level.IDhClientLevel;
 import com.seibel.distanthorizons.core.level.IDhLevel;
@@ -97,7 +97,7 @@ public class DhApiRenderProxy implements IDhApiRenderProxy
 		DhApi.events.fireAllEvents(DhApiEBeforeRenderDataCacheClearEvent.class, new DhApiEBeforeRenderDataCacheClearEvent.EventParam());
 		
 		// handles both colors and textures
-		BlockTextureRegistry.INSTANCE.clear();
+		BlockRenderRegistry.INSTANCE.clear();
 		
 		// clear the render caches for each level
 		Iterable<? extends IDhLevel> loadedLevels = world.getAllLoadedLevels();

@@ -25,7 +25,7 @@ import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.util.LodUtil;
-import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateFaceTextureProvider;
+import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateTextureAndModelProvider;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.IClientLevelWrapper;
 import com.seibel.distanthorizons.coreapi.util.ColorUtil;
@@ -47,12 +47,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * This way the current tinting/shading pipeline
  * and the average color seen at a distance is unchanged. <br><br>
  *
- * Tile id {@link BlockTextureRegistry#UNTEXTURED_ID} represents "no texture"
+ * Tile id {@link BlockRenderRegistry#UNTEXTURED_ID} represents "no texture"
  * and renders identically to a flat-colored LOD.
  */
-public class BlockTextureRegistry
+public class BlockRenderRegistry
 {
-	private static final IBlockStateFaceTextureProvider TEXTURE_PROVIDER = SingletonInjector.INSTANCE.get(IBlockStateFaceTextureProvider.class);
+	private static final IBlockStateTextureAndModelProvider TEXTURE_AND_MODEL_PROVIDER = SingletonInjector.INSTANCE.get(IBlockStateTextureAndModelProvider.class);
 	
 	/** RGBA */
 	public static final int TILE_BYTE_COUNT = TextureUtil.TEXTURE_WIDTH_AND_HEIGHT * TextureUtil.TEXTURE_WIDTH_AND_HEIGHT * 4;
@@ -72,7 +72,7 @@ public class BlockTextureRegistry
 	
 	
 	// needs to be defined after the other static variables so it can reference them
-	public static final BlockTextureRegistry INSTANCE = new BlockTextureRegistry();
+	public static final BlockRenderRegistry INSTANCE = new BlockRenderRegistry();
 	
 	
 	
@@ -85,7 +85,7 @@ public class BlockTextureRegistry
 	private int firstTileIdPendingUpload = 0;
 	
 	/** 
-	 * indexed by set id (stored by {@link BlockTextureRegistry#setIdByBlockStateWrapper}), 
+	 * indexed by set id (stored by {@link BlockRenderRegistry#setIdByBlockStateWrapper}), 
 	 * holds the face tiles, colors and model shared by block states that look the same.
 	 */
 	private final ArrayList<BlockRenderSet> renderSetsById = new ArrayList<>();
@@ -100,7 +100,7 @@ public class BlockTextureRegistry
 	//=============//
 	//region
 	
-	private BlockTextureRegistry()
+	private BlockRenderRegistry()
 	{
 		// reserve the flat tile so id 0 always renders as a 1.0 multiplier
 		byte[] flatPixels = new byte[TILE_BYTE_COUNT];
@@ -133,7 +133,7 @@ public class BlockTextureRegistry
 	 * baking and registering its textures and model if necessary. <br>
 	 * Thread safe, although baking may block briefly.
 	 *
-	 * @return {@link BlockTextureRegistry#FLAT_SET_ID} if the block has no textures or model
+	 * @return {@link BlockRenderRegistry#FLAT_SET_ID} if the block has no textures or model
 	 */
 	public short getOrRegisterBlockStateSetId(IBlockStateWrapper blockState, IClientLevelWrapper levelWrapper)
 	{
@@ -218,14 +218,14 @@ public class BlockTextureRegistry
 		for (EDhDirection direction : EDhDirection.ALL)
 		{
 			int faceIndex = direction.faceIndex;
-			BlockFaceTexture faceTexture = TEXTURE_PROVIDER.getFaceTexture(blockState, direction);
+			BlockFaceTexture faceTexture = TEXTURE_AND_MODEL_PROVIDER.getFaceTexture(blockState, direction);
 			if (faceTexture != null)
 			{
 				int averageColor = calculateAverageVisibleColor(faceTexture);
 				faceTileIds[faceIndex] = this.getOrCreateTileId(faceTexture, averageColor);
 				
 				// only tinted faces take the biome tint
-				boolean faceUsesLodColor = useApiColor || (needPostTinting && TEXTURE_PROVIDER.isFaceTinted(blockState, direction));
+				boolean faceUsesLodColor = useApiColor || (needPostTinting && TEXTURE_AND_MODEL_PROVIDER.isFaceTinted(blockState, direction));
 				faceColors[faceIndex] = faceUsesLodColor ? BlockRenderSet.USE_LOD_COLOR : averageColor;
 				
 				if (direction == EDhDirection.UP)
@@ -257,7 +257,7 @@ public class BlockTextureRegistry
 			faceColors[EDhDirection.UP.faceIndex] = BlockRenderSet.USE_LOD_COLOR;
 		}
 		
-		BlockFaceTexture flowTexture = isFluidBlock ? TEXTURE_PROVIDER.getFaceTexture(blockState, EDhDirection.UP) : null;
+		BlockFaceTexture flowTexture = isFluidBlock ? TEXTURE_AND_MODEL_PROVIDER.getFaceTexture(blockState, EDhDirection.UP) : null;
 		if (flowTexture != null)
 		{
 			// stripes run down the sides, like vanilla's flowing texture
@@ -276,7 +276,7 @@ public class BlockTextureRegistry
 		}
 		
 		boolean drawModel = Config.Client.Advanced.Graphics.Quality.enableBlockModels.get() && usesModel(blockState);
-		BlockModelQuad[] modelQuads = drawModel ? TEXTURE_PROVIDER.getModel(blockState) : new BlockModelQuad[0];
+		BlockModelQuad[] modelQuads = drawModel ? TEXTURE_AND_MODEL_PROVIDER.getModel(blockState) : new BlockModelQuad[0];
 		short[] modelQuadTileIds = new short[modelQuads.length];
 		int[] modelQuadColors = new int[modelQuads.length];
 		for (int quadIndex = 0; quadIndex < modelQuads.length; quadIndex++)
@@ -351,7 +351,7 @@ public class BlockTextureRegistry
 		return (!blockState.isFullBlock() || blockState.allowApiModelOverride())
 			&& !blockState.isLiquid()
 			// blocks without quads stay boxes
-			&& TEXTURE_PROVIDER.getModel(blockState).length != 0;
+			&& TEXTURE_AND_MODEL_PROVIDER.getModel(blockState).length != 0;
 	}
 	
 	/** Models are only drawn at block detail and need the offset format */
@@ -560,10 +560,10 @@ public class BlockTextureRegistry
 		this.tilePixelsById.add(flatTile);
 		this.firstTileIdPendingUpload = 0;
 		
-		IBlockStateFaceTextureProvider textureProvider = SingletonInjector.INSTANCE.get(IBlockStateFaceTextureProvider.class);
-		if (textureProvider != null)
+		IBlockStateTextureAndModelProvider textureAndModelProvider = SingletonInjector.INSTANCE.get(IBlockStateTextureAndModelProvider.class);
+		if (textureAndModelProvider != null)
 		{
-			textureProvider.clear();
+			textureAndModelProvider.clear();
 		}
 	}
 	

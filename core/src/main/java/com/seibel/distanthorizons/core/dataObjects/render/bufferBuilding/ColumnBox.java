@@ -23,7 +23,7 @@ import com.seibel.distanthorizons.api.enums.rendering.EDhApiBlockMaterial;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiTransparency;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderSet;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
@@ -608,7 +608,7 @@ public class ColumnBox
 	{
 		if (faceTileIdsByDirectionOrdinal == null)
 		{
-			return BlockTextureRegistry.UNTEXTURED_ID;
+			return BlockRenderRegistry.UNTEXTURED_ID;
 		}
 		
 		return faceTileIdsByDirectionOrdinal[direction.faceIndex];

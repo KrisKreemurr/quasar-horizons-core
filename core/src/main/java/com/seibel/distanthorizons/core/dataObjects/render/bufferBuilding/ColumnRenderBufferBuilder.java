@@ -26,7 +26,7 @@ import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiR
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderSet;
 import com.seibel.distanthorizons.core.logging.DhLogger;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
@@ -69,7 +69,7 @@ public class ColumnRenderBufferBuilder
 		BlockRenderSet[] setsByPaletteIndex = new BlockRenderSet[renderSource.getPaletteSize()];
 		for (int paletteIndex = 0; paletteIndex < setsByPaletteIndex.length; paletteIndex++)
 		{
-			setsByPaletteIndex[paletteIndex] = BlockTextureRegistry.INSTANCE.getRenderSet(renderSource.getPaletteSetId(paletteIndex));
+			setsByPaletteIndex[paletteIndex] = BlockRenderRegistry.INSTANCE.getRenderSet(renderSource.getPaletteSetId(paletteIndex));
 		}
 		return setsByPaletteIndex;
 	}
@@ -117,7 +117,7 @@ public class ColumnRenderBufferBuilder
 		
 		// only formats with an offset can lower vertices
 		boolean lowerFluidSurfaces = (quadBuilder.getVertexFormat() == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET);
-		boolean drawModels = BlockTextureRegistry.modelsDrawnAtDetailLevel(renderSource.getDataDetailLevel(), renderDefinition);
+		boolean drawModels = BlockRenderRegistry.modelsDrawnAtDetailLevel(renderSource.getDataDetailLevel(), renderDefinition);
 		
 		//===================//
 		// build each column //
@@ -373,10 +373,10 @@ public class ColumnRenderBufferBuilder
 						EDhDirection flowDirection = FluidSurfaceUtil.getFlowDirection(topDrops);
 						if (flowDirection != null
 							&& faceTileIdsByDirectionOrdinal != null
-							&& faceTileIdsByDirectionOrdinal.length > BlockTextureRegistry.FLUID_FLOW_TILE_INDEX)
+							&& faceTileIdsByDirectionOrdinal.length > BlockRenderRegistry.FLUID_FLOW_TILE_INDEX)
 						{
 							System.arraycopy(faceTileIdsByDirectionOrdinal, 0, flowingFaceTileIds, 0, flowingFaceTileIds.length);
-							flowingFaceTileIds[EDhDirection.UP.faceIndex] = faceTileIdsByDirectionOrdinal[BlockTextureRegistry.FLUID_FLOW_TILE_INDEX + flowDirection.compassIndex];
+							flowingFaceTileIds[EDhDirection.UP.faceIndex] = faceTileIdsByDirectionOrdinal[BlockRenderRegistry.FLUID_FLOW_TILE_INDEX + flowDirection.compassIndex];
 							faceTileIdsByDirectionOrdinal = flowingFaceTileIds;
 						}
 						

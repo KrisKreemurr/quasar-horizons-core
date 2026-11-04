@@ -21,7 +21,7 @@ package com.seibel.distanthorizons.core.dataObjects.render;
 
 import com.seibel.distanthorizons.api.enums.config.EDhApiVerticalQuality;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.util.RenderDataPointReducingList;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.AbstractPhantomArrayList;
@@ -76,8 +76,8 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	/** set and fluid data for each data point, see {@link RenderDataPointAttributeUtil} */
 	private final ByteArrayList attributeContainer;
 	/**
-	 * Palette index -> {@link BlockTextureRegistry} set id. <br>
-	 * Index {@link BlockTextureRegistry#FLAT_SET_ID} is always the flat set.
+	 * Palette index -> {@link BlockRenderRegistry} set id. <br>
+	 * Index {@link BlockRenderRegistry#FLAT_SET_ID} is always the flat set.
 	 */
 	private final ShortArrayList setPalette = new ShortArrayList();
 	/** set id -> palette index */
@@ -118,9 +118,9 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 		// set ids are only stored for high detail sections that use textures or block models
 		this.usesTextures = texturedLodsEnabledAtDetailLevel(this.getDataDetailLevel());
 		this.storesSetIds = this.usesTextures
-			|| BlockTextureRegistry.modelsDrawnAtDetailLevel(this.getDataDetailLevel(), renderDefinition);
-		this.setPalette.add(BlockTextureRegistry.FLAT_SET_ID);
-		this.paletteIndexBySetId.put(BlockTextureRegistry.FLAT_SET_ID, 0);
+			|| BlockRenderRegistry.modelsDrawnAtDetailLevel(this.getDataDetailLevel(), renderDefinition);
+		this.setPalette.add(BlockRenderRegistry.FLAT_SET_ID);
+		this.paletteIndexBySetId.put(BlockRenderRegistry.FLAT_SET_ID, 0);
 		
 		this.attributeContainer = this.pooledArraysCheckout.getByteArray(0, maxDatapointCount * RenderDataPointAttributeUtil.RECORD_SIZE_IN_BYTES);
 	}

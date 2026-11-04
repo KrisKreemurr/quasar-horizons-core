@@ -26,7 +26,7 @@ import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.FullDataPointIdMap;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.dataObjects.render.columnViews.ColumnRenderView;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
@@ -273,12 +273,12 @@ public class FullDataToRenderDataTransformer
 			setRenderColumnView(levelWrapper, renderDefinition, fullDataSource, blockX, blockZ, tempExpandingColumnView, fullDataColumn, mutableBlockPos);
 			
 			LongPredicate pointIsModel = (renderData) -> false;
-			if (BlockTextureRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel(), renderDefinition))
+			if (BlockRenderRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel(), renderDefinition))
 			{
 				pointIsModel = (renderData) ->
 				{
 					IBlockStateWrapper block = getBlockAtY(fullDataSource, fullDataColumn, RenderDataPointUtil.getYMax(renderData) - 1);
-					return block != null && BlockTextureRegistry.usesModel(block);
+					return block != null && BlockRenderRegistry.usesModel(block);
 				};
 			}
 			columnArrayView.changeVerticalSizeFrom(tempExpandingColumnView, reducingList, pointIsModel);
@@ -315,7 +315,7 @@ public class FullDataToRenderDataTransformer
 			
 			// find the full data point containing the render data point's top block,
 			// the full data column is sorted top down
-			short setId = BlockTextureRegistry.FLAT_SET_ID;
+			short setId = BlockRenderRegistry.FLAT_SET_ID;
 			// liquids default to full, everything else has no liquid
 			int fluidAmount = RenderDataPointUtil.isFluid(renderData) ? LodUtil.MAX_FLUID_AMOUNT : LodUtil.NO_FLUID_AMOUNT;
 			boolean waterlogged = false;
@@ -365,7 +365,7 @@ public class FullDataToRenderDataTransformer
 						// This now also runs for fluid changes, so we gotta check if set ids are stored
 						if (columnSource.hasSetIds())
 						{
-							setId = BlockTextureRegistry.INSTANCE.getOrRegisterBlockStateSetId(block, levelWrapper);
+							setId = BlockRenderRegistry.INSTANCE.getOrRegisterBlockStateSetId(block, levelWrapper);
 						}
 						
 						// Blocks that are replaced with water (like lily pads) don't have fluid, those stay full
@@ -421,7 +421,7 @@ public class FullDataToRenderDataTransformer
 	
 	/** Models are only drawn at block detail */
 	private static boolean isDrawnAsModel(IBlockStateWrapper block, boolean modelsAtThisDetail)
-	{ return modelsAtThisDetail && BlockTextureRegistry.usesModel(block); }
+	{ return modelsAtThisDetail && BlockRenderRegistry.usesModel(block); }
 	
 	/** Models without a full bottom */
 	private static boolean canSeeBlockBelow(IBlockStateWrapper block, boolean modelsAtThisDetail)
@@ -449,7 +449,7 @@ public class FullDataToRenderDataTransformer
 		
 		boolean ignoreNonCollidingBlocks = (Config.Client.Advanced.Graphics.Culling.blocksToIgnore.get() == EDhApiBlocksToAvoid.NON_COLLIDING);
 		boolean colorBelowWithAvoidedBlocks = Config.Client.Advanced.Graphics.Culling.tintWithAvoidedBlocks.get();
-		boolean modelsAtThisDetail = BlockTextureRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel(), renderDefinition);
+		boolean modelsAtThisDetail = BlockRenderRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel(), renderDefinition);
 		
 		final ObjectOpenHashSet<IBlockStateWrapper> blockStatesToIgnore = WRAPPER_FACTORY.getRendererIgnoredBlocks(levelWrapper);
 		final ObjectOpenHashSet<IBlockStateWrapper> caveBlockStatesToIgnore = WRAPPER_FACTORY.getRendererIgnoredCaveBlocks(levelWrapper);

@@ -23,7 +23,7 @@ import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 import org.jetbrains.annotations.Nullable;
 
-/** The face tiles, colors and model shared by block states that look the same, see {@link BlockTextureRegistry} */
+/** The face tiles, colors and model shared by block states that look the same, see {@link BlockRenderRegistry} */
 public class BlockRenderSet
 {
 	/** a face color that means the face uses the LOD's color instead (biome tinted faces) */

@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  * Provides the baked {@link BlockFaceTexture} for a given block state and face, and its model,
  * used when building textured LODs.
  */
-public interface IBlockStateFaceTextureProvider extends IBindable
+public interface IBlockStateTextureAndModelProvider extends IBindable
 {
 	/**
 	 * May be slow the first time a given block state is requested

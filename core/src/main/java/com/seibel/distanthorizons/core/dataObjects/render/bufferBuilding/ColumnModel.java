@@ -23,7 +23,7 @@ import com.seibel.distanthorizons.api.enums.rendering.EDhApiTransparency;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.columnViews.ColumnRenderView;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockModelQuad;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderSet;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.util.LodUtil;
@@ -156,7 +156,7 @@ public class ColumnModel
 				}
 				quadColor = ColorUtil.applyShade(quadColor, clientLevelWrapper.getShade(modelQuad.shadeDirection));
 				
-				short tileId = useTextures ? modelSet.modelQuadTileIds[quadIndex] : BlockTextureRegistry.UNTEXTURED_ID;
+				short tileId = useTextures ? modelSet.modelQuadTileIds[quadIndex] : BlockRenderRegistry.UNTEXTURED_ID;
 				
 				// quads inside the block are lit by its brightest side
 				byte quadSkyLight = (modelQuad.cullDirection != null) ? sideLights[modelQuad.cullDirection.faceIndex] : brightestLight;

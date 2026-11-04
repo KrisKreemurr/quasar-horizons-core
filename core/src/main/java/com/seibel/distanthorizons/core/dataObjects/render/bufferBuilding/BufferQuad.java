@@ -52,7 +52,7 @@ public final class BufferQuad
 	public short widthNorthSouthOrHeight;
 	
 	public int color;
-	/** {@link com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry} tile id, 0 = flat color */
+	/** {@link com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry} tile id, 0 = flat color */
 	public short textureTileId;
 	/** used by the Iris shader mod to determine how each LOD should be rendered */
 	public byte irisBlockMaterialId;
