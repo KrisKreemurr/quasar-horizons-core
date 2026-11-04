@@ -58,8 +58,12 @@ public class LodQuadBuilder implements AutoCloseable
 	/** smallest vertex size, used to size index buffers */
 	public static final int BYTES_PER_VERTEX = EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE.bytesPerVertex;
 	public static final int BYTES_PER_QUAD = BYTES_PER_VERTEX * 4;
-	/** tells the shader to use the vertex u/v */
+	/**
+	 * Blocks and models share the same vertex buffers and draw call,
+	 * so these tell the shader to use the vertex's u/v or the box face mapping
+	 */
 	private static final byte VERTEX_UV_FLAG = 0b1;
+	private static final byte BOX_FACE_UV_FLAG = 0b0;
 	
 	public static final int[][][] DIRECTION_VERTEX_IBO_QUAD = new int[][][]
 	//region
@@ -544,7 +548,7 @@ public class LodQuadBuilder implements AutoCloseable
 					quad.hasError ? 0 : quad.textureTileId,
 					mx, my, mz,
 					(byte) 0, subY, (byte) 0,
-					(byte) 0, (byte) 0, (byte) 0, (short) 0);
+					BOX_FACE_UV_FLAG, (byte) 0, (byte) 0, (short) 0);
 		}
 	}
 	private void putVertex(
