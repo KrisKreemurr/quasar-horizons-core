@@ -20,6 +20,7 @@
 package com.seibel.distanthorizons.api.methods.events.abstractEvents;
 
 import com.seibel.distanthorizons.api.interfaces.block.IDhApiBlockStateWrapper;
+import com.seibel.distanthorizons.api.interfaces.factories.IDhApiWrapperFactory;
 import com.seibel.distanthorizons.api.methods.events.interfaces.IDhApiEvent;
 import com.seibel.distanthorizons.api.methods.events.interfaces.IDhApiEventParam;
 import com.seibel.distanthorizons.api.methods.events.sharedParameterObjects.DhApiEventParam;
@@ -29,7 +30,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * This event is fired the first time DH needs the model of an {@link IDhApiBlockStateWrapper}.
+ * This event is fired the first time DH needs the model of an {@link IDhApiBlockStateWrapper}
+ * and can be used to replace or add to that model.
  * Once the model has been resolved, that same model will be reused for all subsequent instances
  * of that {@link IDhApiBlockStateWrapper}. <br>
  * (I.E. each block state can only have one model, you can't define
@@ -41,10 +43,19 @@ import java.util.List;
  * It can fire on any of DH's threads.
  * <Br><Br>
  *
- * Quads are rendered in order: the block's own model, then copied blocks, then added quads.
+ * How to use: <br>
+ * - The model starts as the block's own Minecraft model. <br>
+ * - {@link EventParam#clearQuads()} removes it. <br>
+ * - {@link EventParam#addModelFromBlock(IDhApiBlockStateWrapper)} adds another block's model. <br>
+ * - {@link EventParam#addQuad(DhApiModelQuad)} adds your own quads. <br>
+ * - If no quads are left the block is drawn as a box.
+ * <Br><Br>
+ *
+ * Quads are rendered in order: the block's own model, then copied blocks, then added quads. <br>
+ * Models are only drawn on block detail LODs, when block models are enabled in the config.
  *
  * @author Luis Vervaet
- * @version 2026-10-29
+ * @version 2026-11-04
  * @since API 7.3.0
  * @see DhApiModelQuad
  */
@@ -101,9 +112,13 @@ public abstract class DhApiBlockModelOverrideEvent implements IDhApiEvent<DhApiB
 			this.addedQuads.clear();
 		}
 		
+		/** Adds one of your own quads to the model */
 		public void addQuad(DhApiModelQuad quad) { this.addedQuads.add(quad); }
 		
-		/** Adds the Minecraft model of the given block */
+		/** 
+		 * Adds the Minecraft model of the given block. <br>
+		 * Other blocks' wrappers can be found via {@link IDhApiWrapperFactory}.
+		 */
 		public void addModelFromBlock(IDhApiBlockStateWrapper blockStateWrapper) { this.copiedBlocks.add(blockStateWrapper); }
 		
 		//endregion
