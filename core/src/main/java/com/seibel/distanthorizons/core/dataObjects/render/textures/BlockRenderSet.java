@@ -34,7 +34,7 @@ public class BlockRenderSet
 	/** each face's own color or {@link #USE_LOD_COLOR}, indexed by {@link EDhDirection#faceIndex} */
 	public final int[] faceColors;
 	/** empty if the block state isn't drawn with its model */
-	public final BlockModelQuad[] modelQuads;
+	public final DhBlockModelQuad[] modelQuads;
 	/** indexed the same as modelQuads */
 	public final short[] modelQuadTileIds;
 	/** each quad's own color or {@link #USE_LOD_COLOR}, indexed the same as modelQuads */
@@ -48,9 +48,9 @@ public class BlockRenderSet
 	public BlockRenderSet() 
 	{
 		// 6 faces on a cube
-		this(new short[6], new int[6], new BlockModelQuad[0], new short[0], new int[0], null);
+		this(new short[6], new int[6], new DhBlockModelQuad[0], new short[0], new int[0], null);
 	}
-	public BlockRenderSet(short[] faceTileIds, int[] faceColors, BlockModelQuad[] modelQuads, short[] modelQuadTileIds, int[] modelQuadColors, @Nullable IBlockStateWrapper blockState)
+	public BlockRenderSet(short[] faceTileIds, int[] faceColors, DhBlockModelQuad[] modelQuads, short[] modelQuadTileIds, int[] modelQuadColors, @Nullable IBlockStateWrapper blockState)
 	{
 		this.faceTileIds = faceTileIds;
 		this.faceColors = faceColors;

@@ -24,7 +24,7 @@ import com.seibel.distanthorizons.core.util.math.DhVec3f;
 import org.jetbrains.annotations.Nullable;
 
 /** One quad of a block's model */
-public class BlockModelQuad
+public class DhBlockModelQuad
 {
 	/** corner positions are stored in 256ths of a block */
 	public static final int CORNER_UNITS_PER_BLOCK = 256;
@@ -90,7 +90,7 @@ public class BlockModelQuad
 	}
 	
 	/** all inputs are in the range [0,1] */
-	public BlockModelQuad(
+	public DhBlockModelQuad(
 		float[] xByVertex, float[] yByVertex, float[] zByVertex, float[] uByVertex, float[] vByVertex,
 		BlockFaceTexture texture, @Nullable EDhDirection cullDirection, boolean tinted)
 	{

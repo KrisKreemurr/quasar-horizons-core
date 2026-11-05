@@ -20,7 +20,7 @@
 package com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding;
 
 import com.seibel.distanthorizons.core.config.Config;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockModelQuad;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.DhBlockModelQuad;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import org.jetbrains.annotations.Nullable;
@@ -66,7 +66,7 @@ public final class BufferQuad
 	public short topDrops;
 	/** null for box faces */
 	@Nullable
-	public BlockModelQuad modelQuad;
+	public DhBlockModelQuad modelQuad;
 	
 	// Pre-computed sort keys to avoid recomputing on every comparison
 	// Slight increase in memory for reduction in cpu usage

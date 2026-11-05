@@ -161,10 +161,10 @@ public class BlockRenderRegistry
 	}
 	
 	/** everything a set draws, so block states that look the same share a set */
-	private static ContentKey createSetContentKey(short[] faceTileIds, int[] faceColors, BlockModelQuad[] modelQuads, short[] modelQuadTileIds, int[] modelQuadColors, boolean waterlogged)
+	private static ContentKey createSetContentKey(short[] faceTileIds, int[] faceColors, DhBlockModelQuad[] modelQuads, short[] modelQuadTileIds, int[] modelQuadColors, boolean waterlogged)
 	{
 		int byteCount = (2 * Integer.BYTES) + Byte.BYTES + (faceTileIds.length * Short.BYTES) + (faceColors.length * Integer.BYTES);
-		for (BlockModelQuad quad : modelQuads)
+		for (DhBlockModelQuad quad : modelQuads)
 		{
 			// corners, uvs, cull and shade side, normal, tile id, color
 			byteCount += (quad.cornerPositions.length * Integer.BYTES) + quad.cornerUvBytes.length + (2 * Byte.BYTES) + (2 * Short.BYTES) + Integer.BYTES;
@@ -187,7 +187,7 @@ public class BlockRenderRegistry
 		
 		for (int quadIndex = 0; quadIndex < modelQuads.length; quadIndex++)
 		{
-			BlockModelQuad quad = modelQuads[quadIndex];
+			DhBlockModelQuad quad = modelQuads[quadIndex];
 			for (int position : quad.cornerPositions)
 			{
 				buffer.putInt(position);
@@ -276,7 +276,7 @@ public class BlockRenderRegistry
 		}
 		
 		boolean drawModel = Config.Client.Advanced.Graphics.Quality.enableBlockModels.get() && usesModel(blockState);
-		BlockModelQuad[] modelQuads = drawModel ? TEXTURE_AND_MODEL_PROVIDER.getModel(blockState) : new BlockModelQuad[0];
+		DhBlockModelQuad[] modelQuads = drawModel ? TEXTURE_AND_MODEL_PROVIDER.getModel(blockState) : new DhBlockModelQuad[0];
 		short[] modelQuadTileIds = new short[modelQuads.length];
 		int[] modelQuadColors = new int[modelQuads.length];
 		for (int quadIndex = 0; quadIndex < modelQuads.length; quadIndex++)

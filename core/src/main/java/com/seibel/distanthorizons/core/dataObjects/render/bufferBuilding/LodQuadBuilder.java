@@ -28,7 +28,7 @@ import com.seibel.distanthorizons.api.enums.rendering.EDhApiDebugRendering;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiTerrainVertexFormat;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.core.config.Config;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockModelQuad;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.DhBlockModelQuad;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.logging.DhLogger;
@@ -261,7 +261,7 @@ public class LodQuadBuilder implements AutoCloseable
 	}
 	
 	public void addModelQuad(
-		BlockModelQuad modelQuad,
+		DhBlockModelQuad modelQuad,
 		short x, short y, short z,
 		int color, short textureTileId,
 		byte irisBlockMaterialId,
@@ -423,7 +423,7 @@ public class LodQuadBuilder implements AutoCloseable
 	{
 		int[] corners = quad.modelQuad.cornerPositions;
 		byte[] uvs = quad.modelQuad.cornerUvBytes;
-		int unitsPerBlock = BlockModelQuad.CORNER_UNITS_PER_BLOCK;
+		int unitsPerBlock = DhBlockModelQuad.CORNER_UNITS_PER_BLOCK;
 		for (int i = 0; i < 4; i++)
 		{
 			// how far into the block this corner is, in 256ths of a block

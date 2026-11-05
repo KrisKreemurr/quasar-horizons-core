@@ -20,7 +20,7 @@
 package com.seibel.distanthorizons.core.wrapperInterfaces.block;
 
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockFaceTexture;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockModelQuad;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.DhBlockModelQuad;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.coreapi.interfaces.dependencyInjection.IBindable;
 import org.jetbrains.annotations.Nullable;
@@ -48,7 +48,7 @@ public interface IBlockStateTextureAndModelProvider extends IBindable
 	 *
 	 * @return an empty array if the block state has no model quads
 	 */
-	BlockModelQuad[] getModel(IBlockStateWrapper blockState);
+	DhBlockModelQuad[] getModel(IBlockStateWrapper blockState);
 
 	/** True if this face takes the block's tint color */
 	boolean isFaceTinted(IBlockStateWrapper blockState, EDhDirection direction);

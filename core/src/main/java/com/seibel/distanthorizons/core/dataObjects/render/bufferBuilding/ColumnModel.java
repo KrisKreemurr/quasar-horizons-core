@@ -22,9 +22,9 @@ package com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiTransparency;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.columnViews.ColumnRenderView;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockModelQuad;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderSet;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.DhBlockModelQuad;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.RenderDataPointUtil;
@@ -139,7 +139,7 @@ public class ColumnModel
 			
 			for (int quadIndex = 0; quadIndex < modelSet.modelQuads.length; quadIndex++)
 			{
-				BlockModelQuad modelQuad = modelSet.modelQuads[quadIndex];
+				DhBlockModelQuad modelQuad = modelSet.modelQuads[quadIndex];
 				if (modelQuad.cullDirection != null
 					&& hiddenSides[modelQuad.cullDirection.faceIndex])
 				{
