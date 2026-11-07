@@ -21,6 +21,7 @@ package com.seibel.distanthorizons.core.dataObjects.transformers;
 
 import com.seibel.distanthorizons.api.enums.config.EDhApiBlocksToAvoid;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiBlockMaterial;
+import com.seibel.distanthorizons.api.enums.worldGeneration.EDhApiWorldGenerationStep;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.FullDataPointIdMap;
@@ -146,6 +147,12 @@ public class FullDataToRenderDataTransformer
 					columnSource.populateColumnView(columnArrayView, x, z);
 					LongArrayList dataColumn = fullDataSource.getColumnAtRelPos(x, z);
 					
+					// old LODs stretched models down, they're read as surface until regenerated
+					if (fullDataSource.columnGenerationSteps.getByte(FullDataSourceV2.relativePosToIndex(x, z)) < EDhApiWorldGenerationStep.FEATURES.value)
+					{
+						columnSource.disableModelsInColumn(x, z);
+					}
+					
 					updateOrReplaceRenderDataViewColumnWithFullDataColumn(
 						levelWrapper, renderDefinition, fullDataSource,
 						// bit shift is to account for LODs with a detail level greater than 0 so the block pos is correct
@@ -255,11 +262,14 @@ public class FullDataToRenderDataTransformer
 			return;
 		}
 		
+		boolean modelsInThisColumn = BlockRenderRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel(), renderDefinition)
+			&& columnSource.columnDrawsModels(sourceRelX, sourceRelZ);
+		
 		int fullDataLength = fullDataColumn.size();
 		if (fullDataLength <= columnArrayView.maxVerticalSliceCount)
 		{
 			// Directly use the arrayView since it fits.
-			setRenderColumnView(levelWrapper, renderDefinition, fullDataSource, blockX, blockZ, columnArrayView, fullDataColumn, mutableBlockPos);
+			setRenderColumnView(levelWrapper, modelsInThisColumn, fullDataSource, blockX, blockZ, columnArrayView, fullDataColumn, mutableBlockPos);
 		}
 		else
 		{
@@ -270,10 +280,10 @@ public class FullDataToRenderDataTransformer
 			tempExpandingColumnView.populate(
 				dataArrayList, voidDataArrayList,
 				fullDataLength, 0, 0, fullDataLength);
-			setRenderColumnView(levelWrapper, renderDefinition, fullDataSource, blockX, blockZ, tempExpandingColumnView, fullDataColumn, mutableBlockPos);
+			setRenderColumnView(levelWrapper, modelsInThisColumn, fullDataSource, blockX, blockZ, tempExpandingColumnView, fullDataColumn, mutableBlockPos);
 			
 			LongPredicate pointIsModel = (renderData) -> false;
-			if (BlockRenderRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel(), renderDefinition))
+			if (modelsInThisColumn)
 			{
 				pointIsModel = (renderData) ->
 				{
@@ -420,26 +430,26 @@ public class FullDataToRenderDataTransformer
 	}
 	
 	/** Models are only drawn at block detail */
-	private static boolean isDrawnAsModel(IBlockStateWrapper block, boolean modelsAtThisDetail)
-	{ return modelsAtThisDetail && BlockRenderRegistry.usesModel(block); }
+	private static boolean isDrawnAsModel(IBlockStateWrapper block, boolean modelsInThisColumn)
+	{ return modelsInThisColumn && BlockRenderRegistry.usesModel(block); }
 	
 	/** Models without a full bottom */
-	private static boolean canSeeBlockBelow(IBlockStateWrapper block, boolean modelsAtThisDetail)
-	{ return isDrawnAsModel(block, modelsAtThisDetail) && !block.isFaceFull(EDhDirection.DOWN); }
+	private static boolean canSeeBlockBelow(IBlockStateWrapper block, boolean modelsInThisColumn)
+	{ return isDrawnAsModel(block, modelsInThisColumn) && !block.isFaceFull(EDhDirection.DOWN); }
 	
 	/** Models only merge with the same block */
-	private static boolean canMergeBlocks(IBlockStateWrapper block, IBlockStateWrapper lastBlock, boolean modelsAtThisDetail)
+	private static boolean canMergeBlocks(IBlockStateWrapper block, IBlockStateWrapper lastBlock, boolean modelsInThisColumn)
 	{
 		if (block == lastBlock)
 		{
 			return true;
 		}
-		return !isDrawnAsModel(block, modelsAtThisDetail)
-			&& !isDrawnAsModel(lastBlock, modelsAtThisDetail);
+		return !isDrawnAsModel(block, modelsInThisColumn)
+			&& !isDrawnAsModel(lastBlock, modelsInThisColumn);
 	}
 	
 	private static void setRenderColumnView(
-			IClientLevelWrapper levelWrapper, AbstractDhApiRenderDefinition renderDefinition, FullDataSourceV2 fullDataSource,
+			IClientLevelWrapper levelWrapper, boolean modelsInThisColumn, FullDataSourceV2 fullDataSource,
 			int blockX, int blockZ,
 			ColumnRenderView renderColumnData, LongArrayList fullColumnData, DhBlockPosMutable mutableBlockPos)
 	{
@@ -449,7 +459,6 @@ public class FullDataToRenderDataTransformer
 		
 		boolean ignoreNonCollidingBlocks = (Config.Client.Advanced.Graphics.Culling.blocksToIgnore.get() == EDhApiBlocksToAvoid.NON_COLLIDING);
 		boolean colorBelowWithAvoidedBlocks = Config.Client.Advanced.Graphics.Culling.tintWithAvoidedBlocks.get();
-		boolean modelsAtThisDetail = BlockRenderRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel(), renderDefinition);
 		
 		final ObjectOpenHashSet<IBlockStateWrapper> blockStatesToIgnore = WRAPPER_FACTORY.getRendererIgnoredBlocks(levelWrapper);
 		final ObjectOpenHashSet<IBlockStateWrapper> caveBlockStatesToIgnore = WRAPPER_FACTORY.getRendererIgnoredCaveBlocks(levelWrapper);
@@ -629,7 +638,7 @@ public class FullDataToRenderDataTransformer
 				|| !block.isSolid()
 				|| block.isLiquid()
 				|| block.getOpacity() < LodUtil.BLOCK_FULLY_OPAQUE
-				|| isDrawnAsModel(block, modelsAtThisDetail))
+				|| isDrawnAsModel(block, modelsInThisColumn))
 			{
 				if (caveCullingEnabled
 					// assume this data point is underground if it has no sky-light
@@ -648,7 +657,7 @@ public class FullDataToRenderDataTransformer
 					
 					if (nextSkyLight == LodUtil.MIN_MC_LIGHT
 						&& ColorUtil.getAlpha(lastColor) == 255
-						&& !isDrawnAsModel(lastBlock, modelsAtThisDetail))
+						&& !isDrawnAsModel(lastBlock, modelsInThisColumn))
 					{
 						// replace the previous block with new bottom
 						long columnData = renderColumnData.get(renderDataIndex - 1);
@@ -694,7 +703,7 @@ public class FullDataToRenderDataTransformer
 			//=======================//
 			
 			// snow layers are drawn with their model
-			boolean isSnowLayerModel = snowLayerBlockStates.contains(block) && isDrawnAsModel(block, modelsAtThisDetail);
+			boolean isSnowLayerModel = snowLayerBlockStates.contains(block) && isDrawnAsModel(block, modelsInThisColumn);
 			
 			boolean ignoreNonSolidBlock =
 				ignoreNonCollidingBlocks
@@ -838,7 +847,7 @@ public class FullDataToRenderDataTransformer
 			
 			// models aren't lit from the side by the sky light pass
 			if (skyLight == LodUtil.MIN_MC_LIGHT
-				&& isDrawnAsModel(block, modelsAtThisDetail))
+				&& isDrawnAsModel(block, modelsInThisColumn))
 			{
 				skyLight = getSideSkyLight(fullDataSource, block, blockX, blockZ, topY - 1);
 			}
@@ -853,7 +862,7 @@ public class FullDataToRenderDataTransformer
 			if (color == lastColor 
 				&& bottomY + blockHeight == lastBottom  
 				&& renderDataIndex > 0
-				&& canMergeBlocks(block, lastBlock, modelsAtThisDetail))
+				&& canMergeBlocks(block, lastBlock, modelsInThisColumn))
 			{
 				//replace the previous block with new bottom
 				long columnData = renderColumnData.get(renderDataIndex - 1);
@@ -873,7 +882,7 @@ public class FullDataToRenderDataTransformer
 			lastBlock = block;
 			airAfterLastBlock = false;
 			
-			if (canSeeBlockBelow(block, modelsAtThisDetail))
+			if (canSeeBlockBelow(block, modelsInThisColumn))
 			{
 				skylightToApplyToNextBlock = skyLight;
 				blocklightToApplyToNextBlock = blockLight;

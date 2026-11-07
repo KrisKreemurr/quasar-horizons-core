@@ -286,7 +286,8 @@ public class ColumnRenderBufferBuilder
 							
 							adjRenderSource.populateColumnView(adjColumnViews[direction.compassIndex], xAdj, zAdj);
 							
-							if (drawModels && adjDetailLevel == thisDetailLevel)
+							// neighbors without models are boxes
+							if (drawModels && adjDetailLevel == thisDetailLevel && adjRenderSource.columnDrawsModels(xAdj, zAdj))
 							{
 								BlockRenderSet[] adjSets = isCrossRenderSourceBoundary ? adjSectionSets[direction.compassIndex] : setsByPaletteIndex;
 								adjColumnSets.set(direction, adjRenderSource, adjSets, xAdj, zAdj);
@@ -303,6 +304,8 @@ public class ColumnRenderBufferBuilder
 					//==========================//
 					// build this render column //
 					//==========================//
+					
+					boolean modelsInThisColumn = drawModels && renderSource.columnDrawsModels(relX, relZ);
 					
 					for (int i = 0; i < columnRenderData.size; i++)
 					{
@@ -348,7 +351,7 @@ public class ColumnRenderBufferBuilder
 						}
 						
 						BlockRenderSet modelSet = null;
-						if (drawModels && renderSet != null && renderSet.modelQuads.length != 0)
+						if (modelsInThisColumn && renderSet != null && renderSet.modelQuads.length != 0)
 						{
 							modelSet = renderSet;
 						}
@@ -356,7 +359,7 @@ public class ColumnRenderBufferBuilder
 						// the points above and below
 						BlockRenderSet topSet = null;
 						BlockRenderSet bottomSet = null;
-						if (drawModels)
+						if (modelsInThisColumn)
 						{
 							topSet = (i > 0) ? getDataPointRenderSet(setsByPaletteIndex, renderSource, relX, relZ, i - 1) : null;
 							boolean bottomIsInColumn = (i + 1 < columnRenderData.size) && columnRenderData.get(i + 1) != RenderDataPointUtil.EMPTY_DATA;
