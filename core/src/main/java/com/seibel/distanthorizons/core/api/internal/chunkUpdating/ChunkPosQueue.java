@@ -1,6 +1,7 @@
 package com.seibel.distanthorizons.core.api.internal.chunkUpdating;
 
 import com.seibel.distanthorizons.core.pos.DhChunkPos;
+import com.seibel.distanthorizons.core.pos.DhChunkPosMutable;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPosMutable;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,26 +16,31 @@ public class ChunkPosQueue
 	private final ConcurrentHashMap<DhChunkPos, ChunkUpdateData> updateDataByChunkPos;
 	
 	// defaulting to 0,0 is fine since it'll be updated once we start adding items
-	private final DhBlockPosMutable center = new DhBlockPosMutable(0,0, 0);
+	private final DhChunkPosMutable centerChunkPos = new DhChunkPosMutable(0, 0);
+	private final DhChunkPosMutable compareChunkPos = new DhChunkPosMutable(0, 0);
 	
 	
 	
 	//=============//
 	// constructor //
 	//=============//
+	//region
 	
 	public ChunkPosQueue()
 	{
-		this.closestQueue = new PriorityBlockingQueue<>(500, Comparator.comparingLong(this::squaredDistanceToCenter));
-		this.furthestQueue = new PriorityBlockingQueue<>(500, Comparator.comparingLong(this::squaredDistanceToCenter).reversed());
+		this.closestQueue = new PriorityBlockingQueue<>(500, Comparator.comparingDouble(this::squaredDistanceToCenter));
+		this.furthestQueue = new PriorityBlockingQueue<>(500, Comparator.comparingDouble(this::squaredDistanceToCenter).reversed());
 		this.updateDataByChunkPos = new ConcurrentHashMap<>();
 	}
+	
+	//endregion
 	
 	
 	
 	//==============//
 	// list methods //
 	//==============//
+	//region
 	
 	public boolean contains(DhChunkPos pos) { return this.updateDataByChunkPos.containsKey(pos); }
 	
@@ -61,25 +67,30 @@ public class ChunkPosQueue
 	
 	public boolean isEmpty() { return this.updateDataByChunkPos.isEmpty(); }
 	
+	//endregion
+	
 	
 	
 	//==================//
 	// position methods //
 	//==================//
+	//region
 	
-	public void setCenter(DhBlockPosMutable newCenter)
+	// synchronized to prevent the possibility of compareChunkPos being used by two threads at once 
+	public synchronized void setCenterChunkPos(DhBlockPosMutable newCenterBlockPos)
 	{
+		// pooled object to prevent frequent allocations
+		this.compareChunkPos.set(newCenterBlockPos);
+		
 		// if the rebuild time takes too long 
 		// (in James' testing a queue of 500 items only took around 0.1 milliseconds)
 		// this equation could be changed to only update after moving 2 or 4 chunks from the center
-		if ((newCenter.getX() >> 4) == (this.center.getX() >> 4)
-			&& (newCenter.getZ() >> 4) == (this.center.getZ() >> 4))
+		if (this.compareChunkPos.equals(this.centerChunkPos))
 		{
 			return;
 		}
 		
-		this.center.setX(newCenter.getX());
-		this.center.setZ(newCenter.getZ());
+		this.centerChunkPos.set(this.compareChunkPos);
 		
 		// rebuild the priority queues to match the new center
 		this.rebuildPriorityQueues();
@@ -142,14 +153,23 @@ public class ChunkPosQueue
 		return this.updateDataByChunkPos.get(closest);
 	}
 	
+	//endregion
+	
+	
+	
 	//================//
 	// helper methods //
 	//================//
+	//region
 	
-	private long squaredDistanceToCenter(DhChunkPos pos)
+	private double squaredDistanceToCenter(DhChunkPos pos)
 	{
-		return pos.squaredDistance(this.center.getX() >> 4, this.center.getZ() >> 4);
+		return pos.squaredDistance(this.centerChunkPos);
 	}
+	
+	//endregion
+	
+	
 	
 }
 		

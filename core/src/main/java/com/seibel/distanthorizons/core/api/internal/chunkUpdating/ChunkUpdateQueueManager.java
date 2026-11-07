@@ -440,8 +440,8 @@ public class ChunkUpdateQueueManager implements AutoCloseable
 	
 	public void setCenter(DhBlockPosMutable newCenter)
 	{
-		this.updateQueue.setCenter(newCenter);
-		this.preUpdateQueue.setCenter(newCenter);
+		this.updateQueue.setCenterChunkPos(newCenter);
+		this.preUpdateQueue.setCenterChunkPos(newCenter);
 	}
 	
 	//endregion
