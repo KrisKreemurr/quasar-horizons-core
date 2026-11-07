@@ -576,8 +576,8 @@ public class BlockRenderRegistry
 	//================//
 	//region
 	
-	/** wraps tile pixels or set content so they can be used as a hash map key for deduplication */
-	private static class ContentKey
+	/** wraps content bytes so they can be used as a hash map key for deduplication */
+	static class ContentKey
 	{
 		private final byte[] content;
 		private final int hash;
