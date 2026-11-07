@@ -42,6 +42,8 @@ public class BlockRenderSet
 	/** the first block state registered with this set, null for the shared flat set */
 	@Nullable
 	public final IBlockStateWrapper blockState;
+	/** each side's shared shape, by {@link EDhDirection#faceIndex} */
+	private final SideShape[] sideShapes = new SideShape[EDhDirection.ALL.length];
 	
 	
 	
@@ -58,6 +60,25 @@ public class BlockRenderSet
 		this.modelQuadTileIds = modelQuadTileIds;
 		this.modelQuadColors = modelQuadColors;
 		this.blockState = blockState;
+		
+		for (EDhDirection side : EDhDirection.ALL)
+		{
+			this.sideShapes[side.faceIndex] = SideShape.getSideShape(modelQuads, side);
+		}
+	}
+	
+	/** True if the neighbor's quads hide every quad on that side */
+	public boolean isSideHiddenBy(BlockRenderSet neighbor, EDhDirection side)
+	{
+		SideShape shape = this.sideShapes[side.faceIndex];
+		SideShape neighborShape = neighbor.sideShapes[side.opposite().faceIndex];
+		
+		// sides without quads can't hide or be hidden
+		if (shape == null || neighborShape == null)
+		{
+			return false;
+		}
+		return shape.isHiddenBy(neighborShape);
 	}
 	
 }

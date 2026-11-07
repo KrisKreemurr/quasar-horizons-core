@@ -9,5 +9,3 @@ update FullData set Regenerate = 1 where DetailLevel = 0 and DataFormatVersion <
 
 -- rebuild the index in one pass now that the update is done
 create index FullDataRegenerateIndex on FullData (Regenerate) where Regenerate = 1;
-
-
