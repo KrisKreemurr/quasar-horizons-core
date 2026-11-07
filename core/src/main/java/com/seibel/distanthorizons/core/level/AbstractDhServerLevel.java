@@ -17,6 +17,7 @@ import com.seibel.distanthorizons.core.network.messages.fullData.FullDataPartial
 import com.seibel.distanthorizons.core.multiplayer.fullData.FullDataPayload;
 import com.seibel.distanthorizons.core.network.messages.fullData.FullDataSourceRequestMessage;
 import com.seibel.distanthorizons.core.network.messages.requests.CancelMessage;
+import com.seibel.distanthorizons.core.pos.DhChunkPos;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPos2D;
 import com.seibel.distanthorizons.core.util.LodUtil;
@@ -33,6 +34,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
 
 public abstract class AbstractDhServerLevel extends AbstractDhLevel implements IDhServerLevel
@@ -220,6 +222,15 @@ public abstract class AbstractDhServerLevel extends AbstractDhLevel implements I
 	public void onWorldGenTaskComplete(long pos)
 	{
 		this.requestHandler.onWorldGenTaskComplete(pos);
+	}
+	
+	@Override
+	public void saveChunkHashes(Map<DhChunkPos, Integer> chunkHashByPos)
+	{
+		if (this.chunkHashRepo != null)
+		{
+			this.chunkHashRepo.saveAll(chunkHashByPos);
+		}
 	}
 	
 	
