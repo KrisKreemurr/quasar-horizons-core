@@ -21,6 +21,7 @@ package com.seibel.distanthorizons.core.dataObjects.render.textures;
 
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.util.math.DhVec3f;
+import com.seibel.distanthorizons.core.util.math.DhVec3d;
 import org.jetbrains.annotations.Nullable;
 
 /** One quad of a block's model */
@@ -28,6 +29,9 @@ public class DhBlockModelQuad
 {
 	/** corner positions are stored in 256ths of a block */
 	public static final int CORNER_UNITS_PER_BLOCK = 256;
+	private static final int CORNER_COUNT = 4;
+	/** x, y and z */
+	private static final int POSITIONS_PER_CORNER = 3;
 	private static final int MAX_UNSIGNED_BYTE = 255;
 	
 	/** x, y, z of each of the 4 corners in 256ths of a block */
@@ -110,6 +114,67 @@ public class DhBlockModelQuad
 		DhVec3f normal = getNormal(xByVertex, yByVertex, zByVertex);
 		this.shadeDirection = getShadeDirection(normal);
 		this.packedNormal = getPackedNormal(normal);
+	}
+	
+	/** in 256ths of a block */
+	public DhVec3d getCorner(int corner)
+	{
+		int xIndex = corner * POSITIONS_PER_CORNER;
+		return new DhVec3d(this.cornerPositions[xIndex], this.cornerPositions[xIndex + 1], this.cornerPositions[xIndex + 2]);
+	}
+	
+	/** True if the point is on this flat quad, edges included */
+	public boolean isPointOnQuad(DhVec3d point)
+	{
+		// the quad's facing, from its diagonals
+		DhVec3d firstDiagonal = this.getCorner(2);
+		firstDiagonal.subtract(this.getCorner(0));
+		DhVec3d secondDiagonal = this.getCorner(3);
+		secondDiagonal.subtract(this.getCorner(1));
+		DhVec3d facing = firstDiagonal.copy();
+		facing.crossProduct(secondDiagonal);
+		
+		for (int corner = 0; corner < CORNER_COUNT; corner++)
+		{
+			int nextCorner = (corner + 1) % CORNER_COUNT;
+			DhVec3d cornerPosition = this.getCorner(corner);
+			
+			DhVec3d edge = this.getCorner(nextCorner);
+			edge.subtract(cornerPosition);
+			DhVec3d toPoint = point.copy();
+			toPoint.subtract(cornerPosition);
+			DhVec3d edgeCross = edge.copy();
+			edgeCross.crossProduct(toPoint);
+			
+			// off this quad's plane or outside this edge
+			if (toPoint.dotProduct(facing) != 0 || edgeCross.dotProduct(facing) < 0)
+			{
+				return false;
+			}
+		}
+		
+		// zero area quads cover nothing
+		return facing.dotProduct(facing) != 0;
+	}
+	
+	/** True if this quad fits inside the neighbor's quad on that side */
+	public boolean isInsideNeighborQuad(DhBlockModelQuad neighborQuad, EDhDirection side)
+	{
+		for (int corner = 0; corner < CORNER_COUNT; corner++)
+		{
+			// in the neighbor block's own positions
+			DhVec3d movedCorner = this.getCorner(corner);
+			movedCorner.add(
+				-side.normal.x * CORNER_UNITS_PER_BLOCK,
+				-side.normal.y * CORNER_UNITS_PER_BLOCK,
+				-side.normal.z * CORNER_UNITS_PER_BLOCK);
+			
+			if (!neighborQuad.isPointOnQuad(movedCorner))
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 	
 }

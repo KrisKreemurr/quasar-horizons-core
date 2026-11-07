@@ -44,11 +44,11 @@ public class ColumnModel
 	}
 	
 	/** Transparent neighbors never hide quads */
-	private static boolean neighborHidesSide(long neighbor, @Nullable BlockRenderSet neighborSet, EDhDirection side, boolean transparencyEnabled)
+	private static boolean neighborHidesSide(long neighbor, @Nullable BlockRenderSet neighborSet, BlockRenderSet modelSet, EDhDirection side, boolean transparencyEnabled)
 	{
 		return RenderDataPointUtil.doesDataPointExist(neighbor)
 			&& !(transparencyEnabled && RenderDataPointUtil.getAlpha(neighbor) < 255)
-			&& hasFullFace(neighborSet, side);
+			&& (hasFullFace(neighborSet, side.opposite()) || modelSet.isSideHiddenBy(neighborSet, side));
 	}
 	
 	/** Fills in whether that side hides this block's quads and the sky light coming from it */
@@ -65,16 +65,16 @@ public class ColumnModel
 			sideLights[faceIndex] = skyLight;
 			// stacked blocks in the same point
 			hiddenSides[faceIndex] = (blockY + 1 < pointMaxY)
-				? modelSet.blockState.isFaceFull(neighborSide)
-				: RenderDataPointUtil.getYMin(topData) == pointMaxY && neighborHidesSide(topData, topSet, neighborSide, transparencyEnabled);
+				? modelSet.blockState.isFaceFull(neighborSide) || modelSet.isSideHiddenBy(modelSet, side)
+				: RenderDataPointUtil.getYMin(topData) == pointMaxY && neighborHidesSide(topData, topSet, modelSet, side, transparencyEnabled);
 			return;
 		}
 		else if (side == EDhDirection.DOWN)
 		{
 			sideLights[faceIndex] = RenderDataPointUtil.doesDataPointExist(bottomData) ? RenderDataPointUtil.getLightSky(bottomData) : LodUtil.MIN_MC_LIGHT;
 			hiddenSides[faceIndex] = (blockY > pointMinY)
-				? modelSet.blockState.isFaceFull(neighborSide)
-				: RenderDataPointUtil.getYMax(bottomData) == pointMinY && neighborHidesSide(bottomData, bottomSet, neighborSide, transparencyEnabled);
+				? modelSet.blockState.isFaceFull(neighborSide) || modelSet.isSideHiddenBy(modelSet, side)
+				: RenderDataPointUtil.getYMax(bottomData) == pointMinY && neighborHidesSide(bottomData, bottomSet, modelSet, side, transparencyEnabled);
 			return;
 		}
 		
@@ -98,7 +98,7 @@ public class ColumnModel
 			
 			if (RenderDataPointUtil.getYMin(adjPoint) <= blockY)
 			{
-				hiddenSides[faceIndex] = neighborHidesSide(adjPoint, adjColumnSets.getDataPointRenderSet(side, adjIndex), neighborSide, transparencyEnabled);
+				hiddenSides[faceIndex] = neighborHidesSide(adjPoint, adjColumnSets.getDataPointRenderSet(side, adjIndex), modelSet, side, transparencyEnabled);
 				sideLights[faceIndex] = hiddenSides[faceIndex] ? LodUtil.MIN_MC_LIGHT : RenderDataPointUtil.getLightSky(adjPoint);
 				return;
 			}

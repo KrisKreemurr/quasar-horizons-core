@@ -121,6 +121,28 @@ public class BlockFaceTexture
 	
 	
 	
+	//========//
+	// pixels //
+	//========//
+	//region
+	
+	/** True if any pixel is fully see-through */
+	public boolean hasClearPixels()
+	{
+		for (int argbPixel : this.argbPixels)
+		{
+			if (ColorUtil.getAlpha(argbPixel) == 0)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	//endregion
+	
+	
+	
 	//=====//
 	// API //
 	//=====//

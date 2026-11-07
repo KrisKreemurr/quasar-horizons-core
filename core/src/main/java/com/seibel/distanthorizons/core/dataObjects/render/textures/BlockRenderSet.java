@@ -23,6 +23,8 @@ import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.concurrent.ConcurrentHashMap;
+
 /** The face tiles, colors and model shared by block states that look the same, see {@link BlockRenderRegistry} */
 public class BlockRenderSet
 {
@@ -42,6 +44,8 @@ public class BlockRenderSet
 	/** the first block state registered with this set, null for the shared flat set */
 	@Nullable
 	public final IBlockStateWrapper blockState;
+	/** which of this set's sides each neighbor set hides */
+	private final ConcurrentHashMap<BlockRenderSet, boolean[]> hiddenSidesByNeighbor = new ConcurrentHashMap<>();
 	
 	
 	
@@ -58,6 +62,59 @@ public class BlockRenderSet
 		this.modelQuadTileIds = modelQuadTileIds;
 		this.modelQuadColors = modelQuadColors;
 		this.blockState = blockState;
+	}
+	
+	/** True if every quad on that side is inside a solid quad on the neighbor's opposite side */
+	private boolean calculateSideHiddenBy(BlockRenderSet neighbor, EDhDirection side)
+	{
+		boolean sideHasQuads = false;
+		for (DhBlockModelQuad quad : this.modelQuads)
+		{
+			if (quad.cullDirection != side)
+			{
+				continue;
+			}
+			sideHasQuads = true;
+			
+			boolean quadHidden = false;
+			for (DhBlockModelQuad neighborQuad : neighbor.modelQuads)
+			{
+				// the shader cuts out clear pixels
+				if (neighborQuad.cullDirection == side.opposite()
+					&& quad.isInsideNeighborQuad(neighborQuad, side)
+					&& !neighborQuad.texture.hasClearPixels())
+				{
+					quadHidden = true;
+					break;
+				}
+			}
+			
+			if (!quadHidden)
+			{
+				return false;
+			}
+		}
+		
+		// sides without quads keep their light
+		return sideHasQuads;
+	}
+	
+	private boolean[] calculateSidesHiddenBy(BlockRenderSet neighbor)
+	{
+		boolean[] hiddenSides = new boolean[EDhDirection.ALL.length];
+		for (EDhDirection side : EDhDirection.ALL)
+		{
+			hiddenSides[side.faceIndex] = this.calculateSideHiddenBy(neighbor, side);
+		}
+		return hiddenSides;
+	}
+	
+	/** True if the neighbor's quads hide every quad on that side */
+	public boolean isSideHiddenBy(BlockRenderSet neighbor, EDhDirection side)
+	{
+		// worked out once per neighbor
+		boolean[] hiddenSides = this.hiddenSidesByNeighbor.computeIfAbsent(neighbor, this::calculateSidesHiddenBy);
+		return hiddenSides[side.faceIndex];
 	}
 	
 }
