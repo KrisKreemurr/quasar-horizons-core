@@ -61,7 +61,7 @@ public class ColumnRenderBufferBuilder
 	@Nullable
 	private static BlockRenderSet[] getSetsByPaletteIndex(ColumnRenderSource renderSource)
 	{
-		if (!renderSource.hasSetIds())
+		if (!renderSource.getStoresRenderSetIds())
 		{
 			return null;
 		}
@@ -117,7 +117,9 @@ public class ColumnRenderBufferBuilder
 		
 		// only formats with an offset can lower vertices
 		boolean lowerFluidSurfaces = (quadBuilder.getVertexFormat() == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET);
-		boolean drawModels = BlockRenderRegistry.modelsDrawnAtDetailLevel(renderSource.getDataDetailLevel(), renderDefinition);
+		boolean drawModels = 
+			BlockRenderRegistry.modelsDrawnAtDetailLevel(renderSource.getDataDetailLevel(), renderDefinition)
+			&& renderSource.getRenderModels();
 		
 		//===================//
 		// build each column //
@@ -341,7 +343,7 @@ public class ColumnRenderBufferBuilder
 						// determine which textures this data point's quads should use
 						short[] faceTileIdsByDirectionOrdinal = null;
 						int[] faceColors = null;
-						if (renderSet != null && renderSource.usesTextures())
+						if (renderSet != null && renderSource.getUseTextures())
 						{
 							faceTileIdsByDirectionOrdinal = renderSet.faceTileIds;
 							faceColors = renderSet.faceColors;
@@ -386,7 +388,7 @@ public class ColumnRenderBufferBuilder
 							adjColumnViews, isSameDetailLevel, faceTileIdsByDirectionOrdinal, faceColors, adjustedFaceColors,
 							hiddenModelSides, modelSideLights,
 							thisDetailLevel, relX, relZ,
-							quadBuilder, topDrops, modelSet, renderSource.usesTextures(),
+							quadBuilder, topDrops, modelSet, renderSource.getUseTextures(),
 							topSet, bottomSet, adjColumnSets);
 					}
 				}// for z

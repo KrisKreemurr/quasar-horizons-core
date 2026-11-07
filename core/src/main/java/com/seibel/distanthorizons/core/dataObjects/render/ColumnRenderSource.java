@@ -20,7 +20,9 @@
 package com.seibel.distanthorizons.core.dataObjects.render;
 
 import com.seibel.distanthorizons.api.enums.config.EDhApiVerticalQuality;
+import com.seibel.distanthorizons.api.enums.worldGeneration.EDhApiWorldGenerationStep;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
+import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.util.RenderDataPointReducingList;
@@ -82,7 +84,8 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	private final ShortArrayList setPalette = new ShortArrayList();
 	/** set id -> palette index */
 	private final Int2IntOpenHashMap paletteIndexBySetId = new Int2IntOpenHashMap();
-	private final boolean storesSetIds;
+	private final boolean storesRenderSetIds;
+	private final boolean renderModels;
 	private final boolean usesTextures;
 	
 	private boolean isEmpty = true;
@@ -94,15 +97,15 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	//==============//
 	//region
 	
-	public static ColumnRenderSource createEmpty(long pos, int maxVertSliceCount, int yOffset, AbstractDhApiRenderDefinition renderDefinition)
-	{ return new ColumnRenderSource(pos, maxVertSliceCount, yOffset, renderDefinition); }
+	public static ColumnRenderSource createEmpty(long pos, int maxVertSliceCount, FullDataSourceV2 fullDataSource, int yOffset, AbstractDhApiRenderDefinition renderDefinition)
+	{ return new ColumnRenderSource(pos, maxVertSliceCount, fullDataSource, yOffset, renderDefinition); }
 	/**
 	 * Creates an empty ColumnRenderSource.
 	 *
 	 * @param pos the relative position of the container
 	 * @param maxVertSliceCount the maximum vertical size of the container
 	 */
-	private ColumnRenderSource(long pos, int maxVertSliceCount, int yOffset, AbstractDhApiRenderDefinition renderDefinition)
+	private ColumnRenderSource(long pos, int maxVertSliceCount, FullDataSourceV2 fullDataSource, int yOffset, AbstractDhApiRenderDefinition renderDefinition)
 	{
 		super(ARRAY_LIST_POOL, 1, 0, 2, 0, 0);
 		
@@ -117,8 +120,29 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 		
 		// set ids are only stored for high detail sections that use textures or block models
 		this.usesTextures = texturedLodsEnabledAtDetailLevel(this.getDataDetailLevel());
-		this.storesSetIds = this.usesTextures
+		this.storesRenderSetIds = this.usesTextures
 			|| BlockRenderRegistry.modelsDrawnAtDetailLevel(this.getDataDetailLevel(), renderDefinition);
+		
+		// When model rendering was added we set all old LOD data to 
+		// EDhApiWorldGenerationStep.SURFACE
+		// to force re-generating any old data.
+		// We don't want to render any models for the old LOD data
+		// since it will in the wrong format, causing models to render incorrectly.
+		boolean allColumnsAtFeatureGenOrHigher = true;
+		if (this.storesRenderSetIds)
+		{
+			for (int i = 0; i < fullDataSource.columnGenerationSteps.size(); i++)
+			{
+				byte worldGenByte = fullDataSource.columnGenerationSteps.getByte(i);
+				if (worldGenByte < EDhApiWorldGenerationStep.FEATURES.value)
+				{
+					allColumnsAtFeatureGenOrHigher = false;
+					break;
+				}
+			}
+		}
+		this.renderModels = this.storesRenderSetIds && allColumnsAtFeatureGenOrHigher;
+		
 		this.setPalette.add(BlockRenderRegistry.FLAT_SET_ID);
 		this.paletteIndexBySetId.put(BlockRenderRegistry.FLAT_SET_ID, 0);
 		
@@ -180,8 +204,9 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	
 	private int getAttributeOffset(int posX, int posZ, int verticalIndex) { return this.getDatapointIndex(posX, posZ, verticalIndex) * RenderDataPointAttributeUtil.RECORD_SIZE_IN_BYTES; }
 	
-	public boolean hasSetIds() { return this.storesSetIds; }
-	public boolean usesTextures() { return this.usesTextures; }
+	public boolean getStoresRenderSetIds() { return this.storesRenderSetIds; }
+	public boolean getUseTextures() { return this.usesTextures; }
+	public boolean getRenderModels() { return this.renderModels; }
 	
 	public int getPaletteSize() { return this.setPalette.size(); }
 	public int getPaletteSetId(int paletteIndex) { return this.setPalette.getShort(paletteIndex) & 0xFFFF; }

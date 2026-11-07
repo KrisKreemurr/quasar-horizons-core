@@ -291,6 +291,8 @@ public class FullDataSourceV2DTO
 		
 		// individual properties //
 		
+		dataSource.dataFormatVersion = this.dataFormatVersion;
+		
 		dataSource.lastModifiedUnixDateTime = this.lastModifiedUnixDateTime;
 		dataSource.createdUnixDateTime = this.createdUnixDateTime;
 		

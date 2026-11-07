@@ -123,7 +123,7 @@ public class FullDataToRenderDataTransformer
 		
 		
 		
-		final ColumnRenderSource columnSource = ColumnRenderSource.createEmpty(pos, maxVertSliceCount, levelWrapper.getMinHeight(), renderDefinition);
+		final ColumnRenderSource columnSource = ColumnRenderSource.createEmpty(pos, maxVertSliceCount, fullDataSource, levelWrapper.getMinHeight(), renderDefinition);
 		if (fullDataSource.isEmpty)
 		{
 			return columnSource;
@@ -363,7 +363,7 @@ public class FullDataToRenderDataTransformer
 						}
 						
 						// This now also runs for fluid changes, so we gotta check if set ids are stored
-						if (columnSource.hasSetIds())
+						if (columnSource.getStoresRenderSetIds())
 						{
 							setId = BlockRenderRegistry.INSTANCE.getOrRegisterBlockStateSetId(block, levelWrapper);
 						}
