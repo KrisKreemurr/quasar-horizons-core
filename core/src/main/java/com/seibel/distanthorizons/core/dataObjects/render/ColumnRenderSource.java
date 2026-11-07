@@ -75,6 +75,8 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	
 	/** set and fluid data for each data point, see {@link RenderDataPointAttributeUtil} */
 	private final ByteArrayList attributeContainer;
+	/** 1 for columns that don't draw block models */
+	private final ByteArrayList modelsDisabledByColumn;
 	/**
 	 * Palette index -> {@link BlockRenderRegistry} set id. <br>
 	 * Index {@link BlockRenderRegistry#FLAT_SET_ID} is always the flat set.
@@ -104,7 +106,7 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	 */
 	private ColumnRenderSource(long pos, int maxVertSliceCount, int yOffset, AbstractDhApiRenderDefinition renderDefinition)
 	{
-		super(ARRAY_LIST_POOL, 1, 0, 2, 0, 0);
+		super(ARRAY_LIST_POOL, 2, 0, 2, 0, 0);
 		
 		this.pos = pos;
 		this.yOffset = yOffset;
@@ -123,6 +125,7 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 		this.paletteIndexBySetId.put(BlockRenderRegistry.FLAT_SET_ID, 0);
 		
 		this.attributeContainer = this.pooledArraysCheckout.getByteArray(0, maxDatapointCount * RenderDataPointAttributeUtil.RECORD_SIZE_IN_BYTES);
+		this.modelsDisabledByColumn = this.pooledArraysCheckout.getByteArray(1, WIDTH * WIDTH);
 	}
 	private static boolean texturedLodsEnabledAtDetailLevel(byte dataDetailLevel)
 	{
@@ -182,6 +185,9 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	
 	public boolean hasSetIds() { return this.storesSetIds; }
 	public boolean usesTextures() { return this.usesTextures; }
+	
+	public void disableModelsInColumn(int posX, int posZ) { this.modelsDisabledByColumn.set(this.getColumnIndex(posX, posZ), (byte) 1); }
+	public boolean columnDrawsModels(int posX, int posZ) { return this.modelsDisabledByColumn.getByte(this.getColumnIndex(posX, posZ)) == 0; }
 	
 	public int getPaletteSize() { return this.setPalette.size(); }
 	public int getPaletteSetId(int paletteIndex) { return this.setPalette.getShort(paletteIndex) & 0xFFFF; }
