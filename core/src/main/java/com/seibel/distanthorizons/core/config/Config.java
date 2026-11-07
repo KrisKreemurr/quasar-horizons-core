@@ -310,6 +310,18 @@ public class Config
 						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
 						.build();
 					
+					public static ConfigEntry<Boolean> enableBlockModels = new ConfigEntry.Builder<Boolean>()
+						.set(true)
+						.comment(""
+							+ "If true nearby LODs will render blocks with their real shape \n"
+							+ "instead of full cubes. \n"
+							+ "If false all LODs render as full cubes. \n"
+							+ " \n"
+							+ "Only applies to the highest detail LODs. \n"
+							+ "")
+						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
+						.build();
+					
 					public static ConfigUISpacer fadeSpacer = new ConfigUISpacer.Builder().build();
 					
 					public static ConfigEntry<Boolean> ditherDhFade = new ConfigEntry.Builder<Boolean>()
@@ -691,7 +703,7 @@ public class Config
 						.build();
 					
 					public static ConfigEntry<String> blocksDontRenderTextureCsv = new ConfigEntry.Builder<String>()
-						.set("minecraft:bamboo")
+						.set("")
 						.setAppearance(EConfigEntryAppearance.ALL)
 						.comment(""
 							+ "A comma separated list of block resource locations \n"
@@ -886,6 +898,7 @@ public class Config
 						.build();
 					
 					public static ConfigEntry<String> waterSurfaceBlockReplacementCsv = new ConfigEntry.Builder<String>()
+						// TODO Remove this once most shaders support model rendering
 						.set("minecraft:lily_pad")
 						.setAppearance(EConfigEntryAppearance.ALL)
 						.addListener(RenderBlockCacheCsvHandler.INSTANCE)

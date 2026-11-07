@@ -23,8 +23,8 @@ import com.seibel.distanthorizons.api.enums.rendering.EDhApiBlockMaterial;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiTransparency;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureSet;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderSet;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.level.IDhClientLevel;
@@ -64,6 +64,8 @@ public class ColumnBox
 		int color, int rawDataPointColor, byte irisBlockMaterialId, byte skyLight, byte blockLight,
 		long topData, long bottomData, 
 		ColumnRenderView[] adjData, boolean[] isAdjDataSameDetailLevel,
+		@Nullable BlockRenderSet topSet, @Nullable BlockRenderSet bottomSet,
+		AdjacentColumnSets adjColumnSets,
 		short @Nullable [] faceTileIdsByDirectionOrdinal, int @Nullable [] faceColors, short topDrops)
 	{
 		//================//
@@ -119,7 +121,9 @@ public class ColumnBox
 					&& (RenderDataPointUtil.getYMin(topData) == maxY)
 					&& (!isTopTransparent || (isTransparent && isSameTransparentBlock(topData, rawDataPointColor, irisBlockMaterialId)))
 					// lowered tops don't touch the block above
-					&& topDrops == 0;
+					&& topDrops == 0
+					// models without a full bottom don't hide this face
+					&& ColumnModel.hasFullFace(topSet, EDhDirection.DOWN);
 			
 			if (!skipTop)
 			{
@@ -139,7 +143,9 @@ public class ColumnBox
 					&& (RenderDataPointUtil.getYMax(bottomData) == minY)
 					&& (!isBottomTransparent || (isTransparent && isSameTransparentBlock(bottomData, rawDataPointColor, irisBlockMaterialId)))
 					// lowered fluids don't reach the bottom of the block above
-					&& !(RenderDataPointUtil.isFluid(bottomData) && RenderDataPointUtil.getBlockMaterialId(bottomData) != irisBlockMaterialId);
+					&& !(RenderDataPointUtil.isFluid(bottomData) && RenderDataPointUtil.getBlockMaterialId(bottomData) != irisBlockMaterialId)
+					// models without a full top don't hide this face
+					&& ColumnModel.hasFullFace(bottomSet, EDhDirection.UP);
 			if (!skipBottom)
 			{
 				int bottomColor = getFaceColor(color, faceColors, EDhDirection.DOWN);
@@ -182,6 +188,7 @@ public class ColumnBox
 				makeAdjVerticalQuad(
 					builder, phantomArrayCheckout, clientLevelWrapper,
 					adjCol, faceTileIdsByDirectionOrdinal,
+					adjColumnSets,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.NORTH, 
 					minX, minY, minZ, blockWidth, yHeight,
 					northColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
@@ -210,6 +217,7 @@ public class ColumnBox
 				makeAdjVerticalQuad(
 					builder, phantomArrayCheckout, clientLevelWrapper,
 					adjCol, faceTileIdsByDirectionOrdinal,
+					adjColumnSets,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.SOUTH,
 					minX, minY, maxZ, blockWidth, yHeight,
 					southColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
@@ -238,6 +246,7 @@ public class ColumnBox
 				makeAdjVerticalQuad(
 					builder, phantomArrayCheckout, clientLevelWrapper,
 					adjCol, faceTileIdsByDirectionOrdinal,
+					adjColumnSets,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.WEST, 
 					minX, minY, minZ, blockWidth, yHeight,
 					westColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
@@ -266,6 +275,7 @@ public class ColumnBox
 				makeAdjVerticalQuad(
 					builder, phantomArrayCheckout, clientLevelWrapper,
 					adjCol, faceTileIdsByDirectionOrdinal,
+					adjColumnSets,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.EAST, 
 					maxX, minY, minZ, blockWidth, yHeight,
 					eastColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
@@ -276,6 +286,7 @@ public class ColumnBox
 	private static void makeAdjVerticalQuad(
 		LodQuadBuilder builder, PhantomArrayListCheckout phantomArrayCheckout, IClientLevelWrapper clientLevelWrapper,
 		@NotNull ColumnRenderView adjColumnView, short @Nullable [] faceTileIdsByDirectionOrdinal,
+		AdjacentColumnSets adjColumnSets,
 		boolean adjacentIsSameDetailLevel, int caveCullingMaxY, EDhDirection direction,
 		short x, short yMin, short z, short horizontalBlockWidth, short ySize,
 		int color, int dataPointColor, byte irisBlockMaterialId, byte blockLight, short topDrops)
@@ -369,6 +380,12 @@ public class ColumnBox
 				&& RenderDataPointUtil.getAlpha(adjPoint) < 255
 				&& transparencyEnabled;
 			
+			BlockRenderSet adjSet = (adjIndex != -1) ? adjColumnSets.getDataPointRenderSet(direction, adjIndex) : null;
+			// models without a full face toward this one can't hide its side,
+			// otherwise a slab placed next to stone would leave a hole in the stone
+			boolean adjSeeThrough = adjTransparent
+				|| !ColumnModel.hasFullFace(adjSet, direction.opposite());
+			
 			byte adjSkyLight = RenderDataPointUtil.getLightSky(adjPoint);
 			byte lightToApply;
 			// whether the adjacent data point hides transparent faces
@@ -387,7 +404,7 @@ public class ColumnBox
 				adjMaxY--;
 			}
 			
-			if (!adjTransparent)
+			if (!adjSeeThrough)
 			{
 				// Adjacent is opaque
 				
@@ -434,7 +451,8 @@ public class ColumnBox
 			{
 				// Adjacent is a different transparent block (IE water next to glass),
 				// the face is visible through it, use below light
-				lightToApply = RenderDataPointUtil.getLightSky(adjBelowPoint);
+				// models use their own light
+				lightToApply = adjTransparent ? RenderDataPointUtil.getLightSky(adjBelowPoint) : adjSkyLight;
 				adjCoversRange = false;
 			}
 			
@@ -590,7 +608,7 @@ public class ColumnBox
 	{
 		if (faceTileIdsByDirectionOrdinal == null)
 		{
-			return BlockTextureRegistry.UNTEXTURED_ID;
+			return BlockRenderRegistry.UNTEXTURED_ID;
 		}
 		
 		return faceTileIdsByDirectionOrdinal[direction.faceIndex];
@@ -600,7 +618,7 @@ public class ColumnBox
 	private static int getFaceColor(int lodColor, int @Nullable [] faceColors, EDhDirection direction)
 	{
 		if (faceColors == null
-			|| faceColors[direction.faceIndex] == BlockTextureSet.USE_LOD_COLOR)
+			|| faceColors[direction.faceIndex] == BlockRenderSet.USE_LOD_COLOR)
 		{
 			return lodColor;
 		}

@@ -244,7 +244,7 @@ public class FullDataSourceRequestHandler implements AutoCloseable
 			.thenAccept((FullDataSourceV2 fullDataSource) ->
 		{
 			if (requestGroup.isWorldGenTaskComplete()
-				|| provider.generationStepsAreFullyGenerated(fullDataSource.columnGenerationSteps))
+				|| provider.generationStepsAreFullyGenerated(pos, fullDataSource.columnGenerationSteps))
 			{
 				//LOGGER.info("sending - complete [" + DhSectionPos.toString(pos) + "]");
 				requestGroup.fullDataSource = fullDataSource;

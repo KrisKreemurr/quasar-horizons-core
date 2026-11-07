@@ -21,7 +21,9 @@ package com.seibel.distanthorizons.core.wrapperInterfaces.block;
 
 import com.seibel.distanthorizons.api.interfaces.block.IDhApiBlockStateWrapper;
 import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiBlockColorOverrideEvent;
+import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiBlockModelOverrideEvent;
 import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiBlockTextureOverrideEvent;
+import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.util.LodUtil;
 
 import java.awt.*;
@@ -85,6 +87,12 @@ public interface IBlockStateWrapper extends IDhApiBlockStateWrapper
 	/** Blocks that lie along an axis, like logs */
 	boolean isRotatedPillar();
 	
+	/** Blocks whose shape fills their whole block space */
+	boolean isFullBlock();
+	
+	/** True if this side fully covers the neighbor's face on that side */
+	boolean isFaceFull(EDhDirection direction);
+	
 	/**
 	 * Some blocks don't pull their texture properly (like bamboo).
 	 * In those cases it's best to just render their base color.
@@ -114,6 +122,11 @@ public interface IBlockStateWrapper extends IDhApiBlockStateWrapper
 	 * by {@link DhApiBlockTextureOverrideEvent}
 	 */
 	boolean allowApiTextureOverride();
+	/**
+	 * if true this block can have its model overridden
+	 * by {@link DhApiBlockModelOverrideEvent}
+	 */
+	boolean allowApiModelOverride();
 	
 	Color getMapColor();
 	Color getBeaconTintColor();

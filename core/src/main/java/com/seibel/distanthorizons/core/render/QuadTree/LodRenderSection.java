@@ -244,7 +244,9 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 	@Nullable
 	private synchronized LodQuadBuilder getAndBuildRenderData()
 	{
-		try (ColumnRenderSource thisRenderSource = this.getRenderSourceForPos(this.pos, null))
+		// one definition for the whole build
+		AbstractDhApiRenderDefinition renderDefinition = OverrideInjector.INSTANCE.get(AbstractDhApiRenderDefinition.class);
+		try (ColumnRenderSource thisRenderSource = this.getRenderSourceForPos(this.pos, null, renderDefinition))
 		{
 			if (thisRenderSource == null)
 			{
@@ -254,18 +256,18 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 			
 			
 			boolean enableTransparency = Config.Client.Advanced.Graphics.Quality.transparency.get() == EDhApiTransparency.COMPLETE;
-			LodQuadBuilder lodQuadBuilder = LodQuadBuilder.getBuilder(enableTransparency, this.clientLevelWrapper);
+			LodQuadBuilder lodQuadBuilder = LodQuadBuilder.getBuilder(enableTransparency, this.clientLevelWrapper, renderDefinition);
 			
 			
 			// get the adjacent positions
-			try (ColumnRenderSource northRenderSource = this.getRenderSourceForPos(this.pos, EDhDirection.NORTH);
-				ColumnRenderSource southRenderSource = this.getRenderSourceForPos(this.pos, EDhDirection.SOUTH);
-				ColumnRenderSource eastRenderSource = this.getRenderSourceForPos(this.pos, EDhDirection.EAST);
-				ColumnRenderSource westRenderSource = this.getRenderSourceForPos(this.pos, EDhDirection.WEST);
-				ColumnRenderSource northWestRenderSource = this.getDiagonalRenderSource(thisRenderSource, EDhDirection.NORTH, EDhDirection.WEST);
-				ColumnRenderSource northEastRenderSource = this.getDiagonalRenderSource(thisRenderSource, EDhDirection.NORTH, EDhDirection.EAST);
-				ColumnRenderSource southWestRenderSource = this.getDiagonalRenderSource(thisRenderSource, EDhDirection.SOUTH, EDhDirection.WEST);
-				ColumnRenderSource southEastRenderSource = this.getDiagonalRenderSource(thisRenderSource, EDhDirection.SOUTH, EDhDirection.EAST))
+			try (ColumnRenderSource northRenderSource = this.getRenderSourceForPos(this.pos, EDhDirection.NORTH, renderDefinition);
+				ColumnRenderSource southRenderSource = this.getRenderSourceForPos(this.pos, EDhDirection.SOUTH, renderDefinition);
+				ColumnRenderSource eastRenderSource = this.getRenderSourceForPos(this.pos, EDhDirection.EAST, renderDefinition);
+				ColumnRenderSource westRenderSource = this.getRenderSourceForPos(this.pos, EDhDirection.WEST, renderDefinition);
+				ColumnRenderSource northWestRenderSource = this.getDiagonalRenderSource(thisRenderSource, EDhDirection.NORTH, EDhDirection.WEST, renderDefinition);
+				ColumnRenderSource northEastRenderSource = this.getDiagonalRenderSource(thisRenderSource, EDhDirection.NORTH, EDhDirection.EAST, renderDefinition);
+				ColumnRenderSource southWestRenderSource = this.getDiagonalRenderSource(thisRenderSource, EDhDirection.SOUTH, EDhDirection.WEST, renderDefinition);
+				ColumnRenderSource southEastRenderSource = this.getDiagonalRenderSource(thisRenderSource, EDhDirection.SOUTH, EDhDirection.EAST, renderDefinition))
 			{
 				ColumnRenderSource[] adjacentRenderSections = new ColumnRenderSource[EDhDirection.CARDINAL_COMPASS.length];
 				adjacentRenderSections[EDhDirection.NORTH.compassIndex] = northRenderSource;
@@ -288,7 +290,7 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 				
 				// the render sources are only needed by this synchronous method,
 				// then they can be closed
-				ColumnRenderBufferBuilder.makeLodRenderData(lodQuadBuilder, thisRenderSource, this.clientLevelWrapper, adjacentRenderSections, diagonalRenderSections, adjIsSameDetailLevel);
+				ColumnRenderBufferBuilder.makeLodRenderData(lodQuadBuilder, thisRenderSource, this.clientLevelWrapper, renderDefinition, adjacentRenderSections, diagonalRenderSections, adjIsSameDetailLevel);
 				return lodQuadBuilder;
 			}
 			catch (Exception e)
@@ -307,7 +309,7 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 	 * async is done so each thread can run without waiting on others 
 	 * @param direction the direction to load relative to the given position, null will return the given position
 	 */
-	private ColumnRenderSource getRenderSourceForPos(long pos, @Nullable EDhDirection direction) 
+	private ColumnRenderSource getRenderSourceForPos(long pos, @Nullable EDhDirection direction, AbstractDhApiRenderDefinition renderDefinition) 
 	{
 		if (direction != null)
 		{
@@ -322,7 +324,7 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 				? this.fullDataSourceProvider.get(finalPos)
 				: this.fullDataSourceProvider.getAdjForDirection(finalPos, direction.opposite()))
 		{
-			ColumnRenderSource columnRenderSource = FullDataToRenderDataTransformer.transformFullDataToRenderSource(fullDataSource, this.clientLevelWrapper);
+			ColumnRenderSource columnRenderSource = FullDataToRenderDataTransformer.transformFullDataToRenderSource(fullDataSource, this.clientLevelWrapper, renderDefinition);
 			return columnRenderSource;
 		}
 		catch (Exception e)
@@ -332,7 +334,7 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 		}
 	}
 	/** Gets the render source diagonal from a sections position */
-	private ColumnRenderSource getDiagonalRenderSource(ColumnRenderSource thisRenderSource, EDhDirection northOrSouth, EDhDirection eastOrWest)
+	private ColumnRenderSource getDiagonalRenderSource(ColumnRenderSource thisRenderSource, EDhDirection northOrSouth, EDhDirection eastOrWest, AbstractDhApiRenderDefinition renderDefinition)
 	{
 		// fluid diagonals are only used at the block detail level
 		if (DhSectionPos.getDetailLevel(this.pos) != DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL)
@@ -348,7 +350,7 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 		}
 		
 		long northOrSouthPos = DhSectionPos.getAdjacentPos(this.pos, northOrSouth);
-		return this.getRenderSourceForPos(northOrSouthPos, eastOrWest);
+		return this.getRenderSourceForPos(northOrSouthPos, eastOrWest, renderDefinition);
 	}
 	private static boolean hasFluid(ColumnRenderSource renderSource, int relX, int relZ)
 	{

@@ -20,7 +20,8 @@
 package com.seibel.distanthorizons.core.dataObjects.render;
 
 import com.seibel.distanthorizons.api.enums.config.EDhApiVerticalQuality;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
+import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.util.RenderDataPointReducingList;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.AbstractPhantomArrayList;
@@ -31,6 +32,7 @@ import com.seibel.distanthorizons.core.util.RenderDataPointUtil;
 import com.seibel.distanthorizons.core.util.RenderDataPointAttributeUtil;
 import com.seibel.distanthorizons.core.config.Config;
 import it.unimi.dsi.fastutil.bytes.ByteArrayList;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import com.seibel.distanthorizons.core.logging.DhLogger;
@@ -46,13 +48,6 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	
 	/** measured in data columns */
 	public static final int WIDTH = 64;
-	
-	/** 
-	 * Texture palettes are indexed by unsigned bytes. <Br>
-	 * This limitation is also done so a single LOD doesn't take
-	 * up every possible texture ID available to the world.
-	 */
-	public static final int MAX_TEXTURE_PALETTE_SIZE = 256;
 	
 	public static final PhantomArrayListPool ARRAY_LIST_POOL = new PhantomArrayListPool("Render Source");
 	
@@ -78,14 +73,19 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	 */
 	public final LongArrayList voidRenderDataContainer;
 	
-	/** texture and fluid data for each data point, see {@link RenderDataPointAttributeUtil} */
+	/** set and fluid data for each data point, see {@link RenderDataPointAttributeUtil} */
 	private final ByteArrayList attributeContainer;
+	/** 1 for columns that don't draw block models */
+	private final ByteArrayList modelsDisabledByColumn;
 	/**
-	 * Palette index -> {@link BlockTextureRegistry} set id. <br>
-	 * Index {@link BlockTextureRegistry#UNTEXTURED_ID} is always the flat "no texture" set.
+	 * Palette index -> {@link BlockRenderRegistry} set id. <br>
+	 * Index {@link BlockRenderRegistry#FLAT_SET_ID} is always the flat set.
 	 */
-	private final ShortArrayList texturePalette = new ShortArrayList();
-	private final boolean storesTextures;
+	private final ShortArrayList setPalette = new ShortArrayList();
+	/** set id -> palette index */
+	private final Int2IntOpenHashMap paletteIndexBySetId = new Int2IntOpenHashMap();
+	private final boolean storesSetIds;
+	private final boolean usesTextures;
 	
 	private boolean isEmpty = true;
 	
@@ -96,17 +96,17 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	//==============//
 	//region
 	
-	public static ColumnRenderSource createEmpty(long pos, int maxVertSliceCount, int yOffset)
-	{ return new ColumnRenderSource(pos, maxVertSliceCount, yOffset); }
+	public static ColumnRenderSource createEmpty(long pos, int maxVertSliceCount, int yOffset, AbstractDhApiRenderDefinition renderDefinition)
+	{ return new ColumnRenderSource(pos, maxVertSliceCount, yOffset, renderDefinition); }
 	/**
 	 * Creates an empty ColumnRenderSource.
 	 *
 	 * @param pos the relative position of the container
 	 * @param maxVertSliceCount the maximum vertical size of the container
 	 */
-	private ColumnRenderSource(long pos, int maxVertSliceCount, int yOffset)
+	private ColumnRenderSource(long pos, int maxVertSliceCount, int yOffset, AbstractDhApiRenderDefinition renderDefinition)
 	{
-		super(ARRAY_LIST_POOL, 1, 0, 2, 0, 0);
+		super(ARRAY_LIST_POOL, 2, 0, 2, 0, 0);
 		
 		this.pos = pos;
 		this.yOffset = yOffset;
@@ -117,11 +117,15 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 		this.renderDataContainer = this.pooledArraysCheckout.getLongArray(0, maxDatapointCount);
 		this.voidRenderDataContainer = this.pooledArraysCheckout.getLongArray(1, WIDTH * WIDTH);
 		
-		// texture ids are only stored for high detail sections
-		this.storesTextures = texturedLodsEnabledAtDetailLevel(this.getDataDetailLevel());
-		this.texturePalette.add(BlockTextureRegistry.UNTEXTURED_ID);
+		// set ids are only stored for high detail sections that use textures or block models
+		this.usesTextures = texturedLodsEnabledAtDetailLevel(this.getDataDetailLevel());
+		this.storesSetIds = this.usesTextures
+			|| BlockRenderRegistry.modelsDrawnAtDetailLevel(this.getDataDetailLevel(), renderDefinition);
+		this.setPalette.add(BlockRenderRegistry.FLAT_SET_ID);
+		this.paletteIndexBySetId.put(BlockRenderRegistry.FLAT_SET_ID, 0);
 		
 		this.attributeContainer = this.pooledArraysCheckout.getByteArray(0, maxDatapointCount * RenderDataPointAttributeUtil.RECORD_SIZE_IN_BYTES);
+		this.modelsDisabledByColumn = this.pooledArraysCheckout.getByteArray(1, WIDTH * WIDTH);
 	}
 	private static boolean texturedLodsEnabledAtDetailLevel(byte dataDetailLevel)
 	{
@@ -179,17 +183,24 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	
 	private int getAttributeOffset(int posX, int posZ, int verticalIndex) { return this.getDatapointIndex(posX, posZ, verticalIndex) * RenderDataPointAttributeUtil.RECORD_SIZE_IN_BYTES; }
 	
-	public boolean hasTextureSetIds() { return this.storesTextures; }
+	public boolean hasSetIds() { return this.storesSetIds; }
+	public boolean usesTextures() { return this.usesTextures; }
 	
-	/** Sets the texture and fluid data for the given data point */
-	public void setDataPointAttributes(int posX, int posZ, int verticalIndex, short textureSetId, int fluidAmount, boolean waterlogged)
+	public void disableModelsInColumn(int posX, int posZ) { this.modelsDisabledByColumn.set(this.getColumnIndex(posX, posZ), (byte) 1); }
+	public boolean columnDrawsModels(int posX, int posZ) { return this.modelsDisabledByColumn.getByte(this.getColumnIndex(posX, posZ)) == 0; }
+	
+	public int getPaletteSize() { return this.setPalette.size(); }
+	public int getPaletteSetId(int paletteIndex) { return this.setPalette.getShort(paletteIndex) & 0xFFFF; }
+	
+	/** Sets the set id and fluid data for the given data point */
+	public void setDataPointAttributes(int posX, int posZ, int verticalIndex, short setId, int fluidAmount, boolean waterlogged)
 	{
-		int paletteIndex = this.getOrAddPaletteIndex(textureSetId) & 0xFF;
+		int paletteIndex = this.getOrAddPaletteIndex(setId);
 		RenderDataPointAttributeUtil.setRecord(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex), paletteIndex, fluidAmount, waterlogged);
 	}
 	
-	public short getDataPointTextureSetId(int posX, int posZ, int verticalIndex)
-	{ return this.texturePalette.getShort(RenderDataPointAttributeUtil.getTexturePaletteIndex(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex))); }
+	public int getDataPointPaletteIndex(int posX, int posZ, int verticalIndex)
+	{ return RenderDataPointAttributeUtil.getSetPaletteIndex(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex)); }
 	
 	public int getDataPointFluidAmount(int posX, int posZ, int verticalIndex)
 	{ return RenderDataPointAttributeUtil.getFluidAmount(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex)); }
@@ -197,30 +208,17 @@ public class ColumnRenderSource extends AbstractPhantomArrayList
 	public boolean isDataPointWaterlogged(int posX, int posZ, int verticalIndex)
 	{ return RenderDataPointAttributeUtil.isWaterlogged(this.attributeContainer, this.getAttributeOffset(posX, posZ, verticalIndex)); }
 	
-	private byte getOrAddPaletteIndex(short textureSetId)
+	private int getOrAddPaletteIndex(short setId)
 	{
-		// linear search is fine, palettes hold the few dozen
-		// distinct block appearances of a single 64x64 section
-		// and most lookups hit the first few entries
-		// TODO: Still see if we can improve this
-		int paletteSize = this.texturePalette.size();
-		for (int i = 0; i < paletteSize; i++)
+		// the registry has at most 65,536 sets, so indices fit in 2 bytes
+		int paletteIndex = this.paletteIndexBySetId.getOrDefault(setId, -1);
+		if (paletteIndex == -1)
 		{
-			if (this.texturePalette.getShort(i) == textureSetId)
-			{
-				return (byte) i;
-			}
+			paletteIndex = this.setPalette.size();
+			this.setPalette.add(setId);
+			this.paletteIndexBySetId.put(setId, paletteIndex);
 		}
-		
-		if (paletteSize >= MAX_TEXTURE_PALETTE_SIZE)
-		{
-			// sections with too many distinct blocks
-			// gracefully lose textures so they can't take up every possible ID
-			return BlockTextureRegistry.UNTEXTURED_ID;
-		}
-		
-		this.texturePalette.add(textureSetId);
-		return (byte) paletteSize;
+		return paletteIndex;
 	}
 	
 	//endregion

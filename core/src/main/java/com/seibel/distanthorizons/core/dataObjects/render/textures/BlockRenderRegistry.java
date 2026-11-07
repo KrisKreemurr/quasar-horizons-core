@@ -19,15 +19,20 @@
 
 package com.seibel.distanthorizons.core.dataObjects.render.textures;
 
+import com.seibel.distanthorizons.api.enums.rendering.EDhApiTerrainVertexFormat;
+import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
+import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
-import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateFaceTextureProvider;
+import com.seibel.distanthorizons.core.util.LodUtil;
+import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateTextureAndModelProvider;
 import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.IClientLevelWrapper;
 import com.seibel.distanthorizons.coreapi.util.ColorUtil;
 import com.seibel.distanthorizons.coreapi.util.TextureUtil;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -42,12 +47,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * This way the current tinting/shading pipeline
  * and the average color seen at a distance is unchanged. <br><br>
  *
- * Tile id {@link BlockTextureRegistry#UNTEXTURED_ID} represents "no texture"
+ * Tile id {@link BlockRenderRegistry#UNTEXTURED_ID} represents "no texture"
  * and renders identically to a flat-colored LOD.
  */
-public class BlockTextureRegistry
+public class BlockRenderRegistry
 {
-	private static final IBlockStateFaceTextureProvider TEXTURE_PROVIDER = SingletonInjector.INSTANCE.get(IBlockStateFaceTextureProvider.class);
+	private static final IBlockStateTextureAndModelProvider TEXTURE_AND_MODEL_PROVIDER = SingletonInjector.INSTANCE.get(IBlockStateTextureAndModelProvider.class);
 	
 	/** RGBA */
 	public static final int TILE_BYTE_COUNT = TextureUtil.TEXTURE_WIDTH_AND_HEIGHT * TextureUtil.TEXTURE_WIDTH_AND_HEIGHT * 4;
@@ -58,14 +63,16 @@ public class BlockTextureRegistry
 	 */
 	public static final int MAX_TILE_COUNT = 65_536;
 	
-	/** renders every face flat, also used when set registration overflows */
+	/** renders flat */
 	public static final short UNTEXTURED_ID = 0;
+	/** renders every face flat, also used when set registration overflows */
+	public static final short FLAT_SET_ID = 0;
 	/** Fluids store their texture turned to each flow direction after their 6 faces (by EDhDirection.compassIndex) */
 	public static final int FLUID_FLOW_TILE_INDEX = 6;
 	
 	
 	// needs to be defined after the other static variables so it can reference them
-	public static final BlockTextureRegistry INSTANCE = new BlockTextureRegistry();
+	public static final BlockRenderRegistry INSTANCE = new BlockRenderRegistry();
 	
 	
 	
@@ -73,16 +80,18 @@ public class BlockTextureRegistry
 	/** indexed by tile id, holds the ratio-encoded RGBA pixels ready for GPU upload */
 	private final ArrayList<byte[]> tilePixelsById = new ArrayList<>();
 	/** used to dedupe tiles so block faces sharing a texture share a tile */
-	private final HashMap<TileKey, Short> tileIdByContent = new HashMap<>();
+	private final HashMap<ContentKey, Short> tileIdByContent = new HashMap<>();
 	/** tiles that haven't been uploaded to the GPU yet, drained by the render thread */
 	private int firstTileIdPendingUpload = 0;
 	
 	/** 
-	 * indexed by set id (stored by {@link BlockTextureRegistry#setIdByBlockStateWrapper}), 
-	 * holds the face tiles and colors for one block state.
+	 * indexed by set id (stored by {@link BlockRenderRegistry#setIdByBlockStateWrapper}), 
+	 * holds the face tiles, colors and model shared by block states that look the same.
 	 */
-	private final ArrayList<BlockTextureSet> textureSetsById = new ArrayList<>();
+	private final ArrayList<BlockRenderSet> renderSetsById = new ArrayList<>();
 	private final ConcurrentHashMap<IBlockStateWrapper, Short> setIdByBlockStateWrapper = new ConcurrentHashMap<>();
+	/** used to dedupe sets so block states that look the same share a set */
+	private final HashMap<ContentKey, Short> setIdByContent = new HashMap<>();
 	
 	
 	
@@ -91,7 +100,7 @@ public class BlockTextureRegistry
 	//=============//
 	//region
 	
-	private BlockTextureRegistry()
+	private BlockRenderRegistry()
 	{
 		// reserve the flat tile so id 0 always renders as a 1.0 multiplier
 		byte[] flatPixels = new byte[TILE_BYTE_COUNT];
@@ -107,7 +116,7 @@ public class BlockTextureRegistry
 		this.tilePixelsById.add(flatPixels);
 		
 		// reserve the all-flat face set so set id 0 always renders flat
-		this.textureSetsById.add(new BlockTextureSet());
+		this.renderSetsById.add(new BlockRenderSet());
 	}
 	
 	//endregion
@@ -120,11 +129,11 @@ public class BlockTextureRegistry
 	//region
 	
 	/**
-	 * Returns the id of the given block state's face tile set,
-	 * baking and registering the face textures if necessary. <br>
+	 * Returns the id of the given block state's set,
+	 * baking and registering its textures and model if necessary. <br>
 	 * Thread safe, although baking may block briefly.
 	 *
-	 * @return {@link BlockTextureRegistry#UNTEXTURED_ID} if no textures are available
+	 * @return {@link BlockRenderRegistry#FLAT_SET_ID} if the block has no textures or model
 	 */
 	public short getOrRegisterBlockStateSetId(IBlockStateWrapper blockState, IClientLevelWrapper levelWrapper)
 	{
@@ -137,18 +146,60 @@ public class BlockTextureRegistry
 	}
 	
 	/**
-	 * Returns the face tiles and colors of the given set. <br>
+	 * Returns the face tiles, colors and model of the given set. <br>
 	 * The returned set must not be modified.
 	 *
 	 * @return null if the set id is invalid or the flat set
 	 */
-	public synchronized @Nullable BlockTextureSet getTextureSet(int setId)
+	public synchronized @Nullable BlockRenderSet getRenderSet(int setId)
 	{
-		if (setId <= UNTEXTURED_ID || setId >= this.textureSetsById.size())
+		if (setId <= FLAT_SET_ID || setId >= this.renderSetsById.size())
 		{
 			return null;
 		}
-		return this.textureSetsById.get(setId);
+		return this.renderSetsById.get(setId);
+	}
+	
+	/** everything a set draws, so block states that look the same share a set */
+	private static ContentKey createSetContentKey(short[] faceTileIds, int[] faceColors, DhBlockModelQuad[] modelQuads, short[] modelQuadTileIds, int[] modelQuadColors, boolean waterlogged)
+	{
+		int byteCount = (2 * Integer.BYTES) + Byte.BYTES + (faceTileIds.length * Short.BYTES) + (faceColors.length * Integer.BYTES);
+		for (DhBlockModelQuad quad : modelQuads)
+		{
+			// corners, uvs, cull and shade side, normal, tile id, color
+			byteCount += (quad.cornerPositions.length * Integer.BYTES) + quad.cornerUvBytes.length + (2 * Byte.BYTES) + (2 * Short.BYTES) + Integer.BYTES;
+		}
+		ByteBuffer buffer = ByteBuffer.allocate(byteCount);
+		
+		// lengths first so different sized sets can't match
+		buffer.putInt(faceTileIds.length);
+		buffer.putInt(modelQuads.length);
+		// waterlogged blocks may draw differently
+		buffer.put((byte) (waterlogged ? 1 : 0));
+		for (short tileId : faceTileIds)
+		{
+			buffer.putShort(tileId);
+		}
+		for (int color : faceColors)
+		{
+			buffer.putInt(color);
+		}
+		
+		for (int quadIndex = 0; quadIndex < modelQuads.length; quadIndex++)
+		{
+			DhBlockModelQuad quad = modelQuads[quadIndex];
+			for (int position : quad.cornerPositions)
+			{
+				buffer.putInt(position);
+			}
+			buffer.put(quad.cornerUvBytes);
+			buffer.put((byte) ((quad.cullDirection != null) ? quad.cullDirection.faceIndex : -1));
+			buffer.put((byte) quad.shadeDirection.faceIndex);
+			buffer.putShort(quad.packedNormal);
+			buffer.putShort(modelQuadTileIds[quadIndex]);
+			buffer.putInt(modelQuadColors[quadIndex]);
+		}
+		return new ContentKey(buffer.array());
 	}
 	
 	private short registerBlockState(IBlockStateWrapper blockState, IClientLevelWrapper levelWrapper)
@@ -159,20 +210,23 @@ public class BlockTextureRegistry
 		boolean isFluidBlock = blockState.isLiquid() && !blockState.isWaterlogged();
 		// tinted blocks need the LOD's color since their own texture is gray,
 		// API color overrides only change the LOD's color
-		boolean useLodColor = levelWrapper.getBlockNeedsPostTinting(blockState) || blockState.allowApiColorOverride();
+		boolean needPostTinting = levelWrapper.getBlockNeedsPostTinting(blockState);
+		boolean useApiColor = blockState.allowApiColorOverride();
 		boolean anyFaceTextured = false;
 		
 		// UP is first in EDhDirection.ALL so the sides below can fall back to it
 		for (EDhDirection direction : EDhDirection.ALL)
 		{
 			int faceIndex = direction.faceIndex;
-			BlockFaceTexture faceTexture = TEXTURE_PROVIDER.getFaceTexture(blockState, direction);
+			BlockFaceTexture faceTexture = TEXTURE_AND_MODEL_PROVIDER.getFaceTexture(blockState, direction);
 			if (faceTexture != null)
 			{
 				int averageColor = calculateAverageVisibleColor(faceTexture);
 				faceTileIds[faceIndex] = this.getOrCreateTileId(faceTexture, averageColor);
 				
-				faceColors[faceIndex] = useLodColor ? BlockTextureSet.USE_LOD_COLOR : averageColor;
+				// only tinted faces take the biome tint
+				boolean faceUsesLodColor = useApiColor || (needPostTinting && TEXTURE_AND_MODEL_PROVIDER.isFaceTinted(blockState, direction));
+				faceColors[faceIndex] = faceUsesLodColor ? BlockRenderSet.USE_LOD_COLOR : averageColor;
 				
 				if (direction == EDhDirection.UP)
 				{
@@ -200,10 +254,10 @@ public class BlockTextureRegistry
 		// only pillars have a top that doesn't match the LOD's color
 		if (!blockState.isRotatedPillar())
 		{
-			faceColors[EDhDirection.UP.faceIndex] = BlockTextureSet.USE_LOD_COLOR;
+			faceColors[EDhDirection.UP.faceIndex] = BlockRenderSet.USE_LOD_COLOR;
 		}
 		
-		BlockFaceTexture flowTexture = isFluidBlock ? TEXTURE_PROVIDER.getFaceTexture(blockState, EDhDirection.UP) : null;
+		BlockFaceTexture flowTexture = isFluidBlock ? TEXTURE_AND_MODEL_PROVIDER.getFaceTexture(blockState, EDhDirection.UP) : null;
 		if (flowTexture != null)
 		{
 			// stripes run down the sides, like vanilla's flowing texture
@@ -221,32 +275,54 @@ public class BlockTextureRegistry
 			}
 		}
 		
-		short textureId;
-		if (!anyFaceTextured)
+		boolean drawModel = Config.Client.Advanced.Graphics.Quality.enableBlockModels.get() && usesModel(blockState);
+		DhBlockModelQuad[] modelQuads = drawModel ? TEXTURE_AND_MODEL_PROVIDER.getModel(blockState) : new DhBlockModelQuad[0];
+		short[] modelQuadTileIds = new short[modelQuads.length];
+		int[] modelQuadColors = new int[modelQuads.length];
+		for (int quadIndex = 0; quadIndex < modelQuads.length; quadIndex++)
+		{
+			BlockFaceTexture quadTexture = modelQuads[quadIndex].texture;
+			int averageColor = calculateAverageVisibleColor(quadTexture);
+			modelQuadTileIds[quadIndex] = this.getOrCreateTileId(quadTexture, averageColor);
+			// only tinted quads take the biome tint
+			boolean quadUsesLodColor = useApiColor || (needPostTinting && modelQuads[quadIndex].tinted);
+			modelQuadColors[quadIndex] = quadUsesLodColor ? BlockRenderSet.USE_LOD_COLOR : averageColor;
+		}
+		
+		short setId;
+		if (!anyFaceTextured && modelQuads.length == 0)
 		{
 			// blocks whose every face is flat (IE uniformly colored textures)
 			// share the reserved flat set
-			textureId = UNTEXTURED_ID;
+			setId = FLAT_SET_ID;
 		}
 		else
 		{
+			ContentKey contentKey = createSetContentKey(faceTileIds, faceColors, modelQuads, modelQuadTileIds, modelQuadColors, blockState.isWaterlogged());
+			
 			// synchronized to prevent concurrent array modifications
 			synchronized (this)
 			{
-				if (this.textureSetsById.size() >= MAX_TILE_COUNT)
+				Short sameContentSetId = this.setIdByContent.get(contentKey);
+				if (sameContentSetId != null)
 				{
-					textureId = UNTEXTURED_ID;
+					setId = sameContentSetId;
+				}
+				else if (this.renderSetsById.size() >= MAX_TILE_COUNT)
+				{
+					setId = FLAT_SET_ID;
 				}
 				else
 				{
-					textureId = (short) this.textureSetsById.size();
-					this.textureSetsById.add(new BlockTextureSet(faceTileIds, faceColors));
+					setId = (short) this.renderSetsById.size();
+					this.renderSetsById.add(new BlockRenderSet(faceTileIds, faceColors, modelQuads, modelQuadTileIds, modelQuadColors, blockState));
+					this.setIdByContent.put(contentKey, setId);
 				}
 			}
 		}
 		
-		Short existingSetId = this.setIdByBlockStateWrapper.putIfAbsent(blockState, textureId);
-		return (existingSetId != null) ? existingSetId : textureId;
+		Short existingSetId = this.setIdByBlockStateWrapper.putIfAbsent(blockState, setId);
+		return (existingSetId != null) ? existingSetId : setId;
 	}
 	
 	private static int getFlowQuarterTurns(EDhDirection flowDirection)
@@ -258,6 +334,32 @@ public class BlockTextureRegistry
 			case NORTH: return 3;
 			default: return 0;
 		}
+	}
+	
+	//endregion
+	
+	
+	
+	//==============//
+	// block models //
+	//==============//
+	//region
+	
+	/** Decides which block states are drawn with their model */
+	public static boolean usesModel(IBlockStateWrapper blockState)
+	{
+		return (!blockState.isFullBlock() || blockState.allowApiModelOverride())
+			&& !blockState.isLiquid()
+			// blocks without quads stay boxes
+			&& TEXTURE_AND_MODEL_PROVIDER.getModel(blockState).length != 0;
+	}
+	
+	/** Models are only drawn at block detail and need the offset format */
+	public static boolean modelsDrawnAtDetailLevel(byte dataDetailLevel, AbstractDhApiRenderDefinition renderDefinition)
+	{
+		return Config.Client.Advanced.Graphics.Quality.enableBlockModels.get()
+			&& dataDetailLevel == LodUtil.BLOCK_DETAIL_LEVEL
+			&& renderDefinition.getTerrainVertexFormat() == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET;
 	}
 	
 	//endregion
@@ -277,7 +379,7 @@ public class BlockTextureRegistry
 			return UNTEXTURED_ID;
 		}
 		
-		TileKey key = new TileKey(ratioPixels);
+		ContentKey key = new ContentKey(ratioPixels);
 		Short existingId = this.tileIdByContent.get(key);
 		if (existingId != null)
 		{
@@ -447,9 +549,10 @@ public class BlockTextureRegistry
 	public synchronized void clear()
 	{
 		this.setIdByBlockStateWrapper.clear();
-		BlockTextureSet flatSet = this.textureSetsById.get(UNTEXTURED_ID);
-		this.textureSetsById.clear();
-		this.textureSetsById.add(flatSet);
+		BlockRenderSet flatSet = this.renderSetsById.get(FLAT_SET_ID);
+		this.renderSetsById.clear();
+		this.renderSetsById.add(flatSet);
+		this.setIdByContent.clear();
 		
 		this.tileIdByContent.clear();
 		byte[] flatTile = this.tilePixelsById.get(UNTEXTURED_ID);
@@ -457,10 +560,10 @@ public class BlockTextureRegistry
 		this.tilePixelsById.add(flatTile);
 		this.firstTileIdPendingUpload = 0;
 		
-		IBlockStateFaceTextureProvider textureProvider = SingletonInjector.INSTANCE.get(IBlockStateFaceTextureProvider.class);
-		if (textureProvider != null)
+		IBlockStateTextureAndModelProvider textureAndModelProvider = SingletonInjector.INSTANCE.get(IBlockStateTextureAndModelProvider.class);
+		if (textureAndModelProvider != null)
 		{
-			textureProvider.clear();
+			textureAndModelProvider.clear();
 		}
 	}
 	
@@ -473,16 +576,16 @@ public class BlockTextureRegistry
 	//================//
 	//region
 	
-	/** wraps tile pixels so they can be used as a hash map key for deduplication */
-	private static class TileKey
+	/** wraps content bytes so they can be used as a hash map key for deduplication */
+	static class ContentKey
 	{
-		private final byte[] pixels;
+		private final byte[] content;
 		private final int hash;
 		
-		public TileKey(byte[] pixels)
+		public ContentKey(byte[] content)
 		{
-			this.pixels = pixels;
-			this.hash = Arrays.hashCode(pixels);
+			this.content = content;
+			this.hash = Arrays.hashCode(content);
 		}
 		
 		@Override
@@ -496,12 +599,12 @@ public class BlockTextureRegistry
 				return true; 
 			}
 			
-			if (!(obj instanceof TileKey)) 
+			if (!(obj instanceof ContentKey)) 
 			{
 				return false; 
 			}
 			
-			return Arrays.equals(this.pixels, ((TileKey) obj).pixels);
+			return Arrays.equals(this.content, ((ContentKey) obj).content);
 		}
 		
 	}

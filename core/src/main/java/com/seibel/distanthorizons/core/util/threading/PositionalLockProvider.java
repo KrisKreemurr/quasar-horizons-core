@@ -97,7 +97,7 @@ public class PositionalLockProvider
 							this.lockByPos.remove(pos);
 							//LOGGER.info("removed lock: "+DhSectionPos.toString(pos));
 						}
-						lock.unlock();
+						lock.unlockWithoutUpdatingExpirationTime();
 					}
 					
 				}
@@ -111,7 +111,7 @@ public class PositionalLockProvider
 		finally
 		{
 			this.lockRemovalThreadRunning.set(false);
-			LOGGER.info("update lock count: "+this.lockByPos.size());
+			//LOGGER.info("update lock count: "+this.lockByPos.size());
 		}
 	}
 	
@@ -183,6 +183,9 @@ public class PositionalLockProvider
 		}
 		
 		public boolean tryLockWithoutUpdatingExpirationTime() { return super.tryLock(); }
+		
+		public void unlockWithoutUpdatingExpirationTime() { super.unlock(); }
+		
 		
 		
 	}

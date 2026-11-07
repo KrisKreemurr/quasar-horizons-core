@@ -1,7 +1,7 @@
 package com.seibel.distanthorizons.core.render;
 
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.IDhApiBlockTextureAtlas;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListPool;
@@ -68,7 +68,7 @@ public class DhBlockTextureAtlasUploadHandler
 		
 		
 		
-		int totalTileCount = BlockTextureRegistry.INSTANCE.getTileCount();
+		int totalTileCount = BlockRenderRegistry.INSTANCE.getTileCount();
 		if (totalTileCount == this.uploadedTileCount)
 		{
 			// no new tiles need uploading
@@ -81,7 +81,7 @@ public class DhBlockTextureAtlasUploadHandler
 			this.growAtlas(totalTileCount);
 		}
 		
-		BlockTextureRegistry.PendingTiles pendingTiles = BlockTextureRegistry.INSTANCE.getAndClearPendingUploadTiles();
+		BlockRenderRegistry.PendingTiles pendingTiles = BlockRenderRegistry.INSTANCE.getAndClearPendingUploadTiles();
 		if (pendingTiles == null)
 		{
 			// no new tiles need to be uploaded
@@ -93,7 +93,7 @@ public class DhBlockTextureAtlasUploadHandler
 		{
 			this.textureAtlasWrapper.beforeWriteToTexture();
 			
-			ByteBuffer pixelBuffer = checkout.getByteBuffer(0, BlockTextureRegistry.TILE_BYTE_COUNT);
+			ByteBuffer pixelBuffer = checkout.getByteBuffer(0, BlockRenderRegistry.TILE_BYTE_COUNT);
 			for (int i = 0; i < pendingTiles.tilePixels.length; i++)
 			{
 				byte[] tilePixels = pendingTiles.tilePixels[i];
@@ -139,7 +139,7 @@ public class DhBlockTextureAtlasUploadHandler
 		this.allocatedTileCount = newRowCount * TILES_PER_ROW;
 		// all tiles need to be re-uploaded into the new texture
 		this.uploadedTileCount = 0;
-		BlockTextureRegistry.INSTANCE.resetPendingUploads();
+		BlockRenderRegistry.INSTANCE.resetPendingUploads();
 	}
 	
 	//endregion

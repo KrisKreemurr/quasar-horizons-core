@@ -4,8 +4,10 @@ in uvec4 vPosition;
 in vec4 color;
 // x: iris material id, y: face normal index, zw: block texture tile id (little endian)
 in uvec4 irisData;
-// xyz: offset inside the block in 256ths, w: flags (for future use), see EDhApiTerrainVertexFormat
+// xyz: offset inside the block in 256ths, w: flags, see EDhApiTerrainVertexFormat
 in uvec4 offsetData;
+// xy: model texture position, zw: normal, see EDhApiTerrainVertexFormat
+in uvec4 uvNormal;
 
 out vec4 vPos;
 out vec4 vertexColor;
@@ -15,6 +17,8 @@ out float vertexYPos;
 out vec3 vBlockPos;
 flat out uint vNormalIndex;
 flat out uint vTextureTileId;
+out vec2 vModelUv;
+flat out uint vUsesModelUv;
 
 uniform bool uIsWhiteWorld;
 uniform bool uHasOffsetData;
@@ -63,9 +67,18 @@ vec2 TAAJitter(vec2 coord, float w)
 void main()
 {
     vec3 position = vec3(vPosition.xyz);
+    vModelUv = vec2(0.0);
+    vUsesModelUv = 0u;
     if (uHasOffsetData)
     {
         position += vec3(offsetData.xyz) / 256.0;
+        // model positions are signed
+        if ((offsetData.w & 1u) != 0u)
+        {
+            position -= vec3(greaterThan(vPosition.xyz, uvec3(32767u))) * 65536.0;
+        }
+        vModelUv = vec2(uvNormal.xy) / 255.0;
+        vUsesModelUv = offsetData.w & 1u;
     }
     
     vPos = vec4(position, vPosition.a); // This is so it can be passed to the fragment shader

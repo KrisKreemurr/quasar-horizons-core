@@ -21,13 +21,16 @@ package com.seibel.distanthorizons.core.dataObjects.transformers;
 
 import com.seibel.distanthorizons.api.enums.config.EDhApiBlocksToAvoid;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiBlockMaterial;
+import com.seibel.distanthorizons.api.enums.worldGeneration.EDhApiWorldGenerationStep;
+import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.fullData.FullDataPointIdMap;
 import com.seibel.distanthorizons.core.dataObjects.fullData.sources.FullDataSourceV2;
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.dataObjects.render.columnViews.ColumnRenderView;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
+import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.pos.blockPos.DhBlockPosMutable;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout;
@@ -47,6 +50,7 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
+import java.util.function.LongPredicate;
 
 /**
  * Handles converting {@link FullDataSourceV2}'s to {@link ColumnRenderSource}.
@@ -71,7 +75,7 @@ public class FullDataToRenderDataTransformer
 	
 	@Nullable
 	public static ColumnRenderSource transformFullDataToRenderSource(
-			@Nullable FullDataSourceV2 fullDataSource, @Nullable IClientLevelWrapper levelWrapper)
+			@Nullable FullDataSourceV2 fullDataSource, @Nullable IClientLevelWrapper levelWrapper, AbstractDhApiRenderDefinition renderDefinition)
 	{
 		if (fullDataSource == null)
 		{
@@ -86,7 +90,7 @@ public class FullDataToRenderDataTransformer
 		
 		try
 		{
-			return transformCompleteFullDataToColumnData(levelWrapper, fullDataSource);
+			return transformCompleteFullDataToColumnData(levelWrapper, renderDefinition, fullDataSource);
 		}
 		catch (InterruptedException e)
 		{
@@ -111,7 +115,7 @@ public class FullDataToRenderDataTransformer
 	 * Generally thrown if the method is running after the client leaves the current world.
 	 */
 	private static ColumnRenderSource transformCompleteFullDataToColumnData(
-		IClientLevelWrapper levelWrapper, FullDataSourceV2 fullDataSource) throws InterruptedException
+		IClientLevelWrapper levelWrapper, AbstractDhApiRenderDefinition renderDefinition, FullDataSourceV2 fullDataSource) throws InterruptedException
 	{
 		final long pos = fullDataSource.getPos();
 		final byte dataDetail = fullDataSource.getDataDetailLevel();
@@ -120,7 +124,7 @@ public class FullDataToRenderDataTransformer
 		
 		
 		
-		final ColumnRenderSource columnSource = ColumnRenderSource.createEmpty(pos, maxVertSliceCount, levelWrapper.getMinHeight());
+		final ColumnRenderSource columnSource = ColumnRenderSource.createEmpty(pos, maxVertSliceCount, levelWrapper.getMinHeight(), renderDefinition);
 		if (fullDataSource.isEmpty)
 		{
 			return columnSource;
@@ -143,8 +147,14 @@ public class FullDataToRenderDataTransformer
 					columnSource.populateColumnView(columnArrayView, x, z);
 					LongArrayList dataColumn = fullDataSource.getColumnAtRelPos(x, z);
 					
+					// old LODs stretched models down, they're read as surface until regenerated
+					if (fullDataSource.columnGenerationSteps.getByte(FullDataSourceV2.relativePosToIndex(x, z)) < EDhApiWorldGenerationStep.FEATURES.value)
+					{
+						columnSource.disableModelsInColumn(x, z);
+					}
+					
 					updateOrReplaceRenderDataViewColumnWithFullDataColumn(
-						levelWrapper, fullDataSource,
+						levelWrapper, renderDefinition, fullDataSource,
 						// bit shift is to account for LODs with a detail level greater than 0 so the block pos is correct
 						baseX + BitShiftUtil.pow(x, dataDetail), baseZ + BitShiftUtil.pow(z, dataDetail),
 						columnArrayView, dataColumn,
@@ -158,13 +168,88 @@ public class FullDataToRenderDataTransformer
 		return columnSource;
 	}
 	
+	/** The full data block at the given height */
+	@Nullable
+	private static IBlockStateWrapper getBlockAtY(FullDataSourceV2 fullDataSource, LongArrayList fullDataColumn, int blockY)
+	{
+		// the column is sorted top down
+		int low = 0;
+		int high = fullDataColumn.size() - 1;
+		while (low <= high)
+		{
+			int middle = (low + high) >>> 1;
+			long fullData = fullDataColumn.getLong(middle);
+			int bottomY = FullDataPointUtil.getBottomY(fullData);
+			if (blockY < bottomY)
+			{
+				// below this point
+				low = middle + 1;
+			}
+			else if (blockY >= bottomY + FullDataPointUtil.getHeight(fullData))
+			{
+				// above this point
+				high = middle - 1;
+			}
+			else
+			{
+				try
+				{
+					return fullDataSource.mapping.getBlockStateWrapper(FullDataPointUtil.getId(fullData));
+				}
+				catch (IndexOutOfBoundsException ignore)
+				{
+					// broken mappings are logged during color resolution
+					return null;
+				}
+			}
+		}
+		return null;
+	}
+	
+	/** The brightest sky light from the see-through blocks next to this block */
+	private static int getSideSkyLight(FullDataSourceV2 fullDataSource, IBlockStateWrapper block, int blockX, int blockZ, int blockY)
+	{
+		int relX = blockX & (FullDataSourceV2.WIDTH - 1);
+		int relZ = blockZ & (FullDataSourceV2.WIDTH - 1);
+		
+		int brightestLight = LodUtil.MIN_MC_LIGHT;
+		for (EDhDirection direction : EDhDirection.CARDINAL_COMPASS)
+		{
+			// full faces block the light
+			if (block.isFaceFull(direction))
+			{
+				continue;
+			}
+			
+			LongArrayList adjColumn = fullDataSource.tryGetColumnAtRelPos(relX + direction.normal.x, relZ + direction.normal.z);
+			IBlockStateWrapper adjBlock = (adjColumn != null) ? getBlockAtY(fullDataSource, adjColumn, blockY) : null;
+			if (adjBlock == null
+				|| adjBlock.getOpacity() != LodUtil.BLOCK_FULLY_TRANSPARENT)
+			{
+				continue;
+			}
+			
+			// the column is sorted top down
+			for (int i = 0; i < adjColumn.size(); i++)
+			{
+				long adjData = adjColumn.getLong(i);
+				if (FullDataPointUtil.getBottomY(adjData) <= blockY)
+				{
+					brightestLight = Math.max(brightestLight, FullDataPointUtil.getSkyLight(adjData) - 1);
+					break;
+				}
+			}
+		}
+		return brightestLight;
+	}
+	
 	/** Updates the given {@link ColumnRenderView} to match the incoming Full data {@link LongArrayList} */
 	private static void updateOrReplaceRenderDataViewColumnWithFullDataColumn(
-		IClientLevelWrapper levelWrapper,
+		IClientLevelWrapper levelWrapper, AbstractDhApiRenderDefinition renderDefinition,
 		FullDataSourceV2 fullDataSource, int blockX, int blockZ, 
 		ColumnRenderView columnArrayView, 
 		LongArrayList fullDataColumn,
-		// only needed for texture ids and fluid amounts, see applyTopBlockData
+		// only needed for set ids and fluid amounts, see applyTopBlockData
 		ColumnRenderSource columnSource, int sourceRelX, int sourceRelZ,
 		// pooled references
 		PhantomArrayListCheckout phantomCheckout, ColumnRenderView tempExpandingColumnView, 
@@ -177,11 +262,14 @@ public class FullDataToRenderDataTransformer
 			return;
 		}
 		
+		boolean modelsInThisColumn = BlockRenderRegistry.modelsDrawnAtDetailLevel(fullDataSource.getDataDetailLevel(), renderDefinition)
+			&& columnSource.columnDrawsModels(sourceRelX, sourceRelZ);
+		
 		int fullDataLength = fullDataColumn.size();
 		if (fullDataLength <= columnArrayView.maxVerticalSliceCount)
 		{
 			// Directly use the arrayView since it fits.
-			setRenderColumnView(levelWrapper, fullDataSource, blockX, blockZ, columnArrayView, fullDataColumn, mutableBlockPos);
+			setRenderColumnView(levelWrapper, modelsInThisColumn, fullDataSource, blockX, blockZ, columnArrayView, fullDataColumn, mutableBlockPos);
 		}
 		else
 		{
@@ -192,16 +280,25 @@ public class FullDataToRenderDataTransformer
 			tempExpandingColumnView.populate(
 				dataArrayList, voidDataArrayList,
 				fullDataLength, 0, 0, fullDataLength);
-			setRenderColumnView(levelWrapper, fullDataSource, blockX, blockZ, tempExpandingColumnView, fullDataColumn, mutableBlockPos);
+			setRenderColumnView(levelWrapper, modelsInThisColumn, fullDataSource, blockX, blockZ, tempExpandingColumnView, fullDataColumn, mutableBlockPos);
 			
-			columnArrayView.changeVerticalSizeFrom(tempExpandingColumnView, reducingList);
+			LongPredicate pointIsModel = (renderData) -> false;
+			if (modelsInThisColumn)
+			{
+				pointIsModel = (renderData) ->
+				{
+					IBlockStateWrapper block = getBlockAtY(fullDataSource, fullDataColumn, RenderDataPointUtil.getYMax(renderData) - 1);
+					return block != null && BlockRenderRegistry.usesModel(block);
+				};
+			}
+			columnArrayView.changeVerticalSizeFrom(tempExpandingColumnView, reducingList, pointIsModel);
 		}
 		
 		applyTopBlockData(levelWrapper, fullDataSource, columnArrayView, fullDataColumn, columnSource, sourceRelX, sourceRelZ);
 	}
 	
 	/**
-	 * Determines the texture and fluid amount for each finished render data point
+	 * Determines the set id and fluid amount for each finished render data point
 	 * by finding the full data block at the data point's top. <br>
 	 * The top block is used since merged data points keep their top block's color,
 	 * keeping the texture consistent with the color it multiplies. <br><br>
@@ -228,7 +325,7 @@ public class FullDataToRenderDataTransformer
 			
 			// find the full data point containing the render data point's top block,
 			// the full data column is sorted top down
-			short textureId = 0;
+			short setId = BlockRenderRegistry.FLAT_SET_ID;
 			// liquids default to full, everything else has no liquid
 			int fluidAmount = RenderDataPointUtil.isFluid(renderData) ? LodUtil.MAX_FLUID_AMOUNT : LodUtil.NO_FLUID_AMOUNT;
 			boolean waterlogged = false;
@@ -256,7 +353,7 @@ public class FullDataToRenderDataTransformer
 							&& fullIndex > 0)
 						{
 							// Note: this is a hack.
-							// Since the Render data and textures aren't in the same data array it's difficult to map
+							// Since the Render data and set ids aren't in the same data array it's difficult to map
 							// them together, but this guess works well enough for now.
 							
 							fullData = fullDataColumn.getLong(fullIndex - 1);
@@ -275,10 +372,10 @@ public class FullDataToRenderDataTransformer
 							block = WRAPPER_FACTORY.getWaterBlockStateWrapper(levelWrapper);
 						}
 						
-						// This now also runs for fluid changes, so we gotta check if textures are on
-						if (columnSource.hasTextureSetIds())
+						// This now also runs for fluid changes, so we gotta check if set ids are stored
+						if (columnSource.hasSetIds())
 						{
-							textureId = BlockTextureRegistry.INSTANCE.getOrRegisterBlockStateSetId(block, levelWrapper);
+							setId = BlockRenderRegistry.INSTANCE.getOrRegisterBlockStateSetId(block, levelWrapper);
 						}
 						
 						// Blocks that are replaced with water (like lily pads) don't have fluid, those stay full
@@ -299,7 +396,7 @@ public class FullDataToRenderDataTransformer
 				break;
 			}
 			
-			columnSource.setDataPointAttributes(sourceRelX, sourceRelZ, renderIndex, textureId, fluidAmount, waterlogged);
+			columnSource.setDataPointAttributes(sourceRelX, sourceRelZ, renderIndex, setId, fluidAmount, waterlogged);
 		}
 	}
 	
@@ -332,8 +429,27 @@ public class FullDataToRenderDataTransformer
 		}
 	}
 	
+	/** Models are only drawn at block detail */
+	private static boolean isDrawnAsModel(IBlockStateWrapper block, boolean modelsInThisColumn)
+	{ return modelsInThisColumn && BlockRenderRegistry.usesModel(block); }
+	
+	/** Models without a full bottom */
+	private static boolean canSeeBlockBelow(IBlockStateWrapper block, boolean modelsInThisColumn)
+	{ return isDrawnAsModel(block, modelsInThisColumn) && !block.isFaceFull(EDhDirection.DOWN); }
+	
+	/** Models only merge with the same block */
+	private static boolean canMergeBlocks(IBlockStateWrapper block, IBlockStateWrapper lastBlock, boolean modelsInThisColumn)
+	{
+		if (block == lastBlock)
+		{
+			return true;
+		}
+		return !isDrawnAsModel(block, modelsInThisColumn)
+			&& !isDrawnAsModel(lastBlock, modelsInThisColumn);
+	}
+	
 	private static void setRenderColumnView(
-			IClientLevelWrapper levelWrapper, FullDataSourceV2 fullDataSource,
+			IClientLevelWrapper levelWrapper, boolean modelsInThisColumn, FullDataSourceV2 fullDataSource,
 			int blockX, int blockZ,
 			ColumnRenderView renderColumnData, LongArrayList fullColumnData, DhBlockPosMutable mutableBlockPos)
 	{
@@ -397,7 +513,6 @@ public class FullDataToRenderDataTransformer
 		// there are several instances where we'll want
 		// to copy the top datapoint down and override the one below it
 		int colorToApplyToNextBlock = -1;
-		IBlockStateWrapper blockToApplyToNextBlock = null;
 		int skylightToApplyToNextBlock = -1;
 		int blocklightToApplyToNextBlock = -1;
 		
@@ -478,7 +593,6 @@ public class FullDataToRenderDataTransformer
 				// doing so can cause weird lighting behavior for cave berries
 				// when hanging above water
 				colorToApplyToNextBlock = -1;
-				blockToApplyToNextBlock = null;
 				skylightToApplyToNextBlock = -1;
 				blocklightToApplyToNextBlock = -1;
 				airAfterLastBlock = true;
@@ -523,7 +637,8 @@ public class FullDataToRenderDataTransformer
 				// caves also ignore transparent/non-solid blocks (IE grass and plants) without each being defined
 				|| !block.isSolid()
 				|| block.isLiquid()
-				|| block.getOpacity() < LodUtil.BLOCK_FULLY_OPAQUE)
+				|| block.getOpacity() < LodUtil.BLOCK_FULLY_OPAQUE
+				|| isDrawnAsModel(block, modelsInThisColumn))
 			{
 				if (caveCullingEnabled
 					// assume this data point is underground if it has no sky-light
@@ -541,7 +656,8 @@ public class FullDataToRenderDataTransformer
 					int nextSkyLight = FullDataPointUtil.getSkyLight(nextFullData);
 					
 					if (nextSkyLight == LodUtil.MIN_MC_LIGHT
-						&& ColorUtil.getAlpha(lastColor) == 255)
+						&& ColorUtil.getAlpha(lastColor) == 255
+						&& !isDrawnAsModel(lastBlock, modelsInThisColumn))
 					{
 						// replace the previous block with new bottom
 						long columnData = renderColumnData.get(renderDataIndex - 1);
@@ -586,14 +702,19 @@ public class FullDataToRenderDataTransformer
 			// non-solid block check //
 			//=======================//
 			
+			// snow layers are drawn with their model
+			boolean isSnowLayerModel = snowLayerBlockStates.contains(block) && isDrawnAsModel(block, modelsInThisColumn);
+			
 			boolean ignoreNonSolidBlock =
 				ignoreNonCollidingBlocks
 				&& !block.isSolid()
 				&& !block.isLiquid()
-				&& block.getOpacity() != LodUtil.BLOCK_FULLY_OPAQUE;
+				&& block.getOpacity() != LodUtil.BLOCK_FULLY_OPAQUE
+				// TODO remove once plants and non-colliding blocks are drawn as models
+				&& !isSnowLayerModel;
 			
 			// handle height reduction
-			boolean isSnowLayer = snowLayerBlockStates.contains(block);
+			boolean isSnowLayer = snowLayerBlockStates.contains(block) && !isSnowLayerModel;
 			boolean isWaterSurfaceReplacement = waterSurfaceReplacementBlocks.contains(block);
 			if (isSnowLayer || isWaterSurfaceReplacement)
 			{
@@ -620,10 +741,6 @@ public class FullDataToRenderDataTransformer
 						// below it, if not done grass will appear as gray
 						int snowColor = levelWrapper.getBlockColor(mutableBlockPos, biome, fullDataSource, block);
 						colorToApplyToNextBlock = ColorUtil.setAlpha(snowColor, 255);
-						
-						// the dirt/grass below the snow should be related with snow
-						// TODO remove once block models can render snow layers
-						blockToApplyToNextBlock = block;
 					}
 					else //if (isWaterSurfaceReplacement)
 					{
@@ -705,12 +822,6 @@ public class FullDataToRenderDataTransformer
 					blockLight = blocklightToApplyToNextBlock;
 					blocklightToApplyToNextBlock = -1;
 				}
-				
-				if (blockToApplyToNextBlock != null)
-				{
-					block = blockToApplyToNextBlock;
-					blockToApplyToNextBlock = null;
-				}
 			}
 			else
 			{
@@ -732,12 +843,13 @@ public class FullDataToRenderDataTransformer
 					blockLight = blocklightToApplyToNextBlock;
 					blocklightToApplyToNextBlock = -1;
 				}
-				
-				if (blockToApplyToNextBlock != null)
-				{
-					block = blockToApplyToNextBlock;
-					blockToApplyToNextBlock = null;
-				}
+			}
+			
+			// models aren't lit from the side by the sky light pass
+			if (skyLight == LodUtil.MIN_MC_LIGHT
+				&& isDrawnAsModel(block, modelsInThisColumn))
+			{
+				skyLight = getSideSkyLight(fullDataSource, block, blockX, blockZ, topY - 1);
 			}
 			
 			
@@ -749,7 +861,8 @@ public class FullDataToRenderDataTransformer
 			// check if they share a top-bottom face and if they have same color
 			if (color == lastColor 
 				&& bottomY + blockHeight == lastBottom  
-				&& renderDataIndex > 0)
+				&& renderDataIndex > 0
+				&& canMergeBlocks(block, lastBlock, modelsInThisColumn))
 			{
 				//replace the previous block with new bottom
 				long columnData = renderColumnData.get(renderDataIndex - 1);
@@ -768,6 +881,12 @@ public class FullDataToRenderDataTransformer
 			lastColor = color;
 			lastBlock = block;
 			airAfterLastBlock = false;
+			
+			if (canSeeBlockBelow(block, modelsInThisColumn))
+			{
+				skylightToApplyToNextBlock = skyLight;
+				blocklightToApplyToNextBlock = blockLight;
+			}
 		}
 		
 		

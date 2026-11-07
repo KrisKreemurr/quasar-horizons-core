@@ -26,7 +26,7 @@ import com.seibel.distanthorizons.core.api.internal.chunkUpdating.ChunkUpdateQue
 import com.seibel.distanthorizons.core.api.internal.chunkUpdating.WorldChunkUpdateManager;
 import com.seibel.distanthorizons.core.config.eventHandlers.IgnoredDimensionCsvHandler;
 import com.seibel.distanthorizons.core.dataObjects.BlockBiomeWrapperPair;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.dependencyInjection.ModAccessorInjector;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.level.DhClientLevel;
@@ -135,7 +135,7 @@ public class SharedApi
 				WORLD_CHUNK_UPDATE_MANAGER.clear();
 				
 				RenderThreadTaskHandler.INSTANCE.clearDebugStats();
-				BlockTextureRegistry.INSTANCE.clear();
+				BlockRenderRegistry.INSTANCE.clear();
 				WorldGeneratorInjector.INSTANCE.clear();
 				
 				ClientApi.clearLevelReferences();

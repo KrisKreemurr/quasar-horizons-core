@@ -22,11 +22,12 @@ package com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiBlockMaterial;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiTerrainVertexFormat;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiDebugRendering;
+import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry;
-import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureSet;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderSet;
 import com.seibel.distanthorizons.core.logging.DhLogger;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout;
@@ -56,8 +57,39 @@ public class ColumnRenderBufferBuilder
 	// vbo building //
 	//==============//
 	
+	/** Looks up every set a section's palette uses once */
+	@Nullable
+	private static BlockRenderSet[] getSetsByPaletteIndex(ColumnRenderSource renderSource)
+	{
+		if (!renderSource.hasSetIds())
+		{
+			return null;
+		}
+		
+		BlockRenderSet[] setsByPaletteIndex = new BlockRenderSet[renderSource.getPaletteSize()];
+		for (int paletteIndex = 0; paletteIndex < setsByPaletteIndex.length; paletteIndex++)
+		{
+			setsByPaletteIndex[paletteIndex] = BlockRenderRegistry.INSTANCE.getRenderSet(renderSource.getPaletteSetId(paletteIndex));
+		}
+		return setsByPaletteIndex;
+	}
+	
+	/** The set of a point */
+	@Nullable
+	static BlockRenderSet getDataPointRenderSet(BlockRenderSet @Nullable [] setsByPaletteIndex, ColumnRenderSource renderSource, int relX, int relZ, int index)
+	{
+		if (setsByPaletteIndex == null)
+		{
+			return null;
+		}
+		
+		// the palette can grow while a build is running
+		int paletteIndex = renderSource.getDataPointPaletteIndex(relX, relZ, index);
+		return (paletteIndex < setsByPaletteIndex.length) ? setsByPaletteIndex[paletteIndex] : null;
+	}
+	
 	public static void makeLodRenderData(
-			LodQuadBuilder quadBuilder, ColumnRenderSource renderSource, IClientLevelWrapper clientLevelWrapper,
+			LodQuadBuilder quadBuilder, ColumnRenderSource renderSource, IClientLevelWrapper clientLevelWrapper, AbstractDhApiRenderDefinition renderDefinition,
 			ColumnRenderSource[] adjRegions, ColumnRenderSource[][] diagonalRegions, boolean[] isSameDetailLevel)
 	{
 		//=============//
@@ -85,6 +117,7 @@ public class ColumnRenderBufferBuilder
 		
 		// only formats with an offset can lower vertices
 		boolean lowerFluidSurfaces = (quadBuilder.getVertexFormat() == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET);
+		boolean drawModels = BlockRenderRegistry.modelsDrawnAtDetailLevel(renderSource.getDataDetailLevel(), renderDefinition);
 		
 		//===================//
 		// build each column //
@@ -106,9 +139,26 @@ public class ColumnRenderBufferBuilder
 			adjColumnViews[EDhDirection.WEST.compassIndex] = westAdjView;
 			short[] flowingFaceTileIds = new short[EDhDirection.ALL.length];
 			int[] adjustedFaceColors = new int[EDhDirection.ALL.length];
+			boolean[] hiddenModelSides = new boolean[EDhDirection.ALL.length];
+			byte[] modelSideLights = new byte[EDhDirection.ALL.length];
+			BlockRenderSet[] setsByPaletteIndex = getSetsByPaletteIndex(renderSource);
 			
 			
 			byte thisDetailLevel = renderSource.getDataDetailLevel();
+			
+			// each neighbor section's sets
+			BlockRenderSet[][] adjSectionSets = new BlockRenderSet[EDhDirection.CARDINAL_COMPASS.length][];
+			for (EDhDirection direction : EDhDirection.CARDINAL_COMPASS)
+			{
+				ColumnRenderSource adjRegion = adjRegions[direction.compassIndex];
+				if (drawModels && adjRegion != null && adjRegion.getDataDetailLevel() == thisDetailLevel)
+				{
+					adjSectionSets[direction.compassIndex] = getSetsByPaletteIndex(adjRegion);
+				}
+			}
+			
+			// where each neighbor column was read from
+			AdjacentColumnSets adjColumnSets = new AdjacentColumnSets();
 			for (int relX = 0; relX < ColumnRenderSource.WIDTH; relX++)
 			{
 				for (int relZ = 0; relZ < ColumnRenderSource.WIDTH; relZ++)
@@ -158,6 +208,7 @@ public class ColumnRenderBufferBuilder
 					
 					for (EDhDirection direction : EDhDirection.CARDINAL_COMPASS)
 					{
+						adjColumnSets.clear(direction);
 						try
 						{
 							int xAdj = relX + direction.normal.x;
@@ -234,6 +285,13 @@ public class ColumnRenderBufferBuilder
 							}
 							
 							adjRenderSource.populateColumnView(adjColumnViews[direction.compassIndex], xAdj, zAdj);
+							
+							// neighbors without models are boxes
+							if (drawModels && adjDetailLevel == thisDetailLevel && adjRenderSource.columnDrawsModels(xAdj, zAdj))
+							{
+								BlockRenderSet[] adjSets = isCrossRenderSourceBoundary ? adjSectionSets[direction.compassIndex] : setsByPaletteIndex;
+								adjColumnSets.set(direction, adjRenderSource, adjSets, xAdj, zAdj);
+							}
 						}
 						catch (RuntimeException e)
 						{
@@ -246,6 +304,8 @@ public class ColumnRenderBufferBuilder
 					//==========================//
 					// build this render column //
 					//==========================//
+					
+					boolean modelsInThisColumn = drawModels && renderSource.columnDrawsModels(relX, relZ);
 					
 					for (int i = 0; i < columnRenderData.size; i++)
 					{
@@ -279,18 +339,31 @@ public class ColumnRenderBufferBuilder
 							bottomDataPoint = columnRenderData.getVoid();
 						}
 						
+						BlockRenderSet renderSet = getDataPointRenderSet(setsByPaletteIndex, renderSource, relX, relZ, i);
+						
 						// determine which textures this data point's quads should use
 						short[] faceTileIdsByDirectionOrdinal = null;
 						int[] faceColors = null;
-						if (renderSource.hasTextureSetIds())
+						if (renderSet != null && renderSource.usesTextures())
 						{
-							short textureSetId = renderSource.getDataPointTextureSetId(relX, relZ, i);
-							BlockTextureSet textureSet = BlockTextureRegistry.INSTANCE.getTextureSet(textureSetId);
-							if (textureSet != null)
-							{
-								faceTileIdsByDirectionOrdinal = textureSet.faceTileIds;
-								faceColors = textureSet.faceColors;
-							}
+							faceTileIdsByDirectionOrdinal = renderSet.faceTileIds;
+							faceColors = renderSet.faceColors;
+						}
+						
+						BlockRenderSet modelSet = null;
+						if (modelsInThisColumn && renderSet != null && renderSet.modelQuads.length != 0)
+						{
+							modelSet = renderSet;
+						}
+						
+						// the points above and below
+						BlockRenderSet topSet = null;
+						BlockRenderSet bottomSet = null;
+						if (modelsInThisColumn)
+						{
+							topSet = (i > 0) ? getDataPointRenderSet(setsByPaletteIndex, renderSource, relX, relZ, i - 1) : null;
+							boolean bottomIsInColumn = (i + 1 < columnRenderData.size) && columnRenderData.get(i + 1) != RenderDataPointUtil.EMPTY_DATA;
+							bottomSet = bottomIsInColumn ? getDataPointRenderSet(setsByPaletteIndex, renderSource, relX, relZ, i + 1) : null;
 						}
 						
 						short topDrops = FluidSurfaceUtil.createNoDrop();
@@ -303,10 +376,10 @@ public class ColumnRenderBufferBuilder
 						EDhDirection flowDirection = FluidSurfaceUtil.getFlowDirection(topDrops);
 						if (flowDirection != null
 							&& faceTileIdsByDirectionOrdinal != null
-							&& faceTileIdsByDirectionOrdinal.length > BlockTextureRegistry.FLUID_FLOW_TILE_INDEX)
+							&& faceTileIdsByDirectionOrdinal.length > BlockRenderRegistry.FLUID_FLOW_TILE_INDEX)
 						{
 							System.arraycopy(faceTileIdsByDirectionOrdinal, 0, flowingFaceTileIds, 0, flowingFaceTileIds.length);
-							flowingFaceTileIds[EDhDirection.UP.faceIndex] = faceTileIdsByDirectionOrdinal[BlockTextureRegistry.FLUID_FLOW_TILE_INDEX + flowDirection.compassIndex];
+							flowingFaceTileIds[EDhDirection.UP.faceIndex] = faceTileIdsByDirectionOrdinal[BlockRenderRegistry.FLUID_FLOW_TILE_INDEX + flowDirection.compassIndex];
 							faceTileIdsByDirectionOrdinal = flowingFaceTileIds;
 						}
 						
@@ -314,8 +387,10 @@ public class ColumnRenderBufferBuilder
 							clientLevelWrapper, phantomArrayCheckout,
 							data, topDataPoint, bottomDataPoint,
 							adjColumnViews, isSameDetailLevel, faceTileIdsByDirectionOrdinal, faceColors, adjustedFaceColors,
+							hiddenModelSides, modelSideLights,
 							thisDetailLevel, relX, relZ,
-							quadBuilder, topDrops);
+							quadBuilder, topDrops, modelSet, renderSource.usesTextures(),
+							topSet, bottomSet, adjColumnSets);
 					}
 				}// for z
 			}// for x
@@ -328,8 +403,11 @@ public class ColumnRenderBufferBuilder
 			long renderData, long topRenderData, long bottomRenderData, 
 			ColumnRenderView[] adjColumnViews, boolean[] isSameDetailLevel, short @Nullable [] faceTileIdsByDirectionOrdinal, 
 			int @Nullable [] faceColors, int[] adjustedFaceColors,
+			boolean[] hiddenModelSides, byte[] modelSideLights,
 			byte detailLevel, int renderSourceOffsetPosX, int renderSourceOffsetPosZ, 
-			LodQuadBuilder quadBuilder, short topDrops)
+			LodQuadBuilder quadBuilder, short topDrops, @Nullable BlockRenderSet modelSet, boolean useTextures,
+			@Nullable BlockRenderSet topSet, @Nullable BlockRenderSet bottomSet,
+			AdjacentColumnSets adjColumnSets)
 	{
 		long sectionPos = DhSectionPos.encode(detailLevel, renderSourceOffsetPosX, renderSourceOffsetPosZ);
 		
@@ -370,8 +448,8 @@ public class ColumnRenderBufferBuilder
 				{
 					for (int faceIndex = 0; faceIndex < faceColors.length; faceIndex++)
 					{
-						adjustedFaceColors[faceIndex] = (faceColors[faceIndex] == BlockTextureSet.USE_LOD_COLOR)
-							? BlockTextureSet.USE_LOD_COLOR
+						adjustedFaceColors[faceIndex] = (faceColors[faceIndex] == BlockRenderSet.USE_LOD_COLOR)
+							? BlockRenderSet.USE_LOD_COLOR
 							: applyColorSettings(faceColors[faceIndex], saturationMultiplier, brightnessMultiplier);
 					}
 					finalFaceColors = adjustedFaceColors;
@@ -456,6 +534,20 @@ public class ColumnRenderBufferBuilder
 				throw new IllegalArgumentException("Unknown debug mode: " + debugging);
 		}
 		
+		if (modelSet != null)
+		{
+			ColumnModel.addModelQuadsToBuilder(
+				quadBuilder, clientLevelWrapper,
+				modelSet, useTextures, debugging == EDhApiDebugRendering.OFF,
+				blockMinX, blockMinY, blockMinZ, blockMaxY,
+				color, blockMaterialId,
+				RenderDataPointUtil.getLightSky(renderData),
+				fullBright ? LodUtil.MAX_MC_LIGHT : RenderDataPointUtil.getLightBlock(renderData),
+				topRenderData, bottomRenderData, topSet, bottomSet,
+				adjColumnViews, adjColumnSets, hiddenModelSides, modelSideLights);
+			return;
+		}
+		
 		ColumnBox.addBoxQuadsToBuilder(
 			quadBuilder, phantomArrayCheckout, clientLevelWrapper,
 			blockWidth, blockMaxY,
@@ -465,11 +557,12 @@ public class ColumnRenderBufferBuilder
 			RenderDataPointUtil.getLightSky(renderData),
 			fullBright ? LodUtil.MAX_MC_LIGHT : RenderDataPointUtil.getLightBlock(renderData),
 			topRenderData, bottomRenderData, adjColumnViews, isSameDetailLevel,
+			topSet, bottomSet, adjColumnSets,
 			faceTileIdsByDirectionOrdinal, finalFaceColors, topDrops);
 	}
 	
 	/** applies the saturation and brightness settings */
-	private static int applyColorSettings(int color, float saturationMultiplier, float brightnessMultiplier)
+	static int applyColorSettings(int color, float saturationMultiplier, float brightnessMultiplier)
 	{
 		if (saturationMultiplier == 1.0 && brightnessMultiplier == 1.0)
 		{
