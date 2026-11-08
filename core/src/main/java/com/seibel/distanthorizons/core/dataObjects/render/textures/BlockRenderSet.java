@@ -29,7 +29,7 @@ public class BlockRenderSet
 	/** a face color that means the face uses the LOD's color instead (biome tinted faces) */
 	public static final int USE_LOD_COLOR = 0;
 	
-	/** indexed by {@link EDhDirection#faceIndex}, fluids also have their turned flow tiles after the 6 faces */
+	/** indexed by {@link EDhDirection#faceIndex}, fluids and grass blocks have extra tiles after the 6 faces */
 	public final short[] faceTileIds;
 	/** each face's own color or {@link #USE_LOD_COLOR}, indexed by {@link EDhDirection#faceIndex} */
 	public final int[] faceColors;

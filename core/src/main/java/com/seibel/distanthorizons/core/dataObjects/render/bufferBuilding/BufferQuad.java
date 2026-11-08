@@ -64,6 +64,8 @@ public final class BufferQuad
 	public boolean hasError = false;
 	/** How far each top corner is lowered, see {@link FluidSurfaceUtil} */
 	public short topDrops;
+	/** Clear pixels are cut out */
+	public boolean cutOut;
 	/** null for box faces */
 	@Nullable
 	public DhBlockModelQuad modelQuad;
@@ -113,6 +115,7 @@ public final class BufferQuad
 		this.blockLight = blockLight;
 		this.direction = direction;
 		this.topDrops = 0;
+		this.cutOut = false;
 		this.modelQuad = null;
 		this.modelOffsetX256 = 0;
 		this.modelOffsetY256 = 0;
@@ -179,7 +182,10 @@ public final class BufferQuad
 			|| !FluidSurfaceUtil.isFlat(this.topDrops)
 			// model quads keep their shape
 			|| this.modelQuad != null
-			|| quad.modelQuad != null)
+			|| quad.modelQuad != null
+			// vertex uvs can't repeat across a merged quad
+			|| this.cutOut
+			|| quad.cutOut)
 		{
 			return false;
 		}

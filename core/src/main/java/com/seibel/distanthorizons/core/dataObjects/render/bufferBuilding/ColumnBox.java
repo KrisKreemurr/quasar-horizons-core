@@ -180,7 +180,7 @@ public class ColumnBox
 						minX, minY, minZ, 
 						blockWidth, yHeight, 
 						northColor, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.NORTH),
-						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet);
+						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet, false);
 				}
 			}
 			else
@@ -209,7 +209,7 @@ public class ColumnBox
 						minX, minY, maxZ, 
 						blockWidth, yHeight, 
 						southColor, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.SOUTH),
-						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet);
+						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet, false);
 				}
 			}
 			else
@@ -238,7 +238,7 @@ public class ColumnBox
 						minX, minY, minZ, 
 						blockWidth, yHeight, 
 						westColor, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.WEST),
-						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet);
+						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet, false);
 				}
 			}
 			else
@@ -267,7 +267,7 @@ public class ColumnBox
 						maxX, minY, minZ, 
 						blockWidth, yHeight, 
 						eastColor, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.EAST),
-						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet);
+						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet, false);
 				}
 			}
 			else
@@ -313,7 +313,7 @@ public class ColumnBox
 				horizontalBlockWidth, ySize, 
 				color, tryGetTextureId(faceTileIdsByDirectionOrdinal, direction),
 				irisBlockMaterialId, 
-				LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet);
+				LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet, false);
 			return;
 		}
 		
@@ -486,9 +486,61 @@ public class ColumnBox
 		// from segments         //
 		//=======================//
 		
+		short grassSideTileId = BlockRenderRegistry.UNTEXTURED_ID;
+		short grassOverlayTileId = BlockRenderRegistry.UNTEXTURED_ID;
+		int grassOverlayColor = color;
+		if (irisBlockMaterialId == EDhApiBlockMaterial.GRASS.index
+			&& faceTileIdsByDirectionOrdinal != null
+			&& faceTileIdsByDirectionOrdinal.length > BlockRenderRegistry.GRASS_OVERLAY_TILE_INDEX
+			&& faceTileIdsByDirectionOrdinal[BlockRenderRegistry.GRASS_SIDE_TILE_INDEX] != BlockRenderRegistry.UNTEXTURED_ID
+			// the texture would stretch on wider LODs
+			&& horizontalBlockWidth == 1
+			&& builder.drawsGrassTopBlock())
+		{
+			grassSideTileId = faceTileIdsByDirectionOrdinal[BlockRenderRegistry.GRASS_SIDE_TILE_INDEX];
+			grassOverlayTileId = faceTileIdsByDirectionOrdinal[BlockRenderRegistry.GRASS_OVERLAY_TILE_INDEX];
+			
+			// the rest of the side is dirt
+			color = ColorUtil.applyShade(clientLevelWrapper.getDirtBlockColor(), clientLevelWrapper.getShade(direction));
+			irisBlockMaterialId = EDhApiBlockMaterial.DIRT.index;
+		}
+		boolean hasGrassOverlay = (grassOverlayTileId != BlockRenderRegistry.UNTEXTURED_ID);
+		
 		for (int i = 0; i < segments.size(); i++)
 		{
 			long segment = segments.getLong(i);
+			int quadTopY = YSegmentUtil.getEndY(segment);
+			
+			// the top block shows the grass side
+			if (grassSideTileId != BlockRenderRegistry.UNTEXTURED_ID
+				&& quadTopY == yMax)
+			{
+				tryAddVerticalFaceWithSkyLightToBuilder(
+					builder, direction,
+					x, z, horizontalBlockWidth,
+					ColorUtil.applyShade(ColorUtil.WHITE, clientLevelWrapper.getShade(direction)), grassSideTileId,
+					irisBlockMaterialId, blockLight,
+					YSegmentUtil.getSkyLight(segment), YSegmentUtil.isCovered(segment),
+					inputTransparent,
+					yMax, yMax - 1,
+					(short) 0, waterloggedModelSet, hasGrassOverlay
+				);
+				if (hasGrassOverlay)
+				{
+					tryAddVerticalFaceWithSkyLightToBuilder(
+						builder, direction,
+						x, z, horizontalBlockWidth,
+						grassOverlayColor, grassOverlayTileId,
+						irisBlockMaterialId, blockLight,
+						YSegmentUtil.getSkyLight(segment), YSegmentUtil.isCovered(segment),
+						inputTransparent,
+						yMax, yMax - 1,
+						(short) 0, waterloggedModelSet, true
+					);
+				}
+				quadTopY--;
+			}
+			
 			tryAddVerticalFaceWithSkyLightToBuilder(
 				builder, direction,
 				x, z, horizontalBlockWidth,
@@ -496,8 +548,8 @@ public class ColumnBox
 				irisBlockMaterialId, blockLight,
 				YSegmentUtil.getSkyLight(segment), YSegmentUtil.isCovered(segment),
 				inputTransparent, 
-				YSegmentUtil.getEndY(segment), YSegmentUtil.getStartY(segment),
-				(YSegmentUtil.getEndY(segment) == yMax) ? topDrops : 0, waterloggedModelSet
+				quadTopY, YSegmentUtil.getStartY(segment),
+				(YSegmentUtil.getEndY(segment) == yMax) ? topDrops : 0, waterloggedModelSet, false
 			);
 		}
 	}
@@ -562,7 +614,7 @@ public class ColumnBox
 		byte irisBlockMaterialId, 
 		byte blockLight, byte lastSkyLight, boolean covered,
 		boolean inputTransparent, 
-		int quadTopY, int quadBottomY, short topDrops, @Nullable BlockRenderSet waterloggedModelSet
+		int quadTopY, int quadBottomY, short topDrops, @Nullable BlockRenderSet waterloggedModelSet, boolean cutOut
 		)
 	{
 		// invalid positions will have a negative skylight
@@ -592,7 +644,7 @@ public class ColumnBox
 			x, (short) quadBottomY, z, 
 			horizontalWidth, height, 
 			color, faceTextureId,
-			irisBlockMaterialId, lastSkyLight, blockLight, topDrops, waterloggedModelSet);
+			irisBlockMaterialId, lastSkyLight, blockLight, topDrops, waterloggedModelSet, cutOut);
 	}
 	
 	//endregion

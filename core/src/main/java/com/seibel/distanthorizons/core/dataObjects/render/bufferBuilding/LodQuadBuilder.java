@@ -199,7 +199,7 @@ public class LodQuadBuilder implements AutoCloseable
 		short x, short y, short z,
 		short width, short height,
 		int color, short faceTextureId,
-		byte irisBlockMaterialId, byte skyLight, byte blockLight, short topDrops, @Nullable BlockRenderSet waterloggedModelSet)
+		byte irisBlockMaterialId, byte skyLight, byte blockLight, short topDrops, @Nullable BlockRenderSet waterloggedModelSet, boolean cutOut)
 	{
 		if (dir == EDhDirection.DOWN)
 		{
@@ -245,6 +245,7 @@ public class LodQuadBuilder implements AutoCloseable
 		BufferQuad quad = this.getOrCreateBufferQuad();
 		quad.set(x, y, z, width, height, color, faceTextureId, irisBlockMaterialId, skyLight, blockLight, dir);
 		quad.topDrops = topDrops;
+		quad.cutOut = cutOut;
 		if (!quadList.isEmpty()
 			&& (
 				quadList.get(quadList.size() - 1).tryMerge(quad, BufferMergeDirectionEnum.EastWest)
@@ -566,7 +567,9 @@ public class LodQuadBuilder implements AutoCloseable
 						{
 							if (this.grassSideRenderingMode == EDhApiGrassSideRendering.AS_DIRT
 								// if we want the color to fade, only apply the dirt color to the bottom vertices
-								|| (this.grassSideRenderingMode == EDhApiGrassSideRendering.FADE_TO_DIRT && quadBase[i][1] == 0)
+								|| ((this.grassSideRenderingMode == EDhApiGrassSideRendering.FADE_TO_DIRT
+									|| this.grassSideRenderingMode == EDhApiGrassSideRendering.GRASS_TOP_BLOCK)
+									&& quadBase[i][1] == 0)
 								// always render the bottom as dirt
 								|| quad.direction == EDhDirection.DOWN)
 							{
@@ -591,6 +594,24 @@ public class LodQuadBuilder implements AutoCloseable
 				subY = (byte) ((16 - drop) * 16);
 			}
 			
+			byte uvFlag = BOX_FACE_UV_FLAG;
+			byte u = 0;
+			byte v = 0;
+			if (quad.cutOut)
+			{
+				uvFlag = VERTEX_UV_FLAG;
+				// same orientation as the shader's box face uvs
+				if (quad.direction == EDhDirection.NORTH || quad.direction == EDhDirection.EAST)
+				{
+					u = (byte) ((quadBase[i][0] == 1) ? 0 : 255);
+				}
+				else
+				{
+					u = (byte) ((quadBase[i][0] == 1) ? 255 : 0);
+				}
+				v = (byte) ((dy > 0) ? 0 : 255);
+			}
+			
 			this.putVertex(bb, (short) (quad.x + dx), vertexY, (short) (quad.z + dz),
 					quad.hasError ? ColorUtil.RED : color,
 					quad.hasError ? 0 : normalIndex,
@@ -600,7 +621,7 @@ public class LodQuadBuilder implements AutoCloseable
 					quad.hasError ? 0 : quad.textureTileId,
 					mx, my, mz,
 					(byte) 0, subY, (byte) 0,
-					BOX_FACE_UV_FLAG, (byte) 0, (byte) 0, (short) 0);
+					uvFlag, u, v, (short) 0);
 		}
 	}
 	private void putVertex(
@@ -677,6 +698,14 @@ public class LodQuadBuilder implements AutoCloseable
 	//region
 	
 	public EDhApiTerrainVertexFormat getVertexFormat() { return this.vertexFormat; }
+	
+	/** True if grass sides can draw their top block texture */
+	public boolean drawsGrassTopBlock()
+	{
+		return this.grassSideRenderingMode == EDhApiGrassSideRendering.GRASS_TOP_BLOCK
+			&& this.debugRenderingMode == EDhApiDebugRendering.OFF
+			&& this.vertexFormat == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET;
+	}
 	
 	public int getCurrentOpaqueQuadsCount()
 	{
