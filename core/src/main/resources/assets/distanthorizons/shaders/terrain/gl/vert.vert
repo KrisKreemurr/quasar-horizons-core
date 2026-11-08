@@ -87,7 +87,8 @@ void main()
     //vertexWorldPos.y += my;
     vertexWorldPos.z += mz;
 
-    if (irisData.x == 12u && color.a < 1.0)
+    uint irisMaterial = irisData.x;
+    if (irisMaterial == 12u && color.a < 1.0)
     {
         vertexWorldPos.y -= 0.1111111;
     }
