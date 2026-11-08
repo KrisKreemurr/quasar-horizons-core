@@ -505,6 +505,8 @@ public class ColumnBox
 			irisBlockMaterialId = EDhApiBlockMaterial.DIRT.index;
 		}
 		boolean hasGrassOverlay = (grassOverlayTileId != BlockRenderRegistry.UNTEXTURED_ID);
+		// cut bases use the dirt color
+		int grassSideColor = hasGrassOverlay ? color : ColorUtil.applyShade(ColorUtil.WHITE, clientLevelWrapper.getShade(direction));
 		
 		for (int i = 0; i < segments.size(); i++)
 		{
@@ -518,7 +520,7 @@ public class ColumnBox
 				tryAddVerticalFaceWithSkyLightToBuilder(
 					builder, direction,
 					x, z, horizontalBlockWidth,
-					ColorUtil.applyShade(ColorUtil.WHITE, clientLevelWrapper.getShade(direction)), grassSideTileId,
+					grassSideColor, grassSideTileId,
 					irisBlockMaterialId, blockLight,
 					YSegmentUtil.getSkyLight(segment), YSegmentUtil.isCovered(segment),
 					inputTransparent,

@@ -309,6 +309,7 @@ public class BlockRenderRegistry
 			
 			if (sideTexture != null)
 			{
+				int sideColor = ColorUtil.WHITE;
 				if (overlayTexture != null)
 				{
 					// keeps mip maps from darkening
@@ -329,11 +330,13 @@ public class BlockRenderRegistry
 							int sideAlpha = (ColorUtil.getAlpha(overlayTexture.argbPixels[i]) != 0) ? 0 : 255;
 							sideTexture.argbPixels[i] = ColorUtil.setAlpha(sideTexture.argbPixels[i], sideAlpha);
 						}
+						
+						// keeps the cut edges from fading to white
+						sideColor = levelWrapper.getDirtBlockColor();
 					}
 				}
 				
-				// drawn on white quads
-				faceTileIds[GRASS_SIDE_TILE_INDEX] = this.getOrCreateTileId(sideTexture, ColorUtil.WHITE);
+				faceTileIds[GRASS_SIDE_TILE_INDEX] = this.getOrCreateTileId(sideTexture, sideColor);
 			}
 		}
 		
