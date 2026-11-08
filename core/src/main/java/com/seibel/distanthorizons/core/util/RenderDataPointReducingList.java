@@ -300,7 +300,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	 * 		but this time, we are allowed to erase a segment entirely without merging it
 	 * 		if there are equal-alpha'd segments above and below it.
 	 * 	2b: if we still fail, drop model points, lowest first.
-	 * 		steps 1 and 2 never merge these.
+	 * 		steps 1 and 2 never stretch these.
 	 * 	3: if we still fail, force the lowest segment to merge with the segment above it,
 	 * 		with no restrictions on alpha.
 	 * 		the highest alpha of the two segments takes priority though.
@@ -600,14 +600,10 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 		int toExtendDownwards;
 		int toRemove;
 		
-		if (this.isModel(current))
-		{
-			return result;
-		}
-		
+		// models never grow
 		if (higher != NULL && !this.isModel(higher) && this.getAlpha(higher) == this.getAlpha(current)) 
 		{
-			if (lower != NULL && !this.isModel(lower) && this.getAlpha(lower) == this.getAlpha(current)) 
+			if (lower != NULL && !this.isModel(current) && this.getAlpha(lower) == this.getAlpha(current)) 
 			{
 				if (this.getSize(higher) <= this.getSize(lower)) 
 				{
@@ -628,7 +624,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 		}
 		else
 		{
-			if (lower != NULL && !this.isModel(lower) && this.getAlpha(lower) == this.getAlpha(current))
+			if (lower != NULL && !this.isModel(current) && this.getAlpha(lower) == this.getAlpha(current))
 			{
 				toExtendDownwards = current;
 				toRemove = lower;
@@ -767,7 +763,8 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 			int lower = this.getLower(center);
 			int higher = this.getHigher(center);
 			if (lower != NULL && higher != NULL && this.getAlpha(lower) == this.getAlpha(higher)
-				&& !this.isModel(lower) && !this.isModel(center) && !this.isModel(higher))
+				// models never grow
+				&& !this.isModel(higher))
 			{
 				this.setMinY(higher, this.getMinY(lower));
 				this.resortSize(higher);
