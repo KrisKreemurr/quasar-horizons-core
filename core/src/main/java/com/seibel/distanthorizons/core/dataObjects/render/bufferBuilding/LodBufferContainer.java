@@ -19,9 +19,11 @@
 
 package com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding;
 
+import com.seibel.distanthorizons.api.enums.rendering.EDhApiTerrainVertexFormat;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.objects.IDhApiTerrainBufferContainer;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.objects.IDhApiVertexBufferWrapper;
+import com.seibel.distanthorizons.api.objects.math.DhApiVec3i;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.logging.DhLogger;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
@@ -58,8 +60,9 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	
 	
 	/** the position closest to minimum X/Z infinity and the level's lowest Y */
-	public final DhBlockPos minCornerBlockPos;
+	public final DhApiVec3i minCornerBlockPos;
 	public final long pos;
+	private final EDhApiTerrainVertexFormat vertexFormat;
 	
 	public boolean buffersUploaded = false;
 	
@@ -81,10 +84,11 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	//==============//
 	//region
 	
-	private LodBufferContainer(long pos, DhBlockPos minCornerBlockPos)
+	private LodBufferContainer(long pos, DhBlockPos minCornerBlockPos, EDhApiTerrainVertexFormat vertexFormat)
 	{
 		this.pos = pos;
-		this.minCornerBlockPos = minCornerBlockPos;
+		this.minCornerBlockPos = new DhApiVec3i(minCornerBlockPos.getX(), minCornerBlockPos.getY(), minCornerBlockPos.getZ());
+		this.vertexFormat = vertexFormat;
 		this.vboOpaqueWrappers = new IDhApiVertexBufferWrapper[0];
 		this.vboTransparentWrappers = new IDhApiVertexBufferWrapper[0];
 		
@@ -104,6 +108,23 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	@Override public IDhApiVertexBufferWrapper[] getVboTransparentWrappers() { return this.vboTransparentWrappers; }
 	@Override public IDhApiTerrainContainerUniformBufferWrapper getUniformContainer() { return this.uniformContainer; }
 	
+	@Override public byte getDetailLevel() 
+	{ 
+		// subtract DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL so API users see a 0+ detail level
+		// instead of our internal 6+ detail level
+		return (byte)(DhSectionPos.getDetailLevel(this.pos) - DhSectionPos.SECTION_MINIMUM_DETAIL_LEVEL); 
+	}
+	@Override public int getLodPosX() { return DhSectionPos.getX(this.pos); }
+	@Override public int getLodPosZ() { return DhSectionPos.getZ(this.pos); }
+	
+	@Override public DhApiVec3i getMinCornerBlockPos() { return this.minCornerBlockPos; }
+	
+	public boolean isIncompatibleWith(AbstractDhApiRenderDefinition renderDefinition)
+	{
+		return this.renderDef != renderDefinition
+			|| this.vertexFormat != renderDefinition.getTerrainVertexFormat();
+	}
+	
 	//endregion
 	
 	
@@ -117,7 +138,8 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	public static CompletableFuture<LodBufferContainer> tryMakeAndUploadBuffersAsync(
 		long pos, IClientLevelWrapper clientLevelWrapper,
 		ArrayList<ByteBuffer> opaqueBuffers,
-		ArrayList<ByteBuffer> transparentBuffers
+		ArrayList<ByteBuffer> transparentBuffers,
+		EDhApiTerrainVertexFormat vertexFormat
 	)
 	{
 		// new upload needed
@@ -134,7 +156,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 			DhSectionPos.getMinCornerBlockX(pos),
 			clientLevelWrapper.getMinHeight(),
 			DhSectionPos.getMinCornerBlockZ(pos));
-		LodBufferContainer bufferContainer = new LodBufferContainer(pos, minCornerBlockPos);
+		LodBufferContainer bufferContainer = new LodBufferContainer(pos, minCornerBlockPos, vertexFormat);
 		
 		// update arrays to contain buffers
 		bufferContainer.vboOpaqueWrappers = resizeWrapperArray(bufferContainer.vboOpaqueWrappers, opaqueBuffers.size());
@@ -216,8 +238,9 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 		});
 		createFuture.thenRun(() ->
 		{
-			CompletableFuture<Void> opaqueFuture = uploadBuffersAsync(future, bufferContainer.vboOpaqueWrappers, opaqueBuffers, opaqueIndexBuffers);
-			CompletableFuture<Void> transparentFuture = uploadBuffersAsync(future, bufferContainer.vboTransparentWrappers, transparentBuffers, transparentIndexBuffers);
+			int bytesPerVertex = bufferContainer.vertexFormat.bytesPerVertex;
+			CompletableFuture<Void> opaqueFuture = uploadBuffersAsync(future, bufferContainer.vboOpaqueWrappers, opaqueBuffers, opaqueIndexBuffers, bytesPerVertex);
+			CompletableFuture<Void> transparentFuture = uploadBuffersAsync(future, bufferContainer.vboTransparentWrappers, transparentBuffers, transparentIndexBuffers, bytesPerVertex);
 			CompletableFuture<Void> uploadFuture = CompletableFuture.allOf(opaqueFuture, transparentFuture);
 			uploadFuture.exceptionally((Throwable e) ->
 			{
@@ -255,7 +278,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 		{
 			ByteBuffer vertexBuffer = vertexBuffers.get(i);
 			int size = vertexBuffer.limit() - vertexBuffer.position();
-			int maxVertexCount = size / LodQuadBuilder.BYTES_PER_VERTEX;
+			int maxVertexCount = size / this.vertexFormat.bytesPerVertex;
 			int quadCount = (maxVertexCount / 4);
 			
 			ByteBuffer indexBuffer = IndexBufferBuilder.populateBuffer(checkout, i, quadCount);
@@ -310,7 +333,8 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	private static CompletableFuture<Void> uploadBuffersAsync(
 		CompletableFuture<LodBufferContainer> parentFuture,
 		IDhApiVertexBufferWrapper[] vboWrappers, 
-		ArrayList<ByteBuffer> vertexBuffers, @Nullable ArrayList<ByteBuffer> indexBuffers
+		ArrayList<ByteBuffer> vertexBuffers, @Nullable ArrayList<ByteBuffer> indexBuffers,
+		int bytesPerVertex
 		)
 	{
 		ArrayList<CompletableFuture<Void>> uploadFutureList = new ArrayList<>();
@@ -332,7 +356,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 			// index buffers are optional
 			@Nullable final ByteBuffer finalIndexBuffer = (indexBuffers != null) ? indexBuffers.get(vboIndex) : null;
 			
-			final int finalVertexCount = vertexByteBufferToVertexCount(finalVertexBuffer);
+			final int finalVertexCount = vertexByteBufferToVertexCount(finalVertexBuffer, bytesPerVertex);
 			
 			
 			
@@ -434,10 +458,10 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	//================//
 	//region
 	
-	private static int vertexByteBufferToVertexCount(ByteBuffer buffer)
+	private static int vertexByteBufferToVertexCount(ByteBuffer buffer, int bytesPerVertex)
 	{
 		int size = buffer.limit() - buffer.position();
-		int vertexCount = size / LodQuadBuilder.BYTES_PER_VERTEX;
+		int vertexCount = size / bytesPerVertex;
 		return vertexCount;
 	}
 	

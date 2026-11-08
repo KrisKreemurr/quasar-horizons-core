@@ -20,8 +20,10 @@
 package com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding;
 
 import com.seibel.distanthorizons.core.config.Config;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.DhBlockModelQuad;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.util.LodUtil;
+import org.jetbrains.annotations.Nullable;
 
 /** Represents a render-able quad. */
 public final class BufferQuad
@@ -50,7 +52,7 @@ public final class BufferQuad
 	public short widthNorthSouthOrHeight;
 	
 	public int color;
-	/** {@link com.seibel.distanthorizons.core.dataObjects.render.textures.BlockTextureRegistry} tile id, 0 = flat color */
+	/** {@link com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry} tile id, 0 = flat color */
 	public short textureTileId;
 	/** used by the Iris shader mod to determine how each LOD should be rendered */
 	public byte irisBlockMaterialId;
@@ -60,6 +62,11 @@ public final class BufferQuad
 	public EDhDirection direction;
 	
 	public boolean hasError = false;
+	/** How far each top corner is lowered, see {@link FluidSurfaceUtil} */
+	public short topDrops;
+	/** null for box faces */
+	@Nullable
+	public DhBlockModelQuad modelQuad;
 	
 	// Pre-computed sort keys to avoid recomputing on every comparison
 	// Slight increase in memory for reduction in cpu usage
@@ -101,6 +108,8 @@ public final class BufferQuad
 		this.skyLight = skylight;
 		this.blockLight = blockLight;
 		this.direction = direction;
+		this.topDrops = 0;
+		this.modelQuad = null;
 		this.sortKeyEastWest = computeSortKey(direction, true);
 		this.sortKeyNorthSouth = computeSortKey(direction, false);
 	}
@@ -157,7 +166,10 @@ public final class BufferQuad
 		}
 		
 		// only merge quads that are in the same direction
-		if (this.direction != quad.direction)
+		if (this.direction != quad.direction
+			// sloped quads can't be merged
+			|| this.topDrops != quad.topDrops
+			|| !FluidSurfaceUtil.isFlat(this.topDrops))
 		{
 			return false;
 		}

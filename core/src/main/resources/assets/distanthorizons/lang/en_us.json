@@ -153,6 +153,10 @@
     "Grass Side Rendering",
   "distanthorizons.config.client.advanced.graphics.quality.grassSideRendering.@tooltip":
     "How should the sides and bottom of grass block LODs render?",
+  "distanthorizons.config.client.advanced.graphics.quality.enableBlockModels":
+    "Enable LOD Block Models",
+  "distanthorizons.config.client.advanced.graphics.quality.enableBlockModels.@tooltip":
+    "If true nearby LODs will render blocks with their real shape \ninstead of full cubes. \nIf false all LODs render as full cubes. \n\nOnly applies to the highest detail LODs.",
   "distanthorizons.config.client.advanced.graphics.quality.ditherDhFade":
     "Fade Nearby DH LODs",
   "distanthorizons.config.client.advanced.graphics.quality.ditherDhFade.@tooltip":
@@ -414,7 +418,7 @@
   "distanthorizons.config.client.advanced.graphics.culling.blocksToIgnore":
     "Blocks To Ignore",
   "distanthorizons.config.client.advanced.graphics.culling.blocksToIgnore.@tooltip":
-    "Defines what blocks should be rendered as LODs. \n\n§NONE:§r Include all blocks in the LODs\n§NON_COLLIDING:§r Only render solid blocks in the LODs (tall grass, torches, etc. will be ignored)",
+    "Defines what blocks should be rendered as LODs. \n\n§6NONE:§r Include all blocks in the LODs\n§6NON_COLLIDING:§r Only render solid blocks in the LODs (tall grass, torches, etc. will be ignored)",
   "distanthorizons.config.client.advanced.graphics.culling.tintWithAvoidedBlocks":
     "Tint With Avoided Blocks",
   "distanthorizons.config.client.advanced.graphics.culling.tintWithAvoidedBlocks.@tooltip":

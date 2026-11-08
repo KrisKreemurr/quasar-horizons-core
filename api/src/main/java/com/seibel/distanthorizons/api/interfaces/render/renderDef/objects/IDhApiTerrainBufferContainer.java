@@ -1,5 +1,8 @@
 package com.seibel.distanthorizons.api.interfaces.render.renderDef.objects;
 
+import com.seibel.distanthorizons.api.enums.EDhApiDetailLevel;
+import com.seibel.distanthorizons.api.objects.math.DhApiVec3i;
+
 /**
  * Holds all the necessary information data Distant Horizons
  * needs to render a single LOD.
@@ -13,6 +16,14 @@ public interface IDhApiTerrainBufferContainer
 	IDhApiVertexBufferWrapper[] getVboTransparentWrappers();
 	
 	IDhApiTerrainContainerUniformBufferWrapper getUniformContainer();
+	
+	/** @see EDhApiDetailLevel */
+	byte getDetailLevel();
+	int getLodPosX();
+	int getLodPosZ();
+	
+	/** the position closest to minimum X/Z infinity and the level's lowest Y */
+	DhApiVec3i getMinCornerBlockPos();
 	
 	
 	

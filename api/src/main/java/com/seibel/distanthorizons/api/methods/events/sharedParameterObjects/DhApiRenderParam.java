@@ -157,6 +157,23 @@ public class DhApiRenderParam implements IDhApiEventParam
 	
 	
 	//================//
+	// helper methods //
+	//================//
+	//region
+	
+	/** 
+	 * Internal DH method <Br><Br>
+	 * 
+	 * Clearing the level reference is necessary so the level 
+	 * can be garbage collected once the world closes.
+	 */
+	public void clearLevelReferences() { this.clientLevelWrapper = null; }
+	
+	//endregion
+	
+	
+	
+	//================//
 	// base overrides //
 	//================//
 	//region
