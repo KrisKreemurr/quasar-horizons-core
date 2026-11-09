@@ -579,7 +579,7 @@ public class ColumnRenderBufferBuilder
 			fullBright ? LodUtil.MAX_MC_LIGHT : RenderDataPointUtil.getLightBlock(renderData),
 			topRenderData, bottomRenderData, adjColumnViews, isSameDetailLevel,
 			topSet, bottomSet, adjColumnSets,
-			faceTileIdsByDirectionOrdinal, finalFaceColors, topDrops);
+			faceTileIdsByDirectionOrdinal, finalFaceColors, topDrops, modelSet);
 	}
 	
 	/** applies the saturation and brightness settings */

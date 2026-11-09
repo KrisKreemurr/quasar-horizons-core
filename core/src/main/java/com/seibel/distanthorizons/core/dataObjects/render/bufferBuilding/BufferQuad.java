@@ -114,6 +114,9 @@ public final class BufferQuad
 		this.direction = direction;
 		this.topDrops = 0;
 		this.modelQuad = null;
+		this.modelOffsetX256 = 0;
+		this.modelOffsetY256 = 0;
+		this.modelOffsetZ256 = 0;
 		this.sortKeyEastWest = computeSortKey(direction, true);
 		this.sortKeyNorthSouth = computeSortKey(direction, false);
 	}
@@ -173,7 +176,10 @@ public final class BufferQuad
 		if (this.direction != quad.direction
 			// sloped quads can't be merged
 			|| this.topDrops != quad.topDrops
-			|| !FluidSurfaceUtil.isFlat(this.topDrops))
+			|| !FluidSurfaceUtil.isFlat(this.topDrops)
+			// model quads keep their shape
+			|| this.modelQuad != null
+			|| quad.modelQuad != null)
 		{
 			return false;
 		}
