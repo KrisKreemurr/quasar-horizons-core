@@ -49,8 +49,6 @@ public class RenderParam extends DhApiRenderParam
 	public RenderBufferHandler renderBufferHandler;
 	public IDhApiCustomRenderRegister genericRegister;
 	public DhVec3d exactCameraPosition;
-	/** @see DhRenderState#vanillaFogEnabled */
-	public boolean vanillaFogEnabled;
 	public IProfilerWrapper profiler;
 	
 	public boolean hasBeenValidated = false;
@@ -76,7 +74,8 @@ public class RenderParam extends DhApiRenderParam
 			renderState.mcProjectionMatrix, renderState.mcModelViewMatrix,
 			this.dhProjectionMatrix, this.dhModelViewMatrix,
 			renderState.clientLevelWrapper.getMinHeight(),
-			renderState.clientLevelWrapper);
+			renderState.clientLevelWrapper,
+			renderState.vanillaFogEnabled);
 		
 		
 		
@@ -99,8 +98,6 @@ public class RenderParam extends DhApiRenderParam
 		{
 			this.exactCameraPosition = MC_RENDER.getCameraExactPosition();
 		}
-		
-		this.vanillaFogEnabled = renderState.vanillaFogEnabled;
 		
 		this.profiler = MC_CLIENT.getProfiler();
 		
