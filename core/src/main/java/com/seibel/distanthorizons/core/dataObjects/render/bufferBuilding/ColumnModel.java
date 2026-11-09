@@ -58,7 +58,9 @@ public class ColumnModel
 	{
 		return set == null
 			|| set.modelQuads.length == 0
-			|| set.blockState.isFaceFull(side);
+			|| set.blockState.isFaceFull(side)
+			// water fills waterlogged ones
+			|| set.blockState.isWaterlogged();
 	}
 	
 	/** Transparent neighbors never hide quads */
@@ -67,6 +69,13 @@ public class ColumnModel
 		return RenderDataPointUtil.doesDataPointExist(neighbor)
 			&& !(transparencyEnabled && RenderDataPointUtil.getAlpha(neighbor) < 255)
 			&& (hasFullFace(neighborSet, side.opposite()) || modelSet.isSideHiddenBy(neighborSet, side));
+	}
+	
+	/** Fluid points only store the light at their top */
+	private static byte getSkyLightInFluid(byte topSkyLight, int fluidMaxY, int blockY)
+	{
+		int blocksBelowTop = fluidMaxY - 1 - blockY;
+		return (byte) Math.max(topSkyLight - blocksBelowTop, LodUtil.MIN_MC_LIGHT);
 	}
 	
 	/** Fills in whether that side hides this block's quads and the sky light coming from it */
@@ -80,7 +89,7 @@ public class ColumnModel
 		EDhDirection neighborSide = side.opposite();
 		if (side == EDhDirection.UP)
 		{
-			sideLights[faceIndex] = skyLight;
+			sideLights[faceIndex] = modelSet.blockState.isWaterlogged() ? getSkyLightInFluid(skyLight, pointMaxY, blockY) : skyLight;
 			// stacked blocks in the same point
 			hiddenSides[faceIndex] = (blockY + 1 < pointMaxY)
 				? modelSet.blockState.isFaceFull(neighborSide) || modelSet.isSideHiddenBy(modelSet, side)
@@ -117,7 +126,12 @@ public class ColumnModel
 			if (RenderDataPointUtil.getYMin(adjPoint) <= blockY)
 			{
 				hiddenSides[faceIndex] = neighborHidesSide(adjPoint, adjColumnSets.getDataPointRenderSet(side, adjIndex), modelSet, side, transparencyEnabled);
-				sideLights[faceIndex] = hiddenSides[faceIndex] ? LodUtil.MIN_MC_LIGHT : RenderDataPointUtil.getLightSky(adjPoint);
+				byte adjSkyLight = RenderDataPointUtil.getLightSky(adjPoint);
+				if (RenderDataPointUtil.isFluid(adjPoint))
+				{
+					adjSkyLight = getSkyLightInFluid(adjSkyLight, RenderDataPointUtil.getYMax(adjPoint), blockY);
+				}
+				sideLights[faceIndex] = hiddenSides[faceIndex] ? LodUtil.MIN_MC_LIGHT : adjSkyLight;
 				return;
 			}
 		}

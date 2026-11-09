@@ -28,11 +28,14 @@ import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderRegistry;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderSet;
+import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.logging.DhLogger;
 import com.seibel.distanthorizons.core.logging.DhLoggerBuilder;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout;
 import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListPool;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
+import com.seibel.distanthorizons.core.wrapperInterfaces.IWrapperFactory;
+import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.IClientLevelWrapper;
 import com.seibel.distanthorizons.coreapi.util.ColorUtil;
 import com.seibel.distanthorizons.core.util.LodUtil;
@@ -48,6 +51,7 @@ import org.jetbrains.annotations.Nullable;
 public class ColumnRenderBufferBuilder
 {
 	private static final DhLogger LOGGER = new DhLoggerBuilder().build();
+	private static final IWrapperFactory WRAPPER_FACTORY = SingletonInjector.INSTANCE.get(IWrapperFactory.class);
 	
 	public static final PhantomArrayListPool ARRAY_LIST_POOL = new PhantomArrayListPool("Column Buffer Builder");
 	
@@ -142,6 +146,9 @@ public class ColumnRenderBufferBuilder
 			boolean[] hiddenModelSides = new boolean[EDhDirection.ALL.length];
 			byte[] modelSideLights = new byte[EDhDirection.ALL.length];
 			BlockRenderSet[] setsByPaletteIndex = getSetsByPaletteIndex(renderSource);
+			IBlockStateWrapper water = WRAPPER_FACTORY.getWaterBlockStateWrapper(clientLevelWrapper);
+			short waterSetId = BlockRenderRegistry.INSTANCE.getOrRegisterBlockStateSetId(water, clientLevelWrapper);
+			BlockRenderSet waterSet = BlockRenderRegistry.INSTANCE.getRenderSet(waterSetId);
 			
 			
 			byte thisDetailLevel = renderSource.getDataDetailLevel();
@@ -343,19 +350,22 @@ public class ColumnRenderBufferBuilder
 						
 						BlockRenderSet renderSet = getDataPointRenderSet(setsByPaletteIndex, renderSource, relX, relZ, i);
 						
-						// determine which textures this data point's quads should use
-						short[] faceTileIdsByDirectionOrdinal = null;
-						int[] faceColors = null;
-						if (renderSet != null && renderSource.usesTextures())
-						{
-							faceTileIdsByDirectionOrdinal = renderSet.faceTileIds;
-							faceColors = renderSet.faceColors;
-						}
-						
 						BlockRenderSet modelSet = null;
 						if (modelsInThisColumn && renderSet != null && renderSet.modelQuads.length != 0)
 						{
 							modelSet = renderSet;
+						}
+						
+						// waterlogged models are drawn inside water
+						BlockRenderSet faceSet = (modelSet != null && modelSet.blockState.isWaterlogged()) ? waterSet : renderSet;
+						
+						// determine which textures this data point's quads should use
+						short[] faceTileIdsByDirectionOrdinal = null;
+						int[] faceColors = null;
+						if (faceSet != null && renderSource.usesTextures())
+						{
+							faceTileIdsByDirectionOrdinal = faceSet.faceTileIds;
+							faceColors = faceSet.faceColors;
 						}
 						
 						// the points above and below
@@ -538,17 +548,25 @@ public class ColumnRenderBufferBuilder
 		
 		if (modelSet != null)
 		{
+			// only the water around the model is see-through
+			boolean waterlogged = modelSet.blockState.isWaterlogged();
+			int modelColor = waterlogged ? ColorUtil.setAlpha(color, 255) : color;
 			ColumnModel.addModelQuadsToBuilder(
 				quadBuilder, clientLevelWrapper,
 				modelSet, useTextures, debugging == EDhApiDebugRendering.OFF,
 				blockMinX, blockMinY, blockMinZ, blockMaxY,
 				sectionMinBlockX + blockMinX, sectionMinBlockZ + blockMinZ,
-				color, blockMaterialId,
+				modelColor, blockMaterialId,
 				RenderDataPointUtil.getLightSky(renderData),
 				fullBright ? LodUtil.MAX_MC_LIGHT : RenderDataPointUtil.getLightBlock(renderData),
 				topRenderData, bottomRenderData, topSet, bottomSet,
 				adjColumnViews, adjColumnSets, hiddenModelSides, modelSideLights);
-			return;
+			
+			// waterlogged models also draw their water
+			if (!waterlogged)
+			{
+				return;
+			}
 		}
 		
 		ColumnBox.addBoxQuadsToBuilder(
