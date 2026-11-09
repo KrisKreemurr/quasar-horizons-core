@@ -263,6 +263,7 @@ public class LodQuadBuilder implements AutoCloseable
 	public void addModelQuad(
 		DhBlockModelQuad modelQuad,
 		short x, short y, short z,
+		int offsetX256, int offsetY256, int offsetZ256,
 		int color, short textureTileId,
 		byte irisBlockMaterialId,
 		byte skylight, byte blocklight)
@@ -274,6 +275,9 @@ public class LodQuadBuilder implements AutoCloseable
 		BufferQuad quad = this.getOrCreateBufferQuad();
 		quad.set(x, y, z, (short) 1, (short) 1, color, textureTileId, irisBlockMaterialId, skylight, blocklight, modelQuad.shadeDirection);
 		quad.modelQuad = modelQuad;
+		quad.modelOffsetX256 = offsetX256;
+		quad.modelOffsetY256 = offsetY256;
+		quad.modelOffsetZ256 = offsetZ256;
 		quadList.add(quad);
 	}
 	
@@ -427,9 +431,9 @@ public class LodQuadBuilder implements AutoCloseable
 		for (int i = 0; i < 4; i++)
 		{
 			// how far into the block this corner is, in 256ths of a block
-			int x256 = corners[i * 3];
-			int y256 = corners[i * 3 + 1];
-			int z256 = corners[i * 3 + 2];
+			int x256 = corners[i * 3] + quad.modelOffsetX256;
+			int y256 = corners[i * 3 + 1] + quad.modelOffsetY256;
+			int z256 = corners[i * 3 + 2] + quad.modelOffsetZ256;
 			
 			this.putVertex(bb,
 					(short) (quad.x + Math.floorDiv(x256, unitsPerBlock)), (short) (quad.y + Math.floorDiv(y256, unitsPerBlock)), (short) (quad.z + Math.floorDiv(z256, unitsPerBlock)),

@@ -157,6 +157,10 @@
     "Enable LOD Block Models",
   "distanthorizons.config.client.advanced.graphics.quality.enableBlockModels.@tooltip":
     "If true nearby LODs will render blocks with their real shape \ninstead of full cubes. \nIf false all LODs render as full cubes. \n\nOnly applies to the highest detail LODs.",
+  "distanthorizons.config.client.advanced.graphics.quality.enableNonCollidingBlockModels":
+    "Render Models Without Collision",
+  "distanthorizons.config.client.advanced.graphics.quality.enableNonCollidingBlockModels.@tooltip":
+    "If true blocks without collision (plants, flowers) \nalso render with their block model. \n\nTurned off when LOD block models are turned off.",
   "distanthorizons.config.client.advanced.graphics.quality.ditherDhFade":
     "Fade Nearby DH LODs",
   "distanthorizons.config.client.advanced.graphics.quality.ditherDhFade.@tooltip":
@@ -414,11 +418,11 @@
   "distanthorizons.config.client.advanced.graphics.culling.waterSurfaceBlockReplacementCsv":
     "Water Surface Replacement",
   "distanthorizons.config.client.advanced.graphics.culling.waterSurfaceBlockReplacementCsv.@tooltip":
-    "A comma separated list of block resource locations that will be removed \nwhen on top of water.",
+    "A comma separated list of block resource locations that will be removed \nwhen on top of water. \nBlocks drawn with their block model aren't removed.",
   "distanthorizons.config.client.advanced.graphics.culling.blocksToIgnore":
     "Blocks To Ignore",
   "distanthorizons.config.client.advanced.graphics.culling.blocksToIgnore.@tooltip":
-    "Defines what blocks should be rendered as LODs. \n\n§6NONE:§r Include all blocks in the LODs\n§6NON_COLLIDING:§r Only render solid blocks in the LODs (tall grass, torches, etc. will be ignored)",
+    "Defines what blocks should be rendered as LODs. \n\n§6NONE:§r Include all blocks in the LODs\n§6NON_COLLIDING:§r Only render solid blocks in the LODs (tall grass, torches, etc. will be ignored)\n\nBlocks drawn with their block model aren't ignored, \nplants drawn as models are set by \"Render Models Without Collision\".",
   "distanthorizons.config.client.advanced.graphics.culling.tintWithAvoidedBlocks":
     "Tint With Avoided Blocks",
   "distanthorizons.config.client.advanced.graphics.culling.tintWithAvoidedBlocks.@tooltip":

@@ -702,20 +702,17 @@ public class FullDataToRenderDataTransformer
 			// non-solid block check //
 			//=======================//
 			
-			// snow layers are drawn with their model
-			boolean isSnowLayerModel = snowLayerBlockStates.contains(block) && isDrawnAsModel(block, modelsInThisColumn);
+			// models are drawn instead of skipped
+			boolean drawnAsModel = isDrawnAsModel(block, modelsInThisColumn);
 			
 			boolean ignoreNonSolidBlock =
 				ignoreNonCollidingBlocks
-				&& !block.isSolid()
-				&& !block.isLiquid()
-				&& block.getOpacity() != LodUtil.BLOCK_FULLY_OPAQUE
-				// TODO remove once plants and non-colliding blocks are drawn as models
-				&& !isSnowLayerModel;
+				&& BlockRenderRegistry.isNonColliding(block)
+				&& !drawnAsModel;
 			
 			// handle height reduction
-			boolean isSnowLayer = snowLayerBlockStates.contains(block) && !isSnowLayerModel;
-			boolean isWaterSurfaceReplacement = waterSurfaceReplacementBlocks.contains(block);
+			boolean isSnowLayer = snowLayerBlockStates.contains(block) && !drawnAsModel;
+			boolean isWaterSurfaceReplacement = waterSurfaceReplacementBlocks.contains(block) && !drawnAsModel;
 			if (isSnowLayer || isWaterSurfaceReplacement)
 			{
 				int surfaceBlockColor = 0;

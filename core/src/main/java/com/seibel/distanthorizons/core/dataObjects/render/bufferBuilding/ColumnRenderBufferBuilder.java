@@ -145,6 +145,8 @@ public class ColumnRenderBufferBuilder
 			
 			
 			byte thisDetailLevel = renderSource.getDataDetailLevel();
+			int sectionMinBlockX = DhSectionPos.getMinCornerBlockX(renderSource.pos);
+			int sectionMinBlockZ = DhSectionPos.getMinCornerBlockZ(renderSource.pos);
 			
 			// each neighbor section's sets
 			BlockRenderSet[][] adjSectionSets = new BlockRenderSet[EDhDirection.CARDINAL_COMPASS.length][];
@@ -388,7 +390,7 @@ public class ColumnRenderBufferBuilder
 							data, topDataPoint, bottomDataPoint,
 							adjColumnViews, isSameDetailLevel, faceTileIdsByDirectionOrdinal, faceColors, adjustedFaceColors,
 							hiddenModelSides, modelSideLights,
-							thisDetailLevel, relX, relZ,
+							thisDetailLevel, relX, relZ, sectionMinBlockX, sectionMinBlockZ,
 							quadBuilder, topDrops, modelSet, renderSource.usesTextures(),
 							topSet, bottomSet, adjColumnSets);
 					}
@@ -404,7 +406,7 @@ public class ColumnRenderBufferBuilder
 			ColumnRenderView[] adjColumnViews, boolean[] isSameDetailLevel, short @Nullable [] faceTileIdsByDirectionOrdinal, 
 			int @Nullable [] faceColors, int[] adjustedFaceColors,
 			boolean[] hiddenModelSides, byte[] modelSideLights,
-			byte detailLevel, int renderSourceOffsetPosX, int renderSourceOffsetPosZ, 
+			byte detailLevel, int renderSourceOffsetPosX, int renderSourceOffsetPosZ, int sectionMinBlockX, int sectionMinBlockZ,
 			LodQuadBuilder quadBuilder, short topDrops, @Nullable BlockRenderSet modelSet, boolean useTextures,
 			@Nullable BlockRenderSet topSet, @Nullable BlockRenderSet bottomSet,
 			AdjacentColumnSets adjColumnSets)
@@ -540,6 +542,7 @@ public class ColumnRenderBufferBuilder
 				quadBuilder, clientLevelWrapper,
 				modelSet, useTextures, debugging == EDhApiDebugRendering.OFF,
 				blockMinX, blockMinY, blockMinZ, blockMaxY,
+				sectionMinBlockX + blockMinX, sectionMinBlockZ + blockMinZ,
 				color, blockMaterialId,
 				RenderDataPointUtil.getLightSky(renderData),
 				fullBright ? LodUtil.MAX_MC_LIGHT : RenderDataPointUtil.getLightBlock(renderData),

@@ -320,6 +320,18 @@ public class Config
 							+ "Only applies to the highest detail LODs. \n"
 							+ "")
 						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
+						.addListener(BlockModelConfigEventHandler.INSTANCE)
+						.build();
+					
+					public static ConfigEntry<Boolean> enableNonCollidingBlockModels = new ConfigEntry.Builder<Boolean>()
+						.set(true)
+						.comment(""
+							+ "If true blocks without collision (plants, flowers) \n"
+							+ "also render with their block model. \n"
+							+ " \n"
+							+ "Turned off when LOD block models are turned off. \n"
+							+ "")
+						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
 						.build();
 					
 					public static ConfigUISpacer fadeSpacer = new ConfigUISpacer.Builder().build();
@@ -905,6 +917,7 @@ public class Config
 						.comment(""
 							+ "A comma separated list of block resource locations that will be removed \n"
 							+ "when on top of water. \n"
+							+ "Blocks drawn with their block model aren't removed. \n"
 							+ "")
 						.build();
 					
@@ -917,6 +930,9 @@ public class Config
 							+ "\n"
 							+ EDhApiBlocksToAvoid.NONE + ": Include all blocks in the LODs \n"
 							+ EDhApiBlocksToAvoid.NON_COLLIDING + ": Only render solid blocks in the LODs (tall grass, torches, etc. will be ignored) \n"
+							+ "\n"
+							+ "Blocks drawn with their block model aren't ignored, \n"
+							+ "plants drawn as models are set by enableNonCollidingBlockModels. \n"
 							+ "")
 						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
 						.build();

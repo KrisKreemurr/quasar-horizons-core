@@ -93,6 +93,11 @@ public interface IBlockStateWrapper extends IDhApiBlockStateWrapper
 	/** True if this side fully covers the neighbor's face on that side */
 	boolean isFaceFull(EDhDirection direction);
 	
+	/** How far this block's model can shift sideways, in blocks */
+	float getMaxHorizontalModelOffset();
+	/** How far this block's model can shift down, in blocks */
+	float getMaxVerticalModelOffset();
+	
 	/**
 	 * Some blocks don't pull their texture properly (like bamboo).
 	 * In those cases it's best to just render their base color.

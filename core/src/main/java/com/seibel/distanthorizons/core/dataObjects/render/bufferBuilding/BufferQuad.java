@@ -67,6 +67,10 @@ public final class BufferQuad
 	/** null for box faces */
 	@Nullable
 	public DhBlockModelQuad modelQuad;
+	/** how far the model is shifted, in {@link DhBlockModelQuad#CORNER_UNITS_PER_BLOCK} */
+	public int modelOffsetX256;
+	public int modelOffsetY256;
+	public int modelOffsetZ256;
 	
 	// Pre-computed sort keys to avoid recomputing on every comparison
 	// Slight increase in memory for reduction in cpu usage
