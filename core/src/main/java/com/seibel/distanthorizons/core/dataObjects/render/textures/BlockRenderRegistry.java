@@ -363,7 +363,7 @@ public class BlockRenderRegistry
 			// waterlogged blocks are drawn inside water
 			&& (!blockState.isLiquid() || blockState.isWaterlogged())
 			// plants have their own setting
-			&& (!isNonColliding(blockState) || Config.Client.Advanced.Graphics.Quality.enableNonCollidingBlockModels.get())
+			&& (blockState.isSolid() || Config.Client.Advanced.Graphics.Quality.enableNonCollidingBlockModels.get())
 			// blocks without quads stay boxes
 			&& TEXTURE_AND_MODEL_PROVIDER.getModel(blockState).length != 0;
 	}
