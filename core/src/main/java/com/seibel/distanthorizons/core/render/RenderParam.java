@@ -52,6 +52,8 @@ public class RenderParam extends DhApiRenderParam
 	/** @see DhRenderState#vanillaFogEnabled */
 	public boolean vanillaFogEnabled;
 	public IProfilerWrapper profiler;
+	/** the opaque pass is drawing the quads that skip SSAO */
+	public boolean renderingWithoutSsao = false;
 	
 	public boolean hasBeenValidated = false;
 	

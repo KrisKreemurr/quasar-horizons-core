@@ -66,7 +66,7 @@ public class SideShape
 		}
 		
 		// drawn with the water's tile
-		return new DhBlockModelQuad(xByVertex, yByVertex, zByVertex, uByVertex, vByVertex, BlockFaceTexture.createSolidColor(ColorUtil.INVISIBLE), side, false);
+		return new DhBlockModelQuad(xByVertex, yByVertex, zByVertex, uByVertex, vByVertex, BlockFaceTexture.createSolidColor(ColorUtil.INVISIBLE), side, false, null, true);
 	}
 	
 	/** The side's whole face with each solid quad that crosses it cut off */

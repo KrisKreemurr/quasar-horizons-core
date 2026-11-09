@@ -166,8 +166,8 @@ public class BlockRenderRegistry
 		int byteCount = (2 * Integer.BYTES) + Byte.BYTES + (2 * Float.BYTES) + (faceTileIds.length * Short.BYTES) + (faceColors.length * Integer.BYTES);
 		for (DhBlockModelQuad quad : modelQuads)
 		{
-			// corners, uvs, cull and shade side, normal, tile id, color
-			byteCount += (quad.cornerPositions.length * Integer.BYTES) + quad.cornerUvBytes.length + (2 * Byte.BYTES) + (2 * Short.BYTES) + Integer.BYTES;
+			// corners, uvs, cull and shade side, ambient occlusion, normal, tile id, color
+			byteCount += (quad.cornerPositions.length * Integer.BYTES) + quad.cornerUvBytes.length + (3 * Byte.BYTES) + (2 * Short.BYTES) + Integer.BYTES;
 		}
 		ByteBuffer buffer = ByteBuffer.allocate(byteCount);
 		
@@ -198,6 +198,7 @@ public class BlockRenderRegistry
 			buffer.put(quad.cornerUvBytes);
 			buffer.put((byte) ((quad.cullDirection != null) ? quad.cullDirection.faceIndex : -1));
 			buffer.put((byte) quad.shadeDirection.faceIndex);
+			buffer.put((byte) (quad.ambientOcclusion ? 1 : 0));
 			buffer.putShort(quad.packedNormal);
 			buffer.putShort(modelQuadTileIds[quadIndex]);
 			buffer.putInt(modelQuadColors[quadIndex]);

@@ -128,6 +128,11 @@ public class LodQuadBuilder implements AutoCloseable
 	/** model quads are never merged */
 	private final ArrayList<BufferQuad> opaqueModelQuads = new ArrayList<>();
 	private final ArrayList<BufferQuad> transparentModelQuads = new ArrayList<>();
+	/** opaque model quads drawn after SSAO */
+	private final ArrayList<BufferQuad> modelQuadsWithoutSsao = new ArrayList<>();
+	/** the buffers without SSAO only hold model quads */
+	@SuppressWarnings("unchecked")
+	private static final ArrayList<BufferQuad>[] NO_BOX_QUADS = (ArrayList<BufferQuad>[]) new ArrayList[0];
 	
 	/** 
 	 * Caching the BufferQuad objects reduces overhead slightly. <br>
@@ -296,9 +301,16 @@ public class LodQuadBuilder implements AutoCloseable
 		byte irisBlockMaterialId,
 		byte skylight, byte blocklight)
 	{
-		ArrayList<BufferQuad> quadList = (this.doTransparency && ColorUtil.getAlpha(color) < 255)
-				? this.transparentModelQuads
-				: this.opaqueModelQuads;
+		ArrayList<BufferQuad> quadList;
+		if (this.doTransparency && ColorUtil.getAlpha(color) < 255)
+		{
+			quadList = this.transparentModelQuads;
+		}
+		else
+		{
+			// quads vanilla draws without ambient occlusion skip SSAO
+			quadList = modelQuad.ambientOcclusion ? this.opaqueModelQuads : this.modelQuadsWithoutSsao;
+		}
 		
 		BufferQuad quad = this.getOrCreateBufferQuad();
 		quad.set(x, y, z, (short) 1, (short) 1, color, textureTileId, irisBlockMaterialId, skylight, blocklight, modelQuad.shadeDirection);
@@ -397,6 +409,7 @@ public class LodQuadBuilder implements AutoCloseable
 	
 	public ArrayList<ByteBuffer> makeOpaqueVertexBuffers(PhantomArrayListCheckout checkout) { return this.makeVertexBuffers(checkout, this.opaqueQuads, this.opaqueModelQuads); }
 	public ArrayList<ByteBuffer> makeTransparentVertexBuffers(PhantomArrayListCheckout checkout) { return this.makeVertexBuffers(checkout, this.transparentQuads, this.transparentModelQuads); }
+	public ArrayList<ByteBuffer> makeWithoutSsaoVertexBuffers(PhantomArrayListCheckout checkout) { return this.makeVertexBuffers(checkout, NO_BOX_QUADS, this.modelQuadsWithoutSsao); }
 	private ArrayList<ByteBuffer> makeVertexBuffers(PhantomArrayListCheckout checkout, ArrayList<BufferQuad>[] quadList, ArrayList<BufferQuad> modelQuadList)
 	{
 		ArrayList<ByteBuffer> byteBufferList = new ArrayList<>(3);
@@ -783,6 +796,7 @@ public class LodQuadBuilder implements AutoCloseable
 		returnQuadsToCache(this.bufferQuadCacheList, this.transparentQuads);
 		returnQuadsToCache(this.bufferQuadCacheList, this.opaqueModelQuads);
 		returnQuadsToCache(this.bufferQuadCacheList, this.transparentModelQuads);
+		returnQuadsToCache(this.bufferQuadCacheList, this.modelQuadsWithoutSsao);
 	}
 	
 	//endregion

@@ -268,6 +268,18 @@ public class LodRenderer
 					ssaoRenderer.render(renderParams);
 				}
 				
+				// opaque LODs vanilla draws without ambient occlusion
+				profiler.popPush("LOD Opaque Without SSAO");
+				renderParams.renderingWithoutSsao = true;
+				try
+				{
+					this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, /*opaquePass*/ true);
+				}
+				finally
+				{
+					renderParams.renderingWithoutSsao = false;
+				}
+				
 				// custom objects without SSAO
 				if (Config.Client.Advanced.Graphics.GenericRendering.enableGenericRendering.get())
 				{
