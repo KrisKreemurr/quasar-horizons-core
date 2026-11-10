@@ -254,6 +254,22 @@ public class LodRenderer
 				
 				this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, /*opaquePass*/ true);
 				
+				// without SSAO there's nothing to wait for
+				boolean ssaoEnabled = Config.Client.Advanced.Graphics.enableSsao.get();
+				if (!ssaoEnabled)
+				{
+					profiler.popPush("LOD Opaque Without SSAO");
+					renderParams.renderingWithoutSsao = true;
+					try
+					{
+						this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, /*opaquePass*/ true);
+					}
+					finally
+					{
+						renderParams.renderingWithoutSsao = false;
+					}
+				}
+				
 				// custom objects with SSAO
 				if (Config.Client.Advanced.Graphics.GenericRendering.enableGenericRendering.get())
 				{
@@ -262,22 +278,22 @@ public class LodRenderer
 				}
 				
 				// SSAO
-				if (Config.Client.Advanced.Graphics.enableSsao.get())
+				if (ssaoEnabled)
 				{
 					profiler.popPush("LOD SSAO");
 					ssaoRenderer.render(renderParams);
-				}
-				
-				// opaque LODs vanilla draws without ambient occlusion
-				profiler.popPush("LOD Opaque Without SSAO");
-				renderParams.renderingWithoutSsao = true;
-				try
-				{
-					this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, /*opaquePass*/ true);
-				}
-				finally
-				{
-					renderParams.renderingWithoutSsao = false;
+					
+					// opaque LODs vanilla draws without ambient occlusion
+					profiler.popPush("LOD Opaque Without SSAO");
+					renderParams.renderingWithoutSsao = true;
+					try
+					{
+						this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, /*opaquePass*/ true);
+					}
+					finally
+					{
+						renderParams.renderingWithoutSsao = false;
+					}
 				}
 				
 				// custom objects without SSAO
