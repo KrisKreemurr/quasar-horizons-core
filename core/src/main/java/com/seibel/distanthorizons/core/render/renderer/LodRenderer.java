@@ -19,6 +19,7 @@
 
 package com.seibel.distanthorizons.core.render.renderer;
 
+import com.seibel.distanthorizons.api.enums.rendering.EDhApiTerrainRenderPass;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiTransparency;
 import com.seibel.distanthorizons.api.interfaces.render.IDhApiCustomRenderRegister;
 import com.seibel.distanthorizons.api.interfaces.render.IDhApiRenderableBoxGroup;
@@ -252,22 +253,14 @@ public class LodRenderer
 				// opaque LODs
 				profiler.popPush("LOD Opaque");
 				
-				this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, /*opaquePass*/ true);
+				this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, EDhApiTerrainRenderPass.OPAQUE);
 				
 				// without SSAO there's nothing to wait for
 				boolean ssaoEnabled = Config.Client.Advanced.Graphics.enableSsao.get();
 				if (!ssaoEnabled)
 				{
 					profiler.popPush("LOD Opaque Without SSAO");
-					renderParams.renderingWithoutSsao = true;
-					try
-					{
-						this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, /*opaquePass*/ true);
-					}
-					finally
-					{
-						renderParams.renderingWithoutSsao = false;
-					}
+					this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, EDhApiTerrainRenderPass.OPAQUE_WITHOUT_SSAO);
 				}
 				
 				// custom objects with SSAO
@@ -285,15 +278,7 @@ public class LodRenderer
 					
 					// opaque LODs vanilla draws without ambient occlusion
 					profiler.popPush("LOD Opaque Without SSAO");
-					renderParams.renderingWithoutSsao = true;
-					try
-					{
-						this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, /*opaquePass*/ true);
-					}
-					finally
-					{
-						renderParams.renderingWithoutSsao = false;
-					}
+					this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, EDhApiTerrainRenderPass.OPAQUE_WITHOUT_SSAO);
 				}
 				
 				// custom objects without SSAO
@@ -308,7 +293,7 @@ public class LodRenderer
 					&& Config.Client.Advanced.Graphics.Quality.transparency.get() == EDhApiTransparency.COMPLETE)
 				{
 					profiler.popPush("LOD Transparent");
-					this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, /*opaquePass*/ false);
+					this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, EDhApiTerrainRenderPass.TRANSPARENT);
 				}
 				
 				// fog
@@ -399,7 +384,7 @@ public class LodRenderer
 				if (Config.Client.Advanced.Graphics.Quality.transparency.get() == EDhApiTransparency.COMPLETE)
 				{
 					profiler.popPush("LOD Transparent");
-					this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, /*opaquePass*/ false);
+					this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, EDhApiTerrainRenderPass.TRANSPARENT);
 					
 					
 					boolean cancelFogEvent = ApiEventInjector.INSTANCE.fireAllEvents(DhApiBeforeFogRenderEvent.class, fogRenderEventParam);
@@ -435,7 +420,7 @@ public class LodRenderer
 	//===================//
 	//region
 	
-	private void renderTerrain(IDhApiTerrainRenderer terrainRenderer, RenderBufferHandler lodBufferHandler, RenderParam renderEventParam, boolean opaquePass)
+	private void renderTerrain(IDhApiTerrainRenderer terrainRenderer, RenderBufferHandler lodBufferHandler, RenderParam renderEventParam, EDhApiTerrainRenderPass renderPass)
 	{
 		//===========//
 		// rendering //
@@ -444,7 +429,7 @@ public class LodRenderer
 		SortedArraySet<LodBufferContainer> lodBufferContainer = lodBufferHandler.getColumnRenderBuffers(renderEventParam);
 		if (lodBufferContainer != null)
 		{
-			terrainRenderer.render(renderEventParam, opaquePass, lodBufferContainer);
+			terrainRenderer.render(renderEventParam, renderPass, lodBufferContainer);
 		}
 	}
 	
