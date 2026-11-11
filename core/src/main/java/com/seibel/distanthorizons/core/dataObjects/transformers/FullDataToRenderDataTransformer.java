@@ -714,7 +714,9 @@ public class FullDataToRenderDataTransformer
 			
 			boolean ignoreNonSolidBlock =
 				ignoreNonCollidingBlocks
-				&& BlockRenderRegistry.isNonColliding(block)
+				&& !block.isSolid()
+				&& !block.isLiquid()
+				&& block.getOpacity() != LodUtil.BLOCK_FULLY_OPAQUE
 				&& !drawnAsModel;
 			
 			// handle height reduction

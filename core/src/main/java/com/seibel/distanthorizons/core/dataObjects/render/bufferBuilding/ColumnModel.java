@@ -140,7 +140,10 @@ public class ColumnModel
 		sideLights[faceIndex] = LodUtil.MAX_MC_LIGHT;
 	}
 	
-	/** Based on vanilla's Mth.getSeed with the height always 0 */
+	/**
+	 * Offset seed so grass isn't always centered.
+	 * Based on vanilla's Mth.getSeed with the height always 0
+	 */
 	private static long getModelOffsetSeed(int blockX, int blockZ)
 	{
 		long seed = (long) (blockX * SEED_X_MULTIPLIER) ^ (long) blockZ * SEED_Z_MULTIPLIER;

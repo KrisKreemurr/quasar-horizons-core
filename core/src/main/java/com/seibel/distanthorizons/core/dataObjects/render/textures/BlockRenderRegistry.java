@@ -349,14 +349,6 @@ public class BlockRenderRegistry
 	//==============//
 	//region
 	
-	/** Blocks without collision that let light through, like plants */
-	public static boolean isNonColliding(IBlockStateWrapper blockState)
-	{
-		return !blockState.isSolid()
-			&& !blockState.isLiquid()
-			&& blockState.getOpacity() != LodUtil.BLOCK_FULLY_OPAQUE;
-	}
-	
 	/** Decides which block states are drawn with their model */
 	public static boolean usesModel(IBlockStateWrapper blockState)
 	{

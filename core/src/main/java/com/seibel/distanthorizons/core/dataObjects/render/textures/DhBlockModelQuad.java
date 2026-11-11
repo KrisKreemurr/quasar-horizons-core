@@ -48,7 +48,10 @@ public class DhBlockModelQuad
 	public final EDhDirection shadeDirection;
 	/** takes the block's tint color */
 	public final boolean tinted;
-	/** vanilla draws the quad with ambient occlusion */
+	/**
+	 * vanilla draws the quad with ambient occlusion.
+	 * Some models like tall grass skip it so they aren't too dark
+	 */
 	public final boolean ambientOcclusion;
 	
 	
