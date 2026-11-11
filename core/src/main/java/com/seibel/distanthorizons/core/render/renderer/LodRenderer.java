@@ -255,7 +255,7 @@ public class LodRenderer
 				
 				this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, EDhApiTerrainRenderPass.OPAQUE);
 				
-				// without SSAO there's nothing to wait for
+				// called early when SSAO is off to avoid issues with pre 26.3 Iris
 				boolean ssaoEnabled = Config.Client.Advanced.Graphics.enableSsao.get();
 				if (!ssaoEnabled)
 				{
