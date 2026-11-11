@@ -74,6 +74,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	
 	private IDhApiVertexBufferWrapper[] vboOpaqueWrappers;
 	private IDhApiVertexBufferWrapper[] vboTransparentWrappers;
+	private IDhApiVertexBufferWrapper[] vboWithoutSsaoWrappers;
 	
 	private final IDhApiTerrainContainerUniformBufferWrapper uniformContainer;
 	
@@ -91,6 +92,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 		this.vertexFormat = vertexFormat;
 		this.vboOpaqueWrappers = new IDhApiVertexBufferWrapper[0];
 		this.vboTransparentWrappers = new IDhApiVertexBufferWrapper[0];
+		this.vboWithoutSsaoWrappers = new IDhApiVertexBufferWrapper[0];
 		
 		this.uniformContainer = this.renderDef.createLodContainerUniformWrapper();
 	}
@@ -106,6 +108,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	
 	@Override public IDhApiVertexBufferWrapper[] getVboOpaqueWrappers() { return this.vboOpaqueWrappers; }
 	@Override public IDhApiVertexBufferWrapper[] getVboTransparentWrappers() { return this.vboTransparentWrappers; }
+	@Override public IDhApiVertexBufferWrapper[] getVboWithoutSsaoWrappers() { return this.vboWithoutSsaoWrappers; }
 	@Override public IDhApiTerrainContainerUniformBufferWrapper getUniformContainer() { return this.uniformContainer; }
 	
 	@Override public byte getDetailLevel() 
@@ -139,6 +142,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 		long pos, IClientLevelWrapper clientLevelWrapper,
 		ArrayList<ByteBuffer> opaqueBuffers,
 		ArrayList<ByteBuffer> transparentBuffers,
+		ArrayList<ByteBuffer> withoutSsaoBuffers,
 		EDhApiTerrainVertexFormat vertexFormat
 	)
 	{
@@ -161,13 +165,16 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 		// update arrays to contain buffers
 		bufferContainer.vboOpaqueWrappers = resizeWrapperArray(bufferContainer.vboOpaqueWrappers, opaqueBuffers.size());
 		bufferContainer.vboTransparentWrappers = resizeWrapperArray(bufferContainer.vboTransparentWrappers, transparentBuffers.size());
+		bufferContainer.vboWithoutSsaoWrappers = resizeWrapperArray(bufferContainer.vboWithoutSsaoWrappers, withoutSsaoBuffers.size());
 		
 		PhantomArrayListCheckout opaqueIndexCheckout = ARRAY_LIST_POOL.checkoutByteBuffers(opaqueBuffers.size());
 		PhantomArrayListCheckout transparentIndexCheckout = ARRAY_LIST_POOL.checkoutByteBuffers(transparentBuffers.size());
+		PhantomArrayListCheckout withoutSsaoIndexCheckout = ARRAY_LIST_POOL.checkoutByteBuffers(withoutSsaoBuffers.size());
 		future.thenRun(() -> 
 		{
 			opaqueIndexCheckout.close();
 			transparentIndexCheckout.close();
+			withoutSsaoIndexCheckout.close();
 		});
 		
 		// create CPU index buffers if needed.
@@ -176,6 +183,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 		boolean useSingleIbo = MC_RENDER.useSingleIbo();
 		@Nullable ArrayList<ByteBuffer> opaqueIndexBuffers = useSingleIbo ? null : bufferContainer.createIndexBuffers(opaqueIndexCheckout, opaqueBuffers);
 		@Nullable ArrayList<ByteBuffer> transparentIndexBuffers = useSingleIbo ? null : bufferContainer.createIndexBuffers(transparentIndexCheckout, transparentBuffers);
+		@Nullable ArrayList<ByteBuffer> withoutSsaoIndexBuffers = useSingleIbo ? null : bufferContainer.createIndexBuffers(withoutSsaoIndexCheckout, withoutSsaoBuffers);
 		
 		//endregion
 		
@@ -200,6 +208,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 				
 				createBufferWrappers(bufferContainer.renderDef, bufferContainer.vboOpaqueWrappers, opaqueBuffers);
 				createBufferWrappers(bufferContainer.renderDef, bufferContainer.vboTransparentWrappers, transparentBuffers);
+				createBufferWrappers(bufferContainer.renderDef, bufferContainer.vboWithoutSsaoWrappers, withoutSsaoBuffers);
 				
 				createFuture.complete(null);
 			}
@@ -241,7 +250,8 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 			int bytesPerVertex = bufferContainer.vertexFormat.bytesPerVertex;
 			CompletableFuture<Void> opaqueFuture = uploadBuffersAsync(future, bufferContainer.vboOpaqueWrappers, opaqueBuffers, opaqueIndexBuffers, bytesPerVertex);
 			CompletableFuture<Void> transparentFuture = uploadBuffersAsync(future, bufferContainer.vboTransparentWrappers, transparentBuffers, transparentIndexBuffers, bytesPerVertex);
-			CompletableFuture<Void> uploadFuture = CompletableFuture.allOf(opaqueFuture, transparentFuture);
+			CompletableFuture<Void> withoutSsaoFuture = uploadBuffersAsync(future, bufferContainer.vboWithoutSsaoWrappers, withoutSsaoBuffers, withoutSsaoIndexBuffers, bytesPerVertex);
+			CompletableFuture<Void> uploadFuture = CompletableFuture.allOf(opaqueFuture, transparentFuture, withoutSsaoFuture);
 			uploadFuture.exceptionally((Throwable e) ->
 			{
 				// upload failed //
@@ -466,7 +476,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 	}
 	
 	/** can be used when debugging */
-	public boolean hasNonNullVbos() { return this.vboOpaqueWrappers != null || this.vboTransparentWrappers != null; }
+	public boolean hasNonNullVbos() { return this.vboOpaqueWrappers != null || this.vboTransparentWrappers != null || this.vboWithoutSsaoWrappers != null; }
 	
 	/** can be used when debugging */
 	public int vboBufferCount() 
@@ -481,6 +491,11 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 		if (this.vboTransparentWrappers != null)
 		{
 			count += this.vboTransparentWrappers.length;
+		}
+		
+		if (this.vboWithoutSsaoWrappers != null)
+		{
+			count += this.vboWithoutSsaoWrappers.length;
 		}
 		
 		return count;
@@ -510,6 +525,7 @@ public class LodBufferContainer implements IDhApiTerrainBufferContainer, AutoClo
 		{
 			tryCloseBufferWrapperArray(this.vboOpaqueWrappers);
 			tryCloseBufferWrapperArray(this.vboTransparentWrappers);
+			tryCloseBufferWrapperArray(this.vboWithoutSsaoWrappers);
 			
 			this.uniformContainer.close();
 		});

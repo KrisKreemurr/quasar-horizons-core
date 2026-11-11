@@ -19,6 +19,7 @@
 
 package com.seibel.distanthorizons.api.interfaces.render.renderDef;
 
+import com.seibel.distanthorizons.api.enums.rendering.EDhApiTerrainRenderPass;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.objects.IDhApiTerrainBufferContainer;
 import com.seibel.distanthorizons.api.methods.events.sharedParameterObjects.DhApiRenderParam;
 import com.seibel.distanthorizons.api.objects.util.IDhApiReadOnlyList;
@@ -31,7 +32,7 @@ import java.util.List;
  * Handles rendering Distant Horizons LOD terrain.
  * 
  * @since API 7.3.0
- * @version 2026-10-02
+ * @version 2026-11-10
  */
 public interface IDhApiTerrainRenderer
 {
@@ -41,7 +42,7 @@ public interface IDhApiTerrainRenderer
 	 *                      as defined by the frustum culler.
 	 */
 	void render(
-		DhApiRenderParam renderEventParam, boolean opaquePass,
+		DhApiRenderParam renderEventParam, EDhApiTerrainRenderPass renderPass,
 		IDhApiReadOnlyList<? extends IDhApiTerrainBufferContainer> bufferContainers);
 	
 	

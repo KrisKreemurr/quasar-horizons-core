@@ -67,6 +67,10 @@ public class BlockRenderSet
 		}
 	}
 	
+	/** Null if no quads are on that side */
+	@Nullable
+	public SideShape getSideShape(EDhDirection side) { return this.sideShapes[side.faceIndex]; }
+	
 	/** True if the neighbor's quads hide every quad on that side */
 	public boolean isSideHiddenBy(BlockRenderSet neighbor, EDhDirection side)
 	{

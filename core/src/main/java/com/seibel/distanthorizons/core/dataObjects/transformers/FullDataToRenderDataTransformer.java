@@ -294,7 +294,7 @@ public class FullDataToRenderDataTransformer
 			columnArrayView.changeVerticalSizeFrom(tempExpandingColumnView, reducingList, pointIsModel);
 		}
 		
-		applyTopBlockData(levelWrapper, fullDataSource, columnArrayView, fullDataColumn, columnSource, sourceRelX, sourceRelZ);
+		applyTopBlockData(levelWrapper, modelsInThisColumn, fullDataSource, columnArrayView, fullDataColumn, columnSource, sourceRelX, sourceRelZ);
 	}
 	
 	/**
@@ -307,7 +307,7 @@ public class FullDataToRenderDataTransformer
 	 * how the data points were merged along the way.
 	 */
 	private static void applyTopBlockData(
-			IClientLevelWrapper levelWrapper,
+			IClientLevelWrapper levelWrapper, boolean modelsInThisColumn,
 			FullDataSourceV2 fullDataSource, ColumnRenderView renderColumnData, LongArrayList fullDataColumn,
 			ColumnRenderSource columnSource, int sourceRelX, int sourceRelZ)
 	{
@@ -367,7 +367,7 @@ public class FullDataToRenderDataTransformer
 						
 						// blocks that are replaced with water (like surface seagrass) should look like water,
 						// this is the same check setRenderColumnView uses to replace them
-						if (isReplacedWithWater(levelWrapper, fullDataSource, fullDataColumn, fullIndex))
+						if (isReplacedWithWater(levelWrapper, modelsInThisColumn, fullDataSource, fullDataColumn, fullIndex))
 						{
 							block = WRAPPER_FACTORY.getWaterBlockStateWrapper(levelWrapper);
 						}
@@ -383,7 +383,8 @@ public class FullDataToRenderDataTransformer
 						{
 							fluidAmount = block.getFluidAmount();
 						}
-						waterlogged = block.isWaterlogged();
+						// the water around models lowers like normal water
+						waterlogged = block.isWaterlogged() && !isDrawnAsModel(block, modelsInThisColumn);
 					}
 					catch (IndexOutOfBoundsException ignore)
 					{
@@ -402,12 +403,18 @@ public class FullDataToRenderDataTransformer
 	
 	/** Surface blocks like seagrass are drawn as water if there's air or a lily pad directly above them */
 	private static boolean isReplacedWithWater(
-			IClientLevelWrapper levelWrapper, FullDataSourceV2 fullDataSource, 
+			IClientLevelWrapper levelWrapper, boolean modelsInThisColumn, FullDataSourceV2 fullDataSource, 
 			LongArrayList fullDataColumn, int fullDataIndex)
 	{
 		try
 		{
 			IBlockStateWrapper block = fullDataSource.mapping.getBlockStateWrapper(FullDataPointUtil.getId(fullDataColumn.getLong(fullDataIndex)));
+			// models show the real block
+			if (isDrawnAsModel(block, modelsInThisColumn))
+			{
+				return false;
+			}
+			
 			if (!WRAPPER_FACTORY.getWaterSubsurfaceReplacementBlocks(levelWrapper).contains(block))
 			{
 				return false;
@@ -625,7 +632,7 @@ public class FullDataToRenderDataTransformer
 			
 			// surface blocks replaced with water (seagrass) still tint the water they become
 			int replacedBlockColor = 0;
-			if (isReplacedWithWater(levelWrapper, fullDataSource, fullColumnData, fullDataIndex))
+			if (isReplacedWithWater(levelWrapper, modelsInThisColumn, fullDataSource, fullColumnData, fullDataIndex))
 			{
 				replacedBlockColor = levelWrapper.getBlockColor(mutableBlockPos, biome, fullDataSource, block);
 				block = water;
@@ -702,20 +709,19 @@ public class FullDataToRenderDataTransformer
 			// non-solid block check //
 			//=======================//
 			
-			// snow layers are drawn with their model
-			boolean isSnowLayerModel = snowLayerBlockStates.contains(block) && isDrawnAsModel(block, modelsInThisColumn);
+			// models are drawn instead of skipped
+			boolean drawnAsModel = isDrawnAsModel(block, modelsInThisColumn);
 			
 			boolean ignoreNonSolidBlock =
 				ignoreNonCollidingBlocks
 				&& !block.isSolid()
 				&& !block.isLiquid()
 				&& block.getOpacity() != LodUtil.BLOCK_FULLY_OPAQUE
-				// TODO remove once plants and non-colliding blocks are drawn as models
-				&& !isSnowLayerModel;
+				&& !drawnAsModel;
 			
 			// handle height reduction
-			boolean isSnowLayer = snowLayerBlockStates.contains(block) && !isSnowLayerModel;
-			boolean isWaterSurfaceReplacement = waterSurfaceReplacementBlocks.contains(block);
+			boolean isSnowLayer = snowLayerBlockStates.contains(block) && !drawnAsModel;
+			boolean isWaterSurfaceReplacement = waterSurfaceReplacementBlocks.contains(block) && !drawnAsModel;
 			if (isSnowLayer || isWaterSurfaceReplacement)
 			{
 				int surfaceBlockColor = 0;
@@ -803,7 +809,9 @@ public class FullDataToRenderDataTransformer
 			if (colorToApplyToNextBlock == -1)
 			{
 				// use this block's color
-				color = levelWrapper.getBlockColor(mutableBlockPos, biome, fullDataSource, block);
+				// waterlogged models are drawn inside water
+				IBlockStateWrapper colorBlock = (drawnAsModel && block.isWaterlogged()) ? water : block;
+				color = levelWrapper.getBlockColor(mutableBlockPos, biome, fullDataSource, colorBlock);
 				if (replacedBlockColor != 0)
 				{
 					color = tintWaterColor(color, replacedBlockColor);

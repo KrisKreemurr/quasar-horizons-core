@@ -66,7 +66,7 @@ public class ColumnBox
 		ColumnRenderView[] adjData, boolean[] isAdjDataSameDetailLevel,
 		@Nullable BlockRenderSet topSet, @Nullable BlockRenderSet bottomSet,
 		AdjacentColumnSets adjColumnSets,
-		short @Nullable [] faceTileIdsByDirectionOrdinal, int @Nullable [] faceColors, short topDrops)
+		short @Nullable [] faceTileIdsByDirectionOrdinal, int @Nullable [] faceColors, short topDrops, @Nullable BlockRenderSet waterloggedModelSet)
 	{
 		//================//
 		// variable setup //
@@ -180,7 +180,7 @@ public class ColumnBox
 						minX, minY, minZ, 
 						blockWidth, yHeight, 
 						northColor, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.NORTH),
-						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops);
+						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet);
 				}
 			}
 			else
@@ -191,7 +191,7 @@ public class ColumnBox
 					adjColumnSets,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.NORTH, 
 					minX, minY, minZ, blockWidth, yHeight,
-					northColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
+					northColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops, waterloggedModelSet);
 			}
 		}
 		
@@ -209,7 +209,7 @@ public class ColumnBox
 						minX, minY, maxZ, 
 						blockWidth, yHeight, 
 						southColor, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.SOUTH),
-						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops);
+						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet);
 				}
 			}
 			else
@@ -220,7 +220,7 @@ public class ColumnBox
 					adjColumnSets,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.SOUTH,
 					minX, minY, maxZ, blockWidth, yHeight,
-					southColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
+					southColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops, waterloggedModelSet);
 			}
 		}
 		
@@ -238,7 +238,7 @@ public class ColumnBox
 						minX, minY, minZ, 
 						blockWidth, yHeight, 
 						westColor, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.WEST),
-						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops);
+						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet);
 				}
 			}
 			else
@@ -249,7 +249,7 @@ public class ColumnBox
 					adjColumnSets,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.WEST, 
 					minX, minY, minZ, blockWidth, yHeight,
-					westColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
+					westColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops, waterloggedModelSet);
 			}
 		}
 		
@@ -267,7 +267,7 @@ public class ColumnBox
 						maxX, minY, minZ, 
 						blockWidth, yHeight, 
 						eastColor, tryGetTextureId(faceTileIdsByDirectionOrdinal, EDhDirection.EAST),
-						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops);
+						irisBlockMaterialId, LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet);
 				}
 			}
 			else
@@ -278,7 +278,7 @@ public class ColumnBox
 					adjColumnSets,
 					adjSameDetailLevel, caveCullingMaxY, EDhDirection.EAST, 
 					maxX, minY, minZ, blockWidth, yHeight,
-					eastColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops);
+					eastColor, rawDataPointColor, irisBlockMaterialId, blockLight, topDrops, waterloggedModelSet);
 			}
 		}
 	}
@@ -289,7 +289,7 @@ public class ColumnBox
 		AdjacentColumnSets adjColumnSets,
 		boolean adjacentIsSameDetailLevel, int caveCullingMaxY, EDhDirection direction,
 		short x, short yMin, short z, short horizontalBlockWidth, short ySize,
-		int color, int dataPointColor, byte irisBlockMaterialId, byte blockLight, short topDrops)
+		int color, int dataPointColor, byte irisBlockMaterialId, byte blockLight, short topDrops, @Nullable BlockRenderSet waterloggedModelSet)
 	{
 		// pooled arrays
 		LongArrayList segments = phantomArrayCheckout.getLongArray(0, 0);
@@ -313,7 +313,7 @@ public class ColumnBox
 				horizontalBlockWidth, ySize, 
 				color, tryGetTextureId(faceTileIdsByDirectionOrdinal, direction),
 				irisBlockMaterialId, 
-				LodUtil.MAX_MC_LIGHT, blockLight, topDrops);
+				LodUtil.MAX_MC_LIGHT, blockLight, topDrops, waterloggedModelSet);
 			return;
 		}
 		
@@ -497,7 +497,7 @@ public class ColumnBox
 				YSegmentUtil.getSkyLight(segment), YSegmentUtil.isCovered(segment),
 				inputTransparent, 
 				YSegmentUtil.getEndY(segment), YSegmentUtil.getStartY(segment),
-				(YSegmentUtil.getEndY(segment) == yMax) ? topDrops : 0
+				(YSegmentUtil.getEndY(segment) == yMax) ? topDrops : 0, waterloggedModelSet
 			);
 		}
 	}
@@ -562,7 +562,7 @@ public class ColumnBox
 		byte irisBlockMaterialId, 
 		byte blockLight, byte lastSkyLight, boolean covered,
 		boolean inputTransparent, 
-		int quadTopY, int quadBottomY, short topDrops
+		int quadTopY, int quadBottomY, short topDrops, @Nullable BlockRenderSet waterloggedModelSet
 		)
 	{
 		// invalid positions will have a negative skylight
@@ -592,7 +592,7 @@ public class ColumnBox
 			x, (short) quadBottomY, z, 
 			horizontalWidth, height, 
 			color, faceTextureId,
-			irisBlockMaterialId, lastSkyLight, blockLight, topDrops);
+			irisBlockMaterialId, lastSkyLight, blockLight, topDrops, waterloggedModelSet);
 	}
 	
 	//endregion

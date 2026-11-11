@@ -191,13 +191,15 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 						// 3 because that's generally the max needed
 						PhantomArrayListCheckout opaqueCheckout = LodQuadBuilder.ARRAY_LIST_POOL.checkoutByteBuffers(3);
 						PhantomArrayListCheckout transparentCheckout = LodQuadBuilder.ARRAY_LIST_POOL.checkoutByteBuffers(3);
+						PhantomArrayListCheckout withoutSsaoCheckout = LodQuadBuilder.ARRAY_LIST_POOL.checkoutByteBuffers(3);
 						
 						// create CPU vertex buffers
 						ArrayList<ByteBuffer> opaqueBuffers = lodQuadBuilder.makeOpaqueVertexBuffers(opaqueCheckout);
 						ArrayList<ByteBuffer> transparentBuffers = lodQuadBuilder.makeTransparentVertexBuffers(transparentCheckout);
+						ArrayList<ByteBuffer> withoutSsaoBuffers = lodQuadBuilder.makeWithoutSsaoVertexBuffers(withoutSsaoCheckout);
 						
 						// uploading will primarily happen on the render thread
-						this.uploadToGpuAsync(future, opaqueBuffers, transparentBuffers, lodQuadBuilder.getVertexFormat())
+						this.uploadToGpuAsync(future, opaqueBuffers, transparentBuffers, withoutSsaoBuffers, lodQuadBuilder.getVertexFormat())
 							// Join is used to prevent queuing up potentially thousands of
 							// upload tasks (each requiring their own staging buffer)
 							// causing an explosion of pooled memory use.
@@ -208,6 +210,7 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 						{
 							opaqueCheckout.close();
 							transparentCheckout.close();
+							withoutSsaoCheckout.close();
 							
 							// the future is passed in separately (IE not using the local var) 
 							// to prevent any possible race condition null pointers
@@ -389,12 +392,14 @@ public class LodRenderSection implements IDebugRenderable, AutoCloseable
 		CompletableFuture<Void> parentFuture,
 		ArrayList<ByteBuffer> opaqueBuffers,
 		ArrayList<ByteBuffer> transparentBuffers,
+		ArrayList<ByteBuffer> withoutSsaoBuffers,
 		EDhApiTerrainVertexFormat vertexFormat)
 	{
 		CompletableFuture<LodBufferContainer> uploadFuture = LodBufferContainer.tryMakeAndUploadBuffersAsync(
 			this.pos, this.clientLevelWrapper, 
 			opaqueBuffers, 
 			transparentBuffers,
+			withoutSsaoBuffers,
 			vertexFormat);
 		uploadFuture.whenComplete((bufferContainer, e) ->
 		{

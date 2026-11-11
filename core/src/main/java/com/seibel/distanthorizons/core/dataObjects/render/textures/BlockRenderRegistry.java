@@ -161,13 +161,13 @@ public class BlockRenderRegistry
 	}
 	
 	/** everything a set draws, so block states that look the same share a set */
-	private static ContentKey createSetContentKey(short[] faceTileIds, int[] faceColors, DhBlockModelQuad[] modelQuads, short[] modelQuadTileIds, int[] modelQuadColors, boolean waterlogged)
+	private static ContentKey createSetContentKey(short[] faceTileIds, int[] faceColors, DhBlockModelQuad[] modelQuads, short[] modelQuadTileIds, int[] modelQuadColors, IBlockStateWrapper blockState)
 	{
-		int byteCount = (2 * Integer.BYTES) + Byte.BYTES + (faceTileIds.length * Short.BYTES) + (faceColors.length * Integer.BYTES);
+		int byteCount = (2 * Integer.BYTES) + Byte.BYTES + (2 * Float.BYTES) + (faceTileIds.length * Short.BYTES) + (faceColors.length * Integer.BYTES);
 		for (DhBlockModelQuad quad : modelQuads)
 		{
-			// corners, uvs, cull and shade side, normal, tile id, color
-			byteCount += (quad.cornerPositions.length * Integer.BYTES) + quad.cornerUvBytes.length + (2 * Byte.BYTES) + (2 * Short.BYTES) + Integer.BYTES;
+			// corners, uvs, cull and shade side, ambient occlusion, normal, tile id, color
+			byteCount += (quad.cornerPositions.length * Integer.BYTES) + quad.cornerUvBytes.length + (3 * Byte.BYTES) + (2 * Short.BYTES) + Integer.BYTES;
 		}
 		ByteBuffer buffer = ByteBuffer.allocate(byteCount);
 		
@@ -175,7 +175,10 @@ public class BlockRenderRegistry
 		buffer.putInt(faceTileIds.length);
 		buffer.putInt(modelQuads.length);
 		// waterlogged blocks may draw differently
-		buffer.put((byte) (waterlogged ? 1 : 0));
+		buffer.put((byte) (blockState.isWaterlogged() ? 1 : 0));
+		// models are shifted by their offset
+		buffer.putFloat(blockState.getMaxHorizontalModelOffset());
+		buffer.putFloat(blockState.getMaxVerticalModelOffset());
 		for (short tileId : faceTileIds)
 		{
 			buffer.putShort(tileId);
@@ -195,6 +198,7 @@ public class BlockRenderRegistry
 			buffer.put(quad.cornerUvBytes);
 			buffer.put((byte) ((quad.cullDirection != null) ? quad.cullDirection.faceIndex : -1));
 			buffer.put((byte) quad.shadeDirection.faceIndex);
+			buffer.put((byte) (quad.ambientOcclusion ? 1 : 0));
 			buffer.putShort(quad.packedNormal);
 			buffer.putShort(modelQuadTileIds[quadIndex]);
 			buffer.putInt(modelQuadColors[quadIndex]);
@@ -298,7 +302,7 @@ public class BlockRenderRegistry
 		}
 		else
 		{
-			ContentKey contentKey = createSetContentKey(faceTileIds, faceColors, modelQuads, modelQuadTileIds, modelQuadColors, blockState.isWaterlogged());
+			ContentKey contentKey = createSetContentKey(faceTileIds, faceColors, modelQuads, modelQuadTileIds, modelQuadColors, blockState);
 			
 			// synchronized to prevent concurrent array modifications
 			synchronized (this)
@@ -349,7 +353,10 @@ public class BlockRenderRegistry
 	public static boolean usesModel(IBlockStateWrapper blockState)
 	{
 		return (!blockState.isFullBlock() || blockState.allowApiModelOverride())
-			&& !blockState.isLiquid()
+			// waterlogged blocks are drawn inside water
+			&& (!blockState.isLiquid() || blockState.isWaterlogged())
+			// plants have their own setting
+			&& (blockState.isSolid() || Config.Client.Advanced.Graphics.Quality.enableNonCollidingBlockModels.get())
 			// blocks without quads stay boxes
 			&& TEXTURE_AND_MODEL_PROVIDER.getModel(blockState).length != 0;
 	}
@@ -398,7 +405,7 @@ public class BlockRenderRegistry
 	}
 	
 	/** @return the average of the visible pixels, or {@link ColorUtil#INVISIBLE} if none are visible */
-	private static int calculateAverageVisibleColor(BlockFaceTexture faceTexture)
+	public static int calculateAverageVisibleColor(BlockFaceTexture faceTexture)
 	{
 		int[] argbPixels = faceTexture.argbPixels;
 		
@@ -431,7 +438,7 @@ public class BlockRenderRegistry
 	 * relative to the texture's average color.
 	 * 128 = 1.0, 255 = 2.0, ratios above 2.0 are clamped.
 	 *
-	 * @return null if the texture is a single uniform color, IE flat shading is identical
+	 * @return null if the texture is a single uniform color with no clear pixels, IE flat shading is identical
 	 */
 	private static byte[] convertColorsToDifferenceRatios(BlockFaceTexture faceTexture, int averageColor)
 	{
@@ -497,6 +504,11 @@ public class BlockRenderRegistry
 						red != averageGray
 						|| green != averageGray
 						|| blue != averageGray;
+				}
+				else
+				{
+					// clear pixels need the tile to be cut out
+					anyPixelDiffersFromAverage = true;
 				}
 			}
 		}

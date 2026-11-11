@@ -32,6 +32,8 @@ public class TestBlockStateWrapper implements IBlockStateWrapper
 	@Override public boolean isRotatedPillar() { return false; }
 	@Override public boolean isFullBlock() { return true; }
 	@Override public boolean isFaceFull(EDhDirection direction) { return true; }
+	@Override public float getMaxHorizontalModelOffset() { return 0; }
+	@Override public float getMaxVerticalModelOffset() { return 0; }
 	@Override public boolean allowApiColorOverride() { return false; }
 	@Override public boolean allowApiTextureOverride() { return false; }
 	@Override public boolean allowApiModelOverride() { return false; }

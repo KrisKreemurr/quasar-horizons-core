@@ -44,10 +44,15 @@ public class DhBlockModelQuad
 	public final EDhDirection cullDirection;
 	/** the quad's facing, octahedral encoded (x low byte, y high byte) */
 	public final short packedNormal;
-	/** the side the quad faces the most */
+	/** the side vanilla shades the quad as */
 	public final EDhDirection shadeDirection;
 	/** takes the block's tint color */
 	public final boolean tinted;
+	/**
+	 * vanilla draws the quad with ambient occlusion.
+	 * Some models like tall grass skip it so they aren't too dark
+	 */
+	public final boolean ambientOcclusion;
 	
 	
 	
@@ -96,11 +101,12 @@ public class DhBlockModelQuad
 	/** all inputs are in the range [0,1] */
 	public DhBlockModelQuad(
 		float[] xByVertex, float[] yByVertex, float[] zByVertex, float[] uByVertex, float[] vByVertex,
-		BlockFaceTexture texture, @Nullable EDhDirection cullDirection, boolean tinted)
+		BlockFaceTexture texture, @Nullable EDhDirection cullDirection, boolean tinted, @Nullable EDhDirection shadeDirectionOverride, boolean ambientOcclusion)
 	{
 		this.texture = texture;
 		this.cullDirection = cullDirection;
 		this.tinted = tinted;
+		this.ambientOcclusion = ambientOcclusion;
 		
 		for (int i = 0; i < 4; i++)
 		{
@@ -112,7 +118,7 @@ public class DhBlockModelQuad
 		}
 		
 		DhVec3f normal = getNormal(xByVertex, yByVertex, zByVertex);
-		this.shadeDirection = getShadeDirection(normal);
+		this.shadeDirection = (shadeDirectionOverride != null) ? shadeDirectionOverride : getShadeDirection(normal);
 		this.packedNormal = getPackedNormal(normal);
 	}
 	
