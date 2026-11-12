@@ -153,14 +153,6 @@
     "Grass Side Rendering",
   "distanthorizons.config.client.advanced.graphics.quality.grassSideRendering.@tooltip":
     "How should the sides and bottom of grass block LODs render?",
-  "distanthorizons.config.client.advanced.graphics.quality.enableBlockModels":
-    "Enable LOD Block Models",
-  "distanthorizons.config.client.advanced.graphics.quality.enableBlockModels.@tooltip":
-    "If true nearby LODs will render blocks with their real shape \ninstead of full cubes. \nIf false all LODs render as full cubes. \n\nOnly applies to the highest detail LODs.",
-  "distanthorizons.config.client.advanced.graphics.quality.enableNonCollidingBlockModels":
-    "Render Models Without Collision",
-  "distanthorizons.config.client.advanced.graphics.quality.enableNonCollidingBlockModels.@tooltip":
-    "If true blocks without collision (plants, flowers) \nalso render with their block model. \n\nTurned off when LOD block models are turned off.",
   "distanthorizons.config.client.advanced.graphics.quality.ditherDhFade":
     "Fade Nearby DH LODs",
   "distanthorizons.config.client.advanced.graphics.quality.ditherDhFade.@tooltip":
@@ -347,6 +339,23 @@
     "Blocks Always Rasterize Texture",
   "distanthorizons.config.client.advanced.graphics.texture.blocksAlwaysRasterizeTextureCsv.@tooltip":
     "A comma separated list of block resource locations \nthat DH will use rasterization to determine \nthe face textures.\n\nCan be used to fix issues with mods/blocks where \na side uses just part of a modeled block's texture. \n\nExample: \"minecraft:beacon\" \n\nChanges require a restart.",
+    
+    
+  "distanthorizons.config.client.advanced.graphics.model":
+    "LOD Models",
+
+  "distanthorizons.config.client.advanced.graphics.model.enableBlockModels":
+    "Enable LOD Models",
+  "distanthorizons.config.client.advanced.graphics.model.enableBlockModels.@tooltip":
+    "If true nearby LODs will render blocks with their real shape \ninstead of full cubes. \nIf false all LODs render as full cubes. \n\nOnly applies to the highest detail LODs.",
+  "distanthorizons.config.client.advanced.graphics.model.enableNonCollidingBlockModels":
+    "Render Models Without Collision",
+  "distanthorizons.config.client.advanced.graphics.model.enableNonCollidingBlockModels.@tooltip":
+    "If true blocks without collision (plants, flowers) \nalso render with their block model. \n\nTurned off when LOD block models are turned off.",
+  "distanthorizons.config.client.advanced.graphics.model.blocksDontRenderModelCsv":
+    "Blocks Don't Render Models",
+  "distanthorizons.config.client.advanced.graphics.model.blocksDontRenderModelCsv.@tooltip":
+    "A comma separated list of block resource locations \nthat DH won't render with their model. \nPartial matches/incomplete resource locations will also match. \n\nExample: \"minecraft:oak_fence,stairs\" \n\nChanges require a restart.",
     
     
   

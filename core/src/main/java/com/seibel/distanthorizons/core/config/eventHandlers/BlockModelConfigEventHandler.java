@@ -37,10 +37,10 @@ public class BlockModelConfigEventHandler implements IConfigListener
 	@Override
 	public void onConfigValueSet()
 	{
-		if (!Config.Client.Advanced.Graphics.Quality.enableBlockModels.get()
-			&& Config.Client.Advanced.Graphics.Quality.enableNonCollidingBlockModels.get())
+		if (!Config.Client.Advanced.Graphics.Model.enableBlockModels.get()
+			&& Config.Client.Advanced.Graphics.Model.enableNonCollidingBlockModels.get())
 		{
-			Config.Client.Advanced.Graphics.Quality.enableNonCollidingBlockModels.set(false);
+			Config.Client.Advanced.Graphics.Model.enableNonCollidingBlockModels.set(false);
 		}
 	}
 	
