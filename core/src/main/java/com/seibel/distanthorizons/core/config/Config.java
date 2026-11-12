@@ -299,13 +299,15 @@ public class Config
 						.build();
 					
 					public static ConfigEntry<EDhApiGrassSideRendering> grassSideRendering = new ConfigEntry.Builder<EDhApiGrassSideRendering>()
-						.set(EDhApiGrassSideRendering.FADE_TO_DIRT)
+						.set(EDhApiGrassSideRendering.GRASS_TOP_BLOCK)
 						.comment(""
 							+ "How should the sides and bottom of grass block LODs render? \n"
 							+ "\n"
 							+ EDhApiGrassSideRendering.AS_GRASS + ": all sides of dirt LOD's render using the top (green) color. \n"
 							+ EDhApiGrassSideRendering.FADE_TO_DIRT + ": sides fade from grass to dirt. \n"
 							+ EDhApiGrassSideRendering.AS_DIRT + ": sides render entirely as dirt. \n"
+							+ EDhApiGrassSideRendering.GRASS_TOP_BLOCK + ": the top block shows the grass side texture, the rest renders as dirt. \n"
+							+ "  Falls back to " + EDhApiGrassSideRendering.FADE_TO_DIRT + " on LODs wider than a block or where textures aren't drawn. \n"
 							+ "")
 						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
 						.build();

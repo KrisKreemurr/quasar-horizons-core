@@ -19,6 +19,7 @@
 
 package com.seibel.distanthorizons.core.dataObjects.render.textures;
 
+import com.seibel.distanthorizons.api.enums.rendering.EDhApiBlockMaterial;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiTerrainVertexFormat;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.core.config.Config;
@@ -69,6 +70,10 @@ public class BlockRenderRegistry
 	public static final short FLAT_SET_ID = 0;
 	/** Fluids store their texture turned to each flow direction after their 6 faces (by EDhDirection.compassIndex) */
 	public static final int FLUID_FLOW_TILE_INDEX = 6;
+	/** Grass blocks store their side's base after their 6 faces */
+	public static final int GRASS_SIDE_TILE_INDEX = 6;
+	/** then the side's tinted overlay */
+	public static final int GRASS_OVERLAY_TILE_INDEX = 7;
 	
 	
 	// needs to be defined after the other static variables so it can reference them
@@ -276,6 +281,62 @@ public class BlockRenderRegistry
 			{
 				BlockFaceTexture turnedTexture = flowTexture.createWithQuarterTurns(getFlowQuarterTurns(direction));
 				faceTileIds[FLUID_FLOW_TILE_INDEX + direction.compassIndex] = this.getOrCreateTileId(turnedTexture, upAverageColor);
+			}
+		}
+		
+		if (blockState.getMaterialId() == EDhApiBlockMaterial.GRASS.index)
+		{
+			faceTileIds = Arrays.copyOf(faceTileIds, GRASS_OVERLAY_TILE_INDEX + 1);
+			
+			BlockFaceTexture sideTexture = null;
+			BlockFaceTexture overlayTexture = null;
+			for (DhBlockModelQuad quad : TEXTURE_AND_MODEL_PROVIDER.getModel(blockState))
+			{
+				if (quad.cullDirection == EDhDirection.NORTH)
+				{
+					// copied since their pixels are changed
+					BlockFaceTexture texture = BlockFaceTexture.createTexture(quad.texture.width, quad.texture.height, quad.texture.argbPixels.clone());
+					if (quad.tinted)
+					{
+						overlayTexture = texture;
+					}
+					else
+					{
+						sideTexture = texture;
+					}
+				}
+			}
+			
+			if (sideTexture != null)
+			{
+				int sideColor = ColorUtil.WHITE;
+				if (overlayTexture != null)
+				{
+					// keeps mip maps from darkening
+					for (int i = 0; i < overlayTexture.argbPixels.length; i++)
+					{
+						if (ColorUtil.getAlpha(overlayTexture.argbPixels[i]) == 0)
+						{
+							overlayTexture.argbPixels[i] = ColorUtil.setAlpha(upAverageColor, 0);
+						}
+					}
+					faceTileIds[GRASS_OVERLAY_TILE_INDEX] = this.getOrCreateTileId(overlayTexture, upAverageColor);
+					
+					// each pixel is drawn by one layer
+					if (faceTileIds[GRASS_OVERLAY_TILE_INDEX] != UNTEXTURED_ID)
+					{
+						for (int i = 0; i < sideTexture.argbPixels.length; i++)
+						{
+							int sideAlpha = (ColorUtil.getAlpha(overlayTexture.argbPixels[i]) != 0) ? 0 : 255;
+							sideTexture.argbPixels[i] = ColorUtil.setAlpha(sideTexture.argbPixels[i], sideAlpha);
+						}
+						
+						// keeps the cut edges from fading to white
+						sideColor = levelWrapper.getDirtBlockColor();
+					}
+				}
+				
+				faceTileIds[GRASS_SIDE_TILE_INDEX] = this.getOrCreateTileId(sideTexture, sideColor);
 			}
 		}
 		
