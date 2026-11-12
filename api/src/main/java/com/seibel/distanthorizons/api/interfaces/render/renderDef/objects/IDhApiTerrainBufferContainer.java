@@ -8,12 +8,14 @@ import com.seibel.distanthorizons.api.objects.math.DhApiVec3i;
  * needs to render a single LOD.
  * 
  * @since API 7.3.0
- * @version 2026-10-02
+ * @version 2026-11-09
  */
 public interface IDhApiTerrainBufferContainer
 {
 	IDhApiVertexBufferWrapper[] getVboOpaqueWrappers();
 	IDhApiVertexBufferWrapper[] getVboTransparentWrappers();
+	/** opaque quads drawn after SSAO */
+	IDhApiVertexBufferWrapper[] getVboWithoutSsaoWrappers();
 	
 	IDhApiTerrainContainerUniformBufferWrapper getUniformContainer();
 	

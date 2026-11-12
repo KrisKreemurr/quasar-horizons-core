@@ -30,17 +30,37 @@ import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.RenderDataPointUtil;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.IClientLevelWrapper;
 import com.seibel.distanthorizons.coreapi.util.ColorUtil;
+import com.seibel.distanthorizons.coreapi.util.MathUtil;
 import org.jetbrains.annotations.Nullable;
 
 /** Draws a data point with its block model */
 public class ColumnModel
 {
+	// same position seeds as vanilla's offset calculations
+	private static final int SEED_X_MULTIPLIER = 3129871;
+	private static final long SEED_Z_MULTIPLIER = 116129781L;
+	private static final long SEED_SQUARED_MULTIPLIER = 42317861L;
+	private static final long SEED_LINEAR_MULTIPLIER = 11L;
+	private static final int SEED_SHIFT = 16;
+	
+	// each offset uses 4 bits of the seed
+	private static final int MODEL_OFFSET_MASK = 0xF;
+	private static final float MODEL_OFFSET_STEPS = 15.0F;
+	private static final int MODEL_OFFSET_Y_SHIFT = 4;
+	private static final int MODEL_OFFSET_Z_SHIFT = 8;
+	/** in blocks */
+	private static final float HORIZONTAL_MODEL_OFFSET_RANGE = 0.5F;
+	
+	
+	
 	/** False for models without a full face on that side */
 	static boolean hasFullFace(@Nullable BlockRenderSet set, EDhDirection side)
 	{
 		return set == null
 			|| set.modelQuads.length == 0
-			|| set.blockState.isFaceFull(side);
+			|| set.blockState.isFaceFull(side)
+			// water fills waterlogged ones
+			|| set.blockState.isWaterlogged();
 	}
 	
 	/** Transparent neighbors never hide quads */
@@ -49,6 +69,13 @@ public class ColumnModel
 		return RenderDataPointUtil.doesDataPointExist(neighbor)
 			&& !(transparencyEnabled && RenderDataPointUtil.getAlpha(neighbor) < 255)
 			&& (hasFullFace(neighborSet, side.opposite()) || modelSet.isSideHiddenBy(neighborSet, side));
+	}
+	
+	/** Fluid points only store the light at their top */
+	private static byte getSkyLightInFluid(byte topSkyLight, int fluidMaxY, int blockY)
+	{
+		int blocksBelowTop = fluidMaxY - 1 - blockY;
+		return (byte) Math.max(topSkyLight - blocksBelowTop, LodUtil.MIN_MC_LIGHT);
 	}
 	
 	/** Fills in whether that side hides this block's quads and the sky light coming from it */
@@ -62,7 +89,7 @@ public class ColumnModel
 		EDhDirection neighborSide = side.opposite();
 		if (side == EDhDirection.UP)
 		{
-			sideLights[faceIndex] = skyLight;
+			sideLights[faceIndex] = modelSet.blockState.isWaterlogged() ? getSkyLightInFluid(skyLight, pointMaxY, blockY) : skyLight;
 			// stacked blocks in the same point
 			hiddenSides[faceIndex] = (blockY + 1 < pointMaxY)
 				? modelSet.blockState.isFaceFull(neighborSide) || modelSet.isSideHiddenBy(modelSet, side)
@@ -99,7 +126,12 @@ public class ColumnModel
 			if (RenderDataPointUtil.getYMin(adjPoint) <= blockY)
 			{
 				hiddenSides[faceIndex] = neighborHidesSide(adjPoint, adjColumnSets.getDataPointRenderSet(side, adjIndex), modelSet, side, transparencyEnabled);
-				sideLights[faceIndex] = hiddenSides[faceIndex] ? LodUtil.MIN_MC_LIGHT : RenderDataPointUtil.getLightSky(adjPoint);
+				byte adjSkyLight = RenderDataPointUtil.getLightSky(adjPoint);
+				if (RenderDataPointUtil.isFluid(adjPoint))
+				{
+					adjSkyLight = getSkyLightInFluid(adjSkyLight, RenderDataPointUtil.getYMax(adjPoint), blockY);
+				}
+				sideLights[faceIndex] = hiddenSides[faceIndex] ? LodUtil.MIN_MC_LIGHT : adjSkyLight;
 				return;
 			}
 		}
@@ -108,10 +140,37 @@ public class ColumnModel
 		sideLights[faceIndex] = LodUtil.MAX_MC_LIGHT;
 	}
 	
+	/**
+	 * Offset seed so grass isn't always centered.
+	 * Based on vanilla's Mth.getSeed with the height always 0
+	 */
+	private static long getModelOffsetSeed(int blockX, int blockZ)
+	{
+		long seed = (long) (blockX * SEED_X_MULTIPLIER) ^ (long) blockZ * SEED_Z_MULTIPLIER;
+		seed = (seed * seed * SEED_SQUARED_MULTIPLIER) + (seed * SEED_LINEAR_MULTIPLIER);
+		return seed >> SEED_SHIFT;
+	}
+	
+	/** Based on vanilla's offset for x and z, in blocks */
+	private static float getHorizontalModelOffset(long seed, float maxOffset)
+	{
+		float seedFraction = (seed & MODEL_OFFSET_MASK) / MODEL_OFFSET_STEPS;
+		float offset = (seedFraction - 0.5F) * HORIZONTAL_MODEL_OFFSET_RANGE;
+		return MathUtil.clamp(-maxOffset, offset, maxOffset);
+	}
+	
+	/** Based on vanilla's offset for y, in blocks */
+	private static float getVerticalModelOffset(long seed, float maxOffset)
+	{
+		float seedFraction = ((seed >> MODEL_OFFSET_Y_SHIFT) & MODEL_OFFSET_MASK) / MODEL_OFFSET_STEPS;
+		return (seedFraction - 1.0F) * maxOffset;
+	}
+	
 	public static void addModelQuadsToBuilder(
 		LodQuadBuilder quadBuilder, IClientLevelWrapper clientLevelWrapper,
 		BlockRenderSet modelSet, boolean useTextures, boolean useQuadColors,
 		short blockMinX, short blockMinY, short blockMinZ, short height,
+		int worldBlockX, int worldBlockZ,
 		int color, byte irisBlockMaterialId, byte skyLight, byte blockLight,
 		long topData, long bottomData, @Nullable BlockRenderSet topSet, @Nullable BlockRenderSet bottomSet,
 		ColumnRenderView[] adjColumnViews, AdjacentColumnSets adjColumnSets, boolean[] hiddenSides, byte[] sideLights)
@@ -120,6 +179,15 @@ public class ColumnModel
 		float brightnessMultiplier = Config.Client.Advanced.Graphics.Quality.brightnessMultiplier.get();
 		boolean transparencyEnabled = Config.Client.Advanced.Graphics.Quality.transparency.get() == EDhApiTransparency.COMPLETE;
 		short pointMaxY = (short) (blockMinY + height);
+		
+		// stacked blocks share the same offset
+		int unitsPerBlock = DhBlockModelQuad.CORNER_UNITS_PER_BLOCK;
+		long offsetSeed = getModelOffsetSeed(worldBlockX, worldBlockZ);
+		float maxHorizontalOffset = modelSet.blockState.getMaxHorizontalModelOffset();
+		float maxVerticalOffset = modelSet.blockState.getMaxVerticalModelOffset();
+		int offsetX256 = Math.round(getHorizontalModelOffset(offsetSeed, maxHorizontalOffset) * unitsPerBlock);
+		int offsetY256 = Math.round(getVerticalModelOffset(offsetSeed, maxVerticalOffset) * unitsPerBlock);
+		int offsetZ256 = Math.round(getHorizontalModelOffset(offsetSeed >> MODEL_OFFSET_Z_SHIFT, maxHorizontalOffset) * unitsPerBlock);
 		
 		// the model is drawn per block of the point
 		for (short blockY = (short) (pointMaxY - 1); blockY >= blockMinY; blockY--)
@@ -161,7 +229,7 @@ public class ColumnModel
 				// quads inside the block are lit by its brightest side
 				byte quadSkyLight = (modelQuad.cullDirection != null) ? sideLights[modelQuad.cullDirection.faceIndex] : brightestLight;
 				
-				quadBuilder.addModelQuad(modelQuad, blockMinX, blockY, blockMinZ, quadColor, tileId, irisBlockMaterialId, quadSkyLight, blockLight);
+				quadBuilder.addModelQuad(modelQuad, blockMinX, blockY, blockMinZ, offsetX256, offsetY256, offsetZ256, quadColor, tileId, irisBlockMaterialId, quadSkyLight, blockLight);
 			}
 		}
 	}

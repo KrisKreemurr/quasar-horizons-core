@@ -101,6 +101,19 @@ public class FluidSurfaceUtil
 		return (cornerDrops >> shift) & CORNER_DROP_MASK;
 	}
 	
+	/** How far the top is lowered at that spot, in blocks, blended between the corners */
+	public static float getDropAt(short cornerDrops, float x, float z)
+	{
+		int northWest = getCornerDrop(cornerDrops, false, false);
+		int northEast = getCornerDrop(cornerDrops, true, false);
+		int southWest = getCornerDrop(cornerDrops, false, true);
+		int southEast = getCornerDrop(cornerDrops, true, true);
+		
+		float north = northWest + ((northEast - northWest) * x);
+		float south = southWest + ((southEast - southWest) * x);
+		return (north + ((south - north) * z)) / DROP_UNITS_PER_BLOCK;
+	}
+	
 	public static boolean isFlat(short cornerDrops)
 	{
 		int northWest = getCornerDrop(cornerDrops, false, false);

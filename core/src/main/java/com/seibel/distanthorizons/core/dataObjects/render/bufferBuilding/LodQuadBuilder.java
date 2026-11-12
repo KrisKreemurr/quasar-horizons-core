@@ -28,7 +28,9 @@ import com.seibel.distanthorizons.api.enums.rendering.EDhApiDebugRendering;
 import com.seibel.distanthorizons.api.enums.rendering.EDhApiTerrainVertexFormat;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
 import com.seibel.distanthorizons.core.config.Config;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.BlockRenderSet;
 import com.seibel.distanthorizons.core.dataObjects.render.textures.DhBlockModelQuad;
+import com.seibel.distanthorizons.core.dataObjects.render.textures.SideShape;
 import com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector;
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.logging.DhLogger;
@@ -39,6 +41,7 @@ import com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.Pha
 import com.seibel.distanthorizons.coreapi.util.ColorUtil;
 import com.seibel.distanthorizons.core.wrapperInterfaces.minecraft.IMinecraftRenderWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.IClientLevelWrapper;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Used to create the quads before they are converted to render-able buffers. <br><br>
@@ -125,6 +128,11 @@ public class LodQuadBuilder implements AutoCloseable
 	/** model quads are never merged */
 	private final ArrayList<BufferQuad> opaqueModelQuads = new ArrayList<>();
 	private final ArrayList<BufferQuad> transparentModelQuads = new ArrayList<>();
+	/** opaque model quads drawn after SSAO */
+	private final ArrayList<BufferQuad> modelQuadsWithoutSsao = new ArrayList<>();
+	/** the buffers without SSAO only hold model quads */
+	@SuppressWarnings("unchecked")
+	private static final ArrayList<BufferQuad>[] NO_BOX_QUADS = (ArrayList<BufferQuad>[]) new ArrayList[0];
 	
 	/** 
 	 * Caching the BufferQuad objects reduces overhead slightly. <br>
@@ -191,7 +199,7 @@ public class LodQuadBuilder implements AutoCloseable
 		short x, short y, short z,
 		short width, short height,
 		int color, short faceTextureId,
-		byte irisBlockMaterialId, byte skyLight, byte blockLight, short topDrops)
+		byte irisBlockMaterialId, byte skyLight, byte blockLight, short topDrops, @Nullable BlockRenderSet waterloggedModelSet)
 	{
 		if (dir == EDhDirection.DOWN)
 		{
@@ -207,6 +215,31 @@ public class LodQuadBuilder implements AutoCloseable
 		else
 		{
 			quadList = this.opaqueQuads[dir.faceIndex]; 
+		}
+		
+		// water is cut around the model inside it
+		SideShape modelSideShape = (waterloggedModelSet != null) ? waterloggedModelSet.getSideShape(dir) : null;
+		if (modelSideShape != null)
+		{
+			// the model covers the whole side
+			if (modelSideShape.uncoveredFacePiece == null)
+			{
+				return;
+			}
+			
+			// the piece is in its block's own position
+			short blockX = (dir == EDhDirection.EAST) ? (short) (x - width) : x;
+			short blockZ = (dir == EDhDirection.SOUTH) ? (short) (z - width) : z;
+			for (int blockY = y; blockY < y + height; blockY++)
+			{
+				BufferQuad pieceQuad = this.getOrCreateBufferQuad();
+				pieceQuad.set(blockX, (short) blockY, blockZ, (short) 1, (short) 1, color, faceTextureId, irisBlockMaterialId, skyLight, blockLight, dir);
+				pieceQuad.modelQuad = modelSideShape.uncoveredFacePiece;
+				// only the top block is lowered
+				pieceQuad.topDrops = (blockY == y + height - 1) ? topDrops : 0;
+				quadList.add(pieceQuad);
+			}
+			return;
 		}
 		
 		BufferQuad quad = this.getOrCreateBufferQuad();
@@ -263,17 +296,28 @@ public class LodQuadBuilder implements AutoCloseable
 	public void addModelQuad(
 		DhBlockModelQuad modelQuad,
 		short x, short y, short z,
+		int offsetX256, int offsetY256, int offsetZ256,
 		int color, short textureTileId,
 		byte irisBlockMaterialId,
 		byte skylight, byte blocklight)
 	{
-		ArrayList<BufferQuad> quadList = (this.doTransparency && ColorUtil.getAlpha(color) < 255)
-				? this.transparentModelQuads
-				: this.opaqueModelQuads;
+		ArrayList<BufferQuad> quadList;
+		if (this.doTransparency && ColorUtil.getAlpha(color) < 255)
+		{
+			quadList = this.transparentModelQuads;
+		}
+		else
+		{
+			// quads vanilla draws without ambient occlusion skip SSAO
+			quadList = modelQuad.ambientOcclusion ? this.opaqueModelQuads : this.modelQuadsWithoutSsao;
+		}
 		
 		BufferQuad quad = this.getOrCreateBufferQuad();
 		quad.set(x, y, z, (short) 1, (short) 1, color, textureTileId, irisBlockMaterialId, skylight, blocklight, modelQuad.shadeDirection);
 		quad.modelQuad = modelQuad;
+		quad.modelOffsetX256 = offsetX256;
+		quad.modelOffsetY256 = offsetY256;
+		quad.modelOffsetZ256 = offsetZ256;
 		quadList.add(quad);
 	}
 	
@@ -365,6 +409,7 @@ public class LodQuadBuilder implements AutoCloseable
 	
 	public ArrayList<ByteBuffer> makeOpaqueVertexBuffers(PhantomArrayListCheckout checkout) { return this.makeVertexBuffers(checkout, this.opaqueQuads, this.opaqueModelQuads); }
 	public ArrayList<ByteBuffer> makeTransparentVertexBuffers(PhantomArrayListCheckout checkout) { return this.makeVertexBuffers(checkout, this.transparentQuads, this.transparentModelQuads); }
+	public ArrayList<ByteBuffer> makeWithoutSsaoVertexBuffers(PhantomArrayListCheckout checkout) { return this.makeVertexBuffers(checkout, NO_BOX_QUADS, this.modelQuadsWithoutSsao); }
 	private ArrayList<ByteBuffer> makeVertexBuffers(PhantomArrayListCheckout checkout, ArrayList<BufferQuad>[] quadList, ArrayList<BufferQuad> modelQuadList)
 	{
 		ArrayList<ByteBuffer> byteBufferList = new ArrayList<>(3);
@@ -427,9 +472,16 @@ public class LodQuadBuilder implements AutoCloseable
 		for (int i = 0; i < 4; i++)
 		{
 			// how far into the block this corner is, in 256ths of a block
-			int x256 = corners[i * 3];
-			int y256 = corners[i * 3 + 1];
-			int z256 = corners[i * 3 + 2];
+			int x256 = corners[i * 3] + quad.modelOffsetX256;
+			int y256 = corners[i * 3 + 1] + quad.modelOffsetY256;
+			int z256 = corners[i * 3 + 2] + quad.modelOffsetZ256;
+			
+			// nothing sticks out above lowered water
+			if (quad.topDrops != 0)
+			{
+				float drop = FluidSurfaceUtil.getDropAt(quad.topDrops, (float) x256 / unitsPerBlock, (float) z256 / unitsPerBlock);
+				y256 = Math.min(y256, Math.round((1 - drop) * unitsPerBlock));
+			}
 			
 			this.putVertex(bb,
 					(short) (quad.x + Math.floorDiv(x256, unitsPerBlock)), (short) (quad.y + Math.floorDiv(y256, unitsPerBlock)), (short) (quad.z + Math.floorDiv(z256, unitsPerBlock)),
@@ -744,6 +796,7 @@ public class LodQuadBuilder implements AutoCloseable
 		returnQuadsToCache(this.bufferQuadCacheList, this.transparentQuads);
 		returnQuadsToCache(this.bufferQuadCacheList, this.opaqueModelQuads);
 		returnQuadsToCache(this.bufferQuadCacheList, this.transparentModelQuads);
+		returnQuadsToCache(this.bufferQuadCacheList, this.modelQuadsWithoutSsao);
 	}
 	
 	//endregion
