@@ -276,7 +276,8 @@ public class LodRenderer
 					profiler.popPush("LOD SSAO");
 					ssaoRenderer.render(renderParams);
 					
-					// opaque LODs vanilla draws without ambient occlusion
+					// this render pass is for things like tall grass, where vanilla MC
+					// draws them without SSAO to prevent them from getting too dark
 					profiler.popPush("LOD Opaque Without SSAO");
 					this.renderTerrain(terrainRenderer, renderBufferHandler, renderParams, EDhApiTerrainRenderPass.OPAQUE_WITHOUT_SSAO);
 				}
