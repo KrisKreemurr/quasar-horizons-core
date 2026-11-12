@@ -151,6 +151,8 @@ public class Config
 				
 				public static ConfigUiLinkedEntry quickEnableTexturedLods = new ConfigUiLinkedEntry(Texture.enableTexturedLods);
 				public static ConfigCategory texture = new ConfigCategory.Builder().set(Texture.class).build();
+				public static ConfigUiLinkedEntry quickEnableBlockModels = new ConfigUiLinkedEntry(Model.enableBlockModels);
+				public static ConfigCategory model = new ConfigCategory.Builder().set(Model.class).build();
 				public static ConfigUiLinkedEntry quickEnableNoiseTexture = new ConfigUiLinkedEntry(NoiseTexture.enableNoiseTexture);
 				public static ConfigCategory noiseTexture = new ConfigCategory.Builder().set(NoiseTexture.class).build();
 				public static ConfigUISpacer noiseTextureSpacer = new ConfigUISpacer.Builder().build();
@@ -306,30 +308,6 @@ public class Config
 							+ EDhApiGrassSideRendering.AS_GRASS + ": all sides of dirt LOD's render using the top (green) color. \n"
 							+ EDhApiGrassSideRendering.FADE_TO_DIRT + ": sides fade from grass to dirt. \n"
 							+ EDhApiGrassSideRendering.AS_DIRT + ": sides render entirely as dirt. \n"
-							+ "")
-						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
-						.build();
-					
-					public static ConfigEntry<Boolean> enableBlockModels = new ConfigEntry.Builder<Boolean>()
-						.set(true)
-						.comment(""
-							+ "If true nearby LODs will render blocks with their real shape \n"
-							+ "instead of full cubes. \n"
-							+ "If false all LODs render as full cubes. \n"
-							+ " \n"
-							+ "Only applies to the highest detail LODs. \n"
-							+ "")
-						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
-						.addListener(BlockModelConfigEventHandler.INSTANCE)
-						.build();
-					
-					public static ConfigEntry<Boolean> enableNonCollidingBlockModels = new ConfigEntry.Builder<Boolean>()
-						.set(true)
-						.comment(""
-							+ "If true blocks without collision (plants, flowers) \n"
-							+ "also render with their block model. \n"
-							+ " \n"
-							+ "Turned off when LOD block models are turned off. \n"
 							+ "")
 						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
 						.build();
@@ -773,6 +751,48 @@ public class Config
 							+ "a side uses just part of a modeled block's texture. \n"
 							+ "\n"
 							+ "Example: \"minecraft:beacon\" \n"
+							+ "\n"
+							+ "Changes require a restart. \n"
+							+ "")
+						.build();
+					
+				}
+				
+				public static class Model
+				{
+					public static ConfigEntry<Boolean> enableBlockModels = new ConfigEntry.Builder<Boolean>()
+						.set(true)
+						.comment(""
+							+ "If true nearby LODs will render blocks with their real shape \n"
+							+ "instead of full cubes. \n"
+							+ "If false all LODs render as full cubes. \n"
+							+ " \n"
+							+ "Only applies to the highest detail LODs. \n"
+							+ "")
+						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
+						.addListener(BlockModelConfigEventHandler.INSTANCE)
+						.build();
+					
+					public static ConfigEntry<Boolean> enableNonCollidingBlockModels = new ConfigEntry.Builder<Boolean>()
+						.set(true)
+						.comment(""
+							+ "If true blocks without collision (plants, flowers) \n"
+							+ "also render with their block model. \n"
+							+ " \n"
+							+ "Turned off when LOD block models are turned off. \n"
+							+ "")
+						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
+						.build();
+					
+					public static ConfigEntry<String> blocksDontRenderModelCsv = new ConfigEntry.Builder<String>()
+						.set("")
+						.setAppearance(EConfigEntryAppearance.ALL)
+						.comment(""
+							+ "A comma separated list of block resource locations \n"
+							+ "that DH won't render with their model. \n"
+							+ "Partial matches/incomplete resource locations will also match. \n"
+							+ "\n"
+							+ "Example: \"minecraft:oak_fence,stairs\" \n"
 							+ "\n"
 							+ "Changes require a restart. \n"
 							+ "")
