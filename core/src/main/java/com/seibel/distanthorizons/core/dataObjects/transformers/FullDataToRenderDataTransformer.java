@@ -283,6 +283,7 @@ public class FullDataToRenderDataTransformer
 			setRenderColumnView(levelWrapper, modelsInThisColumn, fullDataSource, blockX, blockZ, tempExpandingColumnView, fullDataColumn, mutableBlockPos);
 			
 			LongPredicate pointIsModel = (renderData) -> false;
+			LongPredicate pointIsNonColliding = (renderData) -> false;
 			if (modelsInThisColumn)
 			{
 				pointIsModel = (renderData) ->
@@ -290,8 +291,13 @@ public class FullDataToRenderDataTransformer
 					IBlockStateWrapper block = getBlockAtY(fullDataSource, fullDataColumn, RenderDataPointUtil.getYMax(renderData) - 1);
 					return block != null && BlockRenderRegistry.usesModel(block);
 				};
+				pointIsNonColliding = (renderData) ->
+				{
+					IBlockStateWrapper block = getBlockAtY(fullDataSource, fullDataColumn, RenderDataPointUtil.getYMax(renderData) - 1);
+					return block != null && !block.isSolid();
+				};
 			}
-			columnArrayView.changeVerticalSizeFrom(tempExpandingColumnView, reducingList, pointIsModel);
+			columnArrayView.changeVerticalSizeFrom(tempExpandingColumnView, reducingList, pointIsModel, pointIsNonColliding);
 		}
 		
 		applyTopBlockData(levelWrapper, modelsInThisColumn, fullDataSource, columnArrayView, fullDataColumn, columnSource, sourceRelX, sourceRelZ);
