@@ -241,10 +241,12 @@ public class FullDataSourceV2DTO
 			array.add(FullDataPointUtil.EMPTY_DATA_POINT);
 		}
 		
+		// adjacent data needs them for models
+		readBlobToGenerationSteps(this.compressedColumnGenStepByteArray, dataSource.columnGenerationSteps, compressionModeEnum);
+		convertOldGenerationSteps(dataSource.columnGenerationSteps, this.dataFormatVersion);
+		
 		if (direction == null)
 		{
-			readBlobToGenerationSteps(this.compressedColumnGenStepByteArray, dataSource.columnGenerationSteps, compressionModeEnum);
-			convertOldGenerationSteps(dataSource.columnGenerationSteps, this.dataFormatVersion);
 			readBlobToWorldCompressionMode(this.compressedWorldCompressionModeByteArray, dataSource.columnWorldCompressionMode, compressionModeEnum);
 			
 			if (this.dataFormatVersion == 1)
