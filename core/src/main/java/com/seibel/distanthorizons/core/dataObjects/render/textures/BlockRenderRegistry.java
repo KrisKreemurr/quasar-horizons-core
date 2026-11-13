@@ -340,7 +340,7 @@ public class BlockRenderRegistry
 			}
 		}
 		
-		boolean drawModel = Config.Client.Advanced.Graphics.Quality.enableBlockModels.get() && usesModel(blockState);
+		boolean drawModel = Config.Client.Advanced.Graphics.Model.enableBlockModels.get() && usesModel(blockState);
 		DhBlockModelQuad[] modelQuads = drawModel ? TEXTURE_AND_MODEL_PROVIDER.getModel(blockState) : new DhBlockModelQuad[0];
 		short[] modelQuadTileIds = new short[modelQuads.length];
 		int[] modelQuadColors = new int[modelQuads.length];
@@ -417,7 +417,9 @@ public class BlockRenderRegistry
 			// waterlogged blocks are drawn inside water
 			&& (!blockState.isLiquid() || blockState.isWaterlogged())
 			// plants have their own setting
-			&& (blockState.isSolid() || Config.Client.Advanced.Graphics.Quality.enableNonCollidingBlockModels.get())
+			&& (blockState.isSolid() || Config.Client.Advanced.Graphics.Model.enableNonCollidingBlockModels.get())
+			// listed blocks stay boxes
+			&& blockState.renderModel()
 			// blocks without quads stay boxes
 			&& TEXTURE_AND_MODEL_PROVIDER.getModel(blockState).length != 0;
 	}
@@ -425,7 +427,7 @@ public class BlockRenderRegistry
 	/** Models are only drawn at block detail and need the offset format */
 	public static boolean modelsDrawnAtDetailLevel(byte dataDetailLevel, AbstractDhApiRenderDefinition renderDefinition)
 	{
-		return Config.Client.Advanced.Graphics.Quality.enableBlockModels.get()
+		return Config.Client.Advanced.Graphics.Model.enableBlockModels.get()
 			&& dataDetailLevel == LodUtil.BLOCK_DETAIL_LEVEL
 			&& renderDefinition.getTerrainVertexFormat() == EDhApiTerrainVertexFormat.POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET;
 	}
