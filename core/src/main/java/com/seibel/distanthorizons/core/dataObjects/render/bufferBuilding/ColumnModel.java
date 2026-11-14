@@ -189,6 +189,12 @@ public class ColumnModel
 		int offsetY256 = Math.round(getVerticalModelOffset(offsetSeed, maxVerticalOffset) * unitsPerBlock);
 		int offsetZ256 = Math.round(getHorizontalModelOffset(offsetSeed >> MODEL_OFFSET_Z_SHIFT, maxHorizontalOffset) * unitsPerBlock);
 		
+		// keeps them from z-fighting with the block below at a distance
+		if (modelSet.isFlatJustAboveFloor)
+		{
+			offsetY256 += unitsPerBlock * 3 / 64;
+		}
+		
 		// the model is drawn per block of the point
 		for (short blockY = (short) (pointMaxY - 1); blockY >= blockMinY; blockY--)
 		{

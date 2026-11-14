@@ -44,8 +44,32 @@ public class BlockRenderSet
 	public final IBlockStateWrapper blockState;
 	/** each side's shared shape, by {@link EDhDirection#faceIndex} */
 	private final SideShape[] sideShapes = new SideShape[EDhDirection.ALL.length];
+	/** flat models sitting less than 1/16 above the block below */
+	public final boolean isFlatJustAboveFloor;
 	
 	
+	
+	/** True for flat models less than 1/16 above the floor */
+	private static boolean calculateIsFlatJustAboveFloor(DhBlockModelQuad[] modelQuads)
+	{
+		if (modelQuads.length == 0)
+		{
+			return false;
+		}
+		
+		int y256 = modelQuads[0].cornerPositions[1];
+		for (DhBlockModelQuad quad : modelQuads)
+		{
+			for (int i = 0; i < 4; i++)
+			{
+				if (quad.cornerPositions[i * 3 + 1] != y256)
+				{
+					return false;
+				}
+			}
+		}
+		return y256 > 0 && y256 < DhBlockModelQuad.CORNER_UNITS_PER_BLOCK / 16;
+	}
 	
 	public BlockRenderSet() 
 	{
@@ -65,6 +89,8 @@ public class BlockRenderSet
 		{
 			this.sideShapes[side.faceIndex] = SideShape.getSideShape(modelQuads, side);
 		}
+		
+		this.isFlatJustAboveFloor = calculateIsFlatJustAboveFloor(modelQuads);
 	}
 	
 	/** Null if no quads are on that side */
