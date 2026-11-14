@@ -22,7 +22,7 @@ package com.seibel.distanthorizons.core.config.eventHandlers;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.config.listeners.IConfigListener;
 
-/** Turns non-colliding block models off when block models are turned off */
+/** Sets non-colliding block models to match block models when changed in the UI */
 public class BlockModelConfigEventHandler implements IConfigListener
 {
 	public static BlockModelConfigEventHandler INSTANCE = new BlockModelConfigEventHandler();
@@ -35,16 +35,14 @@ public class BlockModelConfigEventHandler implements IConfigListener
 	
 	
 	@Override
-	public void onConfigValueSet()
-	{
-		if (!Config.Client.Advanced.Graphics.Model.enableBlockModels.get()
-			&& Config.Client.Advanced.Graphics.Model.enableNonCollidingBlockModels.get())
-		{
-			Config.Client.Advanced.Graphics.Model.enableNonCollidingBlockModels.set(false);
-		}
-	}
+	public void onConfigValueSet() { /* do nothing, we only care about UI changes */ }
 	
 	@Override
-	public void onUiModify() { /* do nothing, we only care about modified config values */ }
+	public void onUiModify()
+	{
+		// not saved until Done
+		boolean modelsEnabled = Config.Client.Advanced.Graphics.Model.enableBlockModels.get();
+		Config.Client.Advanced.Graphics.Model.enableNonCollidingBlockModels.setWithoutSaving(modelsEnabled);
+	}
 	
 }
