@@ -225,7 +225,7 @@ public final class ColumnRenderView implements AutoCloseable
 	//======================//
 	//region
 	
-	public void changeVerticalSizeFrom(ColumnRenderView source, RenderDataPointReducingList reducingList, LongPredicate isModel, LongPredicate isNonColliding)
+	public void changeVerticalSizeFrom(ColumnRenderView source, RenderDataPointReducingList reducingList, LongPredicate isModel)
 	{
 		if (this.subViewCount() != source.subViewCount())
 		{
@@ -243,7 +243,7 @@ public final class ColumnRenderView implements AutoCloseable
 				try(ColumnRenderView sourceSubView = source.subView(i, 1);
 					ColumnRenderView thisSubView = this.subView(i, 1))
 				{
-					mergeMultiData(sourceSubView, reducingList, isModel, isNonColliding, thisSubView);
+					mergeMultiData(sourceSubView, reducingList, isModel, thisSubView);
 				}
 			}
 		}
@@ -288,7 +288,7 @@ public final class ColumnRenderView implements AutoCloseable
 	 * @param sourceData one or more columns of data
 	 * @param output one column of space for the result to be written to
 	 */
-	private static void mergeMultiData(ColumnRenderView sourceData, RenderDataPointReducingList reducingList, LongPredicate isModel, LongPredicate isNonColliding, ColumnRenderView output)
+	private static void mergeMultiData(ColumnRenderView sourceData, RenderDataPointReducingList reducingList, LongPredicate isModel, ColumnRenderView output)
 	{
 		int target = output.maxVerticalSliceCount;
 		if (target <= 0)
@@ -308,7 +308,7 @@ public final class ColumnRenderView implements AutoCloseable
 		}
 		else
 		{
-			reducingList.populate(sourceData, isModel, isNonColliding);
+			reducingList.populate(sourceData, isModel);
 			reducingList.reduce(output.maxVerticalSliceCount);
 			reducingList.copyTo(output);
 		}
