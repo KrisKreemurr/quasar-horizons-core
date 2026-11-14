@@ -109,8 +109,6 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	private LongArrayList links, data;
 	/** 1 for model points */
 	private ByteArrayList isModelByIndex;
-	/** 1 for non-colliding model points */
-	private ByteArrayList isNonCollidingModelByIndex;
 	/**
 	 * a temporary array to be used for sorting nodes.
 	 * the array is first populated such that every index
@@ -129,7 +127,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	
 	public RenderDataPointReducingList()
 	{
-		super(ARRAY_LIST_POOL, 2, 1, 2, 0, 0);
+		super(ARRAY_LIST_POOL, 1, 1, 2, 0, 0);
 	}
 	
 	/** 
@@ -137,7 +135,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	 * Note: this must be called before this list can be used and this
 	 * object can only be used by one thread at a time.
 	 */
-	public void populate(ColumnRenderView view, LongPredicate isModel, LongPredicate isNonColliding)
+	public void populate(ColumnRenderView view, LongPredicate isModel)
 	{
 		int size = view.size;
 		if (size == 0) 
@@ -149,7 +147,6 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 			this.links = this.pooledArraysCheckout.getLongArray(0, 0);
 			this.data = this.pooledArraysCheckout.getLongArray(1, 0);
 			this.isModelByIndex = this.pooledArraysCheckout.getByteArray(0, 0);
-			this.isNonCollidingModelByIndex = this.pooledArraysCheckout.getByteArray(1, 0);
 			this.sortingArray = this.pooledArraysCheckout.getShortArray(0, 0);
 			if (ASSERTS) this.checkLinks();
 			
@@ -168,7 +165,6 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 		java.util.Arrays.fill(this.links.elements(), DEFAULT_LINKS);
 		this.data = this.pooledArraysCheckout.getLongArray(1, arrayCapacity);
 		this.isModelByIndex = this.pooledArraysCheckout.getByteArray(0, arrayCapacity);
-		this.isNonCollidingModelByIndex = this.pooledArraysCheckout.getByteArray(1, arrayCapacity);
 		
 		int sizeWithoutAir = 0;
 		for (int index = 0; index < size; index++) 
@@ -179,9 +175,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 			if (isDataVisible(packedData) && RenderDataPointUtil.getYMin(packedData) < RenderDataPointUtil.getYMax(packedData)) 
 			{
 				this.setData(sizeWithoutAir, packedData);
-				boolean isModelPoint = isModel.test(packedData);
-				this.isModelByIndex.set(sizeWithoutAir, (byte) (isModelPoint ? 1 : 0));
-				this.isNonCollidingModelByIndex.set(sizeWithoutAir, (byte) (isModelPoint && isNonColliding.test(packedData) ? 1 : 0));
+				this.isModelByIndex.set(sizeWithoutAir, (byte) (isModel.test(packedData) ? 1 : 0));
 				this.setSortingIndex(sizeWithoutAir, sizeWithoutAir);
 				sizeWithoutAir++;
 			}
@@ -287,7 +281,6 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	 * so if this is a new, unmodified list, then it is safe to call this method. <br><br>
 	 *
 	 * algorithm:
-	 * 	0: drop non-colliding model points, lowest first.
 	 * 	1: try to merge the smallest segment with the segment above or below it.
 	 * 		this will only succeed if the adjacent node has the same alpha as it.
 	 * 		1a: if there is only one adjacent node which matches this criteria,
@@ -303,11 +296,11 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	 * 			continue trying bigger and bigger segments until we either:
 	 * 				* have a success, or
 	 * 				* reach the end of this list.
-	 * 	1d: if we still fail, drop the other model points, lowest first.
-	 * 		steps 1 and 2 never stretch these.
 	 * 	2: if we reach the end of the list before having a success, try again,
 	 * 		but this time, we are allowed to erase a segment entirely without merging it
 	 * 		if there are equal-alpha'd segments above and below it.
+	 * 	2b: if we still fail, drop model points, lowest first.
+	 * 		steps 1 and 2 never stretch these.
 	 * 	3: if we still fail, force the lowest segment to merge with the segment above it,
 	 * 		with no restrictions on alpha.
 	 * 		the highest alpha of the two segments takes priority though.
@@ -336,12 +329,11 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	 */
 	public void reduce(int target)
 	{
-		if (this.dropModelSegments(target, true)) return;
 		if (this.mergeVerySmallConnectedSegments(target)) return;
 		
 		if (this.mergeConnectedSegments(target)) return;
-		if (this.dropModelSegments(target, false)) return;
 		if (this.removeLeastImportantSegments(target)) return;
+		if (this.dropModelSegments(target)) return;
 		this.forceBottomToMerge(target);
 	}
 	
@@ -791,10 +783,10 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	}
 	
 	/**
-	 * handles steps 0 and 1d of {@link #reduce(int)}.
+	 * handles step 2b of {@link #reduce(int)}.
 	 * returns true if the list's size is now less than or equal to target.
 	 */
-	private boolean dropModelSegments(int target, boolean nonCollidingOnly)
+	private boolean dropModelSegments(int target)
 	{
 		for (int node = this.getLowest(); node != NULL; node = this.getHigher(node))
 		{
@@ -804,10 +796,7 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 			}
 			
 			// becomes a gap
-			// waterlogged ones become water in step 1 instead
-			if (this.isIndexVisible(node) && this.isModel(node)
-				&& (!nonCollidingOnly || this.isNonCollidingModel(node))
-				&& !RenderDataPointUtil.isFluid(this.getData(node)))
+			if (this.isIndexVisible(node) && this.isModel(node))
 			{
 				this.setAlpha(node, 0);
 				this.sizeWithoutAir--;
@@ -1094,7 +1083,6 @@ public class RenderDataPointReducingList extends AbstractPhantomArrayList
 	public boolean isIndexVisible(int index) { return isDataVisible(this.getData(index)); }
 	
 	public boolean isModel(int index) { return this.isModelByIndex.getByte(index) == 1; }
-	public boolean isNonCollidingModel(int index) { return this.isNonCollidingModelByIndex.getByte(index) == 1; }
 
 	public static boolean isDataVisible(long data) { return isAlphaVisible(RenderDataPointUtil.getAlpha(data)); }
 
