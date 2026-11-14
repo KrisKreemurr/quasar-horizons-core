@@ -783,6 +783,7 @@ public class Config
 							+ " \n"
 							+ "Turned off when LOD block models are turned off. \n"
 							+ "")
+						.setOnlyEnabledWhen(enableBlockModels)
 						.addListener(ReloadLodsConfigEventHandler.DELAYED_INSTANCE)
 						.build();
 					
