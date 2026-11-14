@@ -132,6 +132,24 @@ public class RenderQualityPresetConfigEventHandler extends AbstractPresetConfigE
 				this.put(EDhApiQualityPreset.HIGH, 3);
 				this.put(EDhApiQualityPreset.EXTREME, 3);
 			}});
+	private final ConfigPresetOptions<EDhApiQualityPreset, Boolean> blockModelRendering = new ConfigPresetOptions<>(Config.Client.Advanced.Graphics.Model.enableBlockModels,
+			new HashMap<EDhApiQualityPreset, Boolean>()
+			{{
+				this.put(EDhApiQualityPreset.MINIMUM, false);
+				this.put(EDhApiQualityPreset.LOW, false);
+				this.put(EDhApiQualityPreset.MEDIUM, true);
+				this.put(EDhApiQualityPreset.HIGH, true);
+				this.put(EDhApiQualityPreset.EXTREME, true);
+			}});
+	private final ConfigPresetOptions<EDhApiQualityPreset, Boolean> noncollidingModelRendering = new ConfigPresetOptions<>(Config.Client.Advanced.Graphics.Model.enableNonCollidingBlockModels,
+			new HashMap<EDhApiQualityPreset, Boolean>()
+			{{
+				this.put(EDhApiQualityPreset.MINIMUM, false);
+				this.put(EDhApiQualityPreset.LOW, false);
+				this.put(EDhApiQualityPreset.MEDIUM, true);
+				this.put(EDhApiQualityPreset.HIGH, true);
+				this.put(EDhApiQualityPreset.EXTREME, true);
+			}});
 		
 	
 	
@@ -153,6 +171,8 @@ public class RenderQualityPresetConfigEventHandler extends AbstractPresetConfigE
 		this.configList.add(this.dhDither);
 		this.configList.add(this.caveCulling);
 		this.configList.add(this.biomeBlending);
+		this.configList.add(this.blockModelRendering);
+		this.configList.add(this.noncollidingModelRendering);
 		
 		
 		for (ConfigPresetOptions<EDhApiQualityPreset, ?> config : this.configList)
