@@ -23,6 +23,7 @@ import com.seibel.distanthorizons.api.DhApi;
 import com.seibel.distanthorizons.api.interfaces.override.rendering.IDhApiCullingFrustum;
 import com.seibel.distanthorizons.api.interfaces.override.rendering.IDhApiShadowCullingFrustum;
 import com.seibel.distanthorizons.api.interfaces.render.renderDef.AbstractDhApiRenderDefinition;
+import com.seibel.distanthorizons.api.interfaces.render.renderDef.objects.IDhApiVertexBufferWrapper;
 import com.seibel.distanthorizons.core.config.Config;
 import com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding.LodBufferContainer;
 import com.seibel.distanthorizons.core.dependencyInjection.ModAccessorInjector;
@@ -46,6 +47,7 @@ import com.seibel.distanthorizons.core.util.math.DhMat4f;
 import org.joml.Matrix4f;
 
 import java.util.ArrayList;
+import java.util.function.Function;
 
 /**
  * This object tells the {@link LodRenderer} what buffers to render
@@ -76,10 +78,17 @@ public class RenderBufferHandler implements AutoCloseable
 	/** temp array to prevent threading issues and prevent re-allocating the same array each frame */
 	private final ArrayList<LodRenderSection> tempProcessNodeList = new ArrayList<>();
 	
-	private int visibleBufferCount;
-	private int culledBufferCount;
-	private int shadowVisibleBufferCount;
-	private int shadowCulledBufferCount;
+	private long visibleBufferCount;
+	//private long visibleVertexCount;
+	
+	private long culledBufferCount;
+	//private long culledVertexCount;
+	
+	private long shadowVisibleBufferCount;
+	//private long shadowVisibleVertexCount;
+	
+	private long shadowCulledBufferCount;
+	//private long shadowCulledVertexCount;
 	
 	
 	
@@ -206,10 +215,12 @@ public class RenderBufferHandler implements AutoCloseable
 		if (isShadowPass)
 		{
 			this.shadowCulledBufferCount = 0;
+			//this.shadowCulledVertexCount = 0;
 		}
 		else
 		{
 			this.culledBufferCount = 0;
+			//this.culledVertexCount = 0;
 		}
 		
 		// setup iterator with culling frustum
@@ -235,10 +246,12 @@ public class RenderBufferHandler implements AutoCloseable
 						if (isShadowPass)
 						{
 							this.shadowCulledBufferCount++;
+							//this.shadowCulledVertexCount += countAllVerticies(renderSection.renderBufferContainer);
 						}
 						else
 						{
 							this.culledBufferCount++;
+							//this.culledVertexCount += countAllVerticies(renderSection.renderBufferContainer);
 						}
 						
 						continue;
@@ -286,15 +299,81 @@ public class RenderBufferHandler implements AutoCloseable
 		if (isShadowPass)
 		{
 			this.shadowVisibleBufferCount = this.loadedNearToFarBuffers.size();
+			//this.shadowVisibleVertexCount = countAllVerticies(this.loadedNearToFarBuffers);
 		}
 		else
 		{
 			this.visibleBufferCount = this.loadedNearToFarBuffers.size();
+			//this.visibleVertexCount = countAllVerticies(this.loadedNearToFarBuffers);
 		}
 		
 		//endregion
 		
 	}
+	
+	//endregion
+	
+	
+	
+	//=================//
+	// vertex counting //
+	//=================//
+	//region
+	
+	private static long countAllVerticies(SortedArraySet<LodBufferContainer> containers)
+	{
+		long vertexCount = 0L;
+		{
+			vertexCount += countVertices(containers, RenderBufferHandler::getOpaqueBufferWrappers);
+			vertexCount += countVertices(containers, RenderBufferHandler::getTransparentBufferWrappers);
+			vertexCount += countVertices(containers, RenderBufferHandler::getOpaqueNoSsaoBufferWrappers);
+		}
+		return vertexCount;
+	}
+	private static long countAllVerticies(LodBufferContainer container)
+	{
+		long vertexCount = 0L;
+		{
+			vertexCount += countVertices(container, RenderBufferHandler::getOpaqueBufferWrappers);
+			vertexCount += countVertices(container, RenderBufferHandler::getTransparentBufferWrappers);
+			vertexCount += countVertices(container, RenderBufferHandler::getOpaqueNoSsaoBufferWrappers);
+		}
+		return vertexCount;
+	}
+	private static long countVertices(
+		SortedArraySet<LodBufferContainer> bufferContainerList, 
+		Function<LodBufferContainer, IDhApiVertexBufferWrapper[]> getBufferWrapperArrayFunc)
+	{
+		long vertexCount = 0;
+		for (int containerIndex = 0; containerIndex < bufferContainerList.size(); containerIndex++)
+		{
+			LodBufferContainer bufferContainer = bufferContainerList.get(containerIndex);
+			if (bufferContainer != null)
+			{
+				vertexCount += countVertices(bufferContainer, getBufferWrapperArrayFunc);
+			}
+		}
+		return vertexCount;
+	}
+	private static long countVertices(
+		LodBufferContainer bufferContainer,
+		Function<LodBufferContainer, IDhApiVertexBufferWrapper[]> getBufferWrapperArrayFunc)
+	{
+		long vertexCount = 0;
+		IDhApiVertexBufferWrapper[] bufferWrapperArray = getBufferWrapperArrayFunc.apply(bufferContainer);
+		for (int bufferIndex = 0; bufferIndex < bufferWrapperArray.length; bufferIndex++)
+		{
+			IDhApiVertexBufferWrapper bufferWrapper = bufferWrapperArray[bufferIndex];
+			if (bufferWrapper != null)
+			{
+				vertexCount += bufferWrapper.getVertexCount();
+			}
+		}
+		return vertexCount;
+	}
+	private static IDhApiVertexBufferWrapper[] getOpaqueBufferWrappers(LodBufferContainer container) { return container.getVboOpaqueWrappers(); }
+	private static IDhApiVertexBufferWrapper[] getTransparentBufferWrappers(LodBufferContainer container) { return container.getVboTransparentWrappers(); }
+	private static IDhApiVertexBufferWrapper[] getOpaqueNoSsaoBufferWrappers(LodBufferContainer container) { return container.getVboWithoutSsaoWrappers(); }
 	
 	//endregion
 	
@@ -328,12 +407,17 @@ public class RenderBufferHandler implements AutoCloseable
 	
 	public String getVboRenderDebugMenuString()
 	{
-		String countText = F3Screen.NUMBER_FORMAT.format(this.visibleBufferCount);
+		// vertex count logic commented out to reduce performance impact and due to not being needed most of the time
+		
+		String bufferCountText = F3Screen.NUMBER_FORMAT.format(this.visibleBufferCount);
+		//String vertexCountText = F3Screen.NUMBER_FORMAT.format(this.visibleVertexCount);
 		if (!Config.Client.Advanced.Graphics.Culling.disableFrustumCulling.get())
 		{
-			countText += "/" + F3Screen.NUMBER_FORMAT.format(this.visibleBufferCount + this.culledBufferCount);
+			bufferCountText += "/" + F3Screen.NUMBER_FORMAT.format(this.visibleBufferCount + this.culledBufferCount);
+			//vertexCountText += "/" + F3Screen.NUMBER_FORMAT.format(this.visibleVertexCount + this.culledVertexCount);
 		}
-		return "VBO Render Count: [" + countText + "]";
+		return "VBO Render Count: [" + bufferCountText + "]";
+		//return "Render Count, VBO: ["+bufferCountText+"] Vertex: ["+vertexCountText+"]";
 	}
 	public String getShadowPassRenderDebugMenuString()
 	{
