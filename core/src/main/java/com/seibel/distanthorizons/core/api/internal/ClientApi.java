@@ -740,6 +740,8 @@ public class ClientApi
 			(
 				// only fade when requested
 				Config.Client.Advanced.Graphics.Quality.vanillaFadeMode.get() == expectedFadeMode
+				// double pass also runs the single pass
+				|| Config.Client.Advanced.Graphics.Quality.vanillaFadeMode.get() == EDhApiMcRenderingFadeMode.DOUBLE_PASS
 				// or if LOD-only mode is enabled (fading is used to remove the MC render pass)
 				|| Config.Client.Advanced.Debugging.lodOnlyMode.get()
 			);
