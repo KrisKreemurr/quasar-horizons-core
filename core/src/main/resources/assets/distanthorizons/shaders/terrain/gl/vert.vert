@@ -36,6 +36,9 @@ uniform float uFrameMod8;
 uniform float uViewWidth;
 uniform float uViewHeight;
 
+// fraction of their distance flat models are pulled toward the camera
+const float FLAT_MODEL_PULL = 0.001;
+
 
 vec2 jitterOffsets[8] = vec2[8](
     vec2( 0.125, -0.375),
@@ -127,6 +130,12 @@ void main()
     if (!uIsWhiteWorld)
     {
         vertexColor *= color;
+    }
+    
+    // keeps flat models from z-fighting with the block behind them
+    if (uHasOffsetData && (offsetData.w & 2u) != 0u)
+    {
+        vertexWorldPos *= 1.0 - FLAT_MODEL_PULL;
     }
     
     gl_Position = uCombinedMatrix * vec4(vertexWorldPos, 1.0);
