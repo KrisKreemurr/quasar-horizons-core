@@ -44,31 +44,48 @@ public class BlockRenderSet
 	public final IBlockStateWrapper blockState;
 	/** each side's shared shape, by {@link EDhDirection#faceIndex} */
 	private final SideShape[] sideShapes = new SideShape[EDhDirection.ALL.length];
-	/** flat models sitting less than 1/16 above the block below */
-	public final boolean isFlatJustAboveFloor;
+	/** flat models sitting less than 1/16 from a side */
+	public final boolean isFlatNearSide;
 	
 	
 	
-	/** True for flat models less than 1/16 above the floor */
-	private static boolean calculateIsFlatJustAboveFloor(DhBlockModelQuad[] modelQuads)
+	/** True for flat models less than 1/16 from a side */
+	private static boolean calculateIsFlatNearSide(DhBlockModelQuad[] modelQuads)
 	{
 		if (modelQuads.length == 0)
 		{
 			return false;
 		}
 		
-		int y256 = modelQuads[0].cornerPositions[1];
-		for (DhBlockModelQuad quad : modelQuads)
+		int unitsPerBlock = DhBlockModelQuad.CORNER_UNITS_PER_BLOCK;
+		int maxDistance256 = unitsPerBlock / 16;
+		for (int axis = 0; axis < 3; axis++)
 		{
-			for (int i = 0; i < 4; i++)
+			int position256 = modelQuads[0].cornerPositions[axis];
+			boolean isFlat = true;
+			for (DhBlockModelQuad quad : modelQuads)
 			{
-				if (quad.cornerPositions[i * 3 + 1] != y256)
+				for (int i = 0; i < 4; i++)
 				{
-					return false;
+					if (quad.cornerPositions[i * 3 + axis] != position256)
+					{
+						isFlat = false;
+					}
 				}
 			}
+			
+			if (!isFlat)
+			{
+				continue;
+			}
+			
+			if ((position256 > 0 && position256 < maxDistance256)
+				|| (position256 > unitsPerBlock - maxDistance256 && position256 < unitsPerBlock))
+			{
+				return true;
+			}
 		}
-		return y256 > 0 && y256 < DhBlockModelQuad.CORNER_UNITS_PER_BLOCK / 16;
+		return false;
 	}
 	
 	public BlockRenderSet() 
@@ -90,7 +107,7 @@ public class BlockRenderSet
 			this.sideShapes[side.faceIndex] = SideShape.getSideShape(modelQuads, side);
 		}
 		
-		this.isFlatJustAboveFloor = calculateIsFlatJustAboveFloor(modelQuads);
+		this.isFlatNearSide = calculateIsFlatNearSide(modelQuads);
 	}
 	
 	/** Null if no quads are on that side */

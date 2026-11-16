@@ -189,12 +189,6 @@ public class ColumnModel
 		int offsetY256 = Math.round(getVerticalModelOffset(offsetSeed, maxVerticalOffset) * unitsPerBlock);
 		int offsetZ256 = Math.round(getHorizontalModelOffset(offsetSeed >> MODEL_OFFSET_Z_SHIFT, maxHorizontalOffset) * unitsPerBlock);
 		
-		// keeps them from z-fighting with the block below at a distance
-		if (modelSet.isFlatJustAboveFloor)
-		{
-			offsetY256 += unitsPerBlock * 3 / 64;
-		}
-		
 		// the model is drawn per block of the point
 		for (short blockY = (short) (pointMaxY - 1); blockY >= blockMinY; blockY--)
 		{
@@ -235,7 +229,7 @@ public class ColumnModel
 				// quads inside the block are lit by its brightest side
 				byte quadSkyLight = (modelQuad.cullDirection != null) ? sideLights[modelQuad.cullDirection.faceIndex] : brightestLight;
 				
-				quadBuilder.addModelQuad(modelQuad, blockMinX, blockY, blockMinZ, offsetX256, offsetY256, offsetZ256, quadColor, tileId, irisBlockMaterialId, quadSkyLight, blockLight);
+				quadBuilder.addModelQuad(modelQuad, blockMinX, blockY, blockMinZ, offsetX256, offsetY256, offsetZ256, quadColor, tileId, irisBlockMaterialId, quadSkyLight, blockLight, modelSet.isFlatNearSide);
 			}
 		}
 	}
