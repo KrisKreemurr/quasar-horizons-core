@@ -231,6 +231,12 @@ public class BlockRenderRegistry
 			if (faceTexture != null)
 			{
 				int averageColor = calculateAverageVisibleColor(faceTexture);
+				// leaves draw their holes dark like vanilla
+				if (blockState.getMaterialId() == EDhApiBlockMaterial.LEAVES.index
+					&& blockState.isFullBlock())
+				{
+					faceTexture = faceTexture.createWithDarkClearPixels();
+				}
 				faceTileIds[faceIndex] = this.getOrCreateTileId(faceTexture, averageColor);
 				
 				// only tinted faces take the biome tint

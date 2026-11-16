@@ -109,6 +109,37 @@ public class BlockFaceTexture
 		return new BlockFaceTexture(this.width, this.height, turnedPixels, this.uploadAsColorRatio);
 	}
 	
+	/** Fills clear pixels the way vanilla fills leaves */
+	public BlockFaceTexture createWithDarkClearPixels()
+	{
+		int darkestColor = 0;
+		int darkestBrightness = Integer.MAX_VALUE;
+		for (int argbPixel : this.argbPixels)
+		{
+			int brightness = ColorUtil.getRed(argbPixel) + ColorUtil.getGreen(argbPixel) + ColorUtil.getBlue(argbPixel);
+			if (ColorUtil.getAlpha(argbPixel) != 0
+				&& brightness < darkestBrightness)
+			{
+				darkestColor = argbPixel;
+				darkestBrightness = brightness;
+			}
+		}
+		
+		int darkColor = ColorUtil.argbToInt(255,
+			ColorUtil.getRed(darkestColor) * 3 / 4,
+			ColorUtil.getGreen(darkestColor) * 3 / 4,
+			ColorUtil.getBlue(darkestColor) * 3 / 4);
+		int[] filledPixels = this.argbPixels.clone();
+		for (int i = 0; i < filledPixels.length; i++)
+		{
+			if (ColorUtil.getAlpha(filledPixels[i]) == 0)
+			{
+				filledPixels[i] = darkColor;
+			}
+		}
+		return new BlockFaceTexture(this.width, this.height, filledPixels, this.uploadAsColorRatio);
+	}
+	
 	private BlockFaceTexture(int width, int height, int[] argbPixels, boolean uploadAsColorRatio)
 	{
 		this.width = width;
