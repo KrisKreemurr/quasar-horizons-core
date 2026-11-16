@@ -73,6 +73,8 @@ public final class BufferQuad
 	public int modelOffsetX256;
 	public int modelOffsetY256;
 	public int modelOffsetZ256;
+	/** flat models less than 1/16 from a side */
+	public boolean isFlatNearSide;
 	
 	// Pre-computed sort keys to avoid recomputing on every comparison
 	// Slight increase in memory for reduction in cpu usage
@@ -120,6 +122,7 @@ public final class BufferQuad
 		this.modelOffsetX256 = 0;
 		this.modelOffsetY256 = 0;
 		this.modelOffsetZ256 = 0;
+		this.isFlatNearSide = false;
 		this.sortKeyEastWest = computeSortKey(direction, true);
 		this.sortKeyNorthSouth = computeSortKey(direction, false);
 	}

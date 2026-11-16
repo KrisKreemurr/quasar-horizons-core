@@ -67,6 +67,8 @@ public class LodQuadBuilder implements AutoCloseable
 	 */
 	private static final byte VERTEX_UV_FLAG = 0b1;
 	private static final byte BOX_FACE_UV_FLAG = 0b0;
+	/** the shader pulls these toward the camera */
+	private static final byte FLAT_NEAR_SIDE_FLAG = 0b10;
 	
 	public static final int[][][] DIRECTION_VERTEX_IBO_QUAD = new int[][][]
 	//region
@@ -300,7 +302,8 @@ public class LodQuadBuilder implements AutoCloseable
 		int offsetX256, int offsetY256, int offsetZ256,
 		int color, short textureTileId,
 		byte irisBlockMaterialId,
-		byte skylight, byte blocklight)
+		byte skylight, byte blocklight,
+		boolean isFlatNearSide)
 	{
 		ArrayList<BufferQuad> quadList;
 		if (this.doTransparency && ColorUtil.getAlpha(color) < 255)
@@ -319,6 +322,7 @@ public class LodQuadBuilder implements AutoCloseable
 		quad.modelOffsetX256 = offsetX256;
 		quad.modelOffsetY256 = offsetY256;
 		quad.modelOffsetZ256 = offsetZ256;
+		quad.isFlatNearSide = isFlatNearSide;
 		quadList.add(quad);
 	}
 	
@@ -470,6 +474,12 @@ public class LodQuadBuilder implements AutoCloseable
 		int[] corners = quad.modelQuad.cornerPositions;
 		byte[] uvs = quad.modelQuad.cornerUvBytes;
 		int unitsPerBlock = DhBlockModelQuad.CORNER_UNITS_PER_BLOCK;
+		byte flags = VERTEX_UV_FLAG;
+		if (quad.isFlatNearSide)
+		{
+			flags |= FLAT_NEAR_SIDE_FLAG;
+		}
+		
 		for (int i = 0; i < 4; i++)
 		{
 			// how far into the block this corner is, in 256ths of a block
@@ -491,7 +501,7 @@ public class LodQuadBuilder implements AutoCloseable
 					quad.textureTileId,
 					0, 0, 0,
 					(byte) Math.floorMod(x256, unitsPerBlock), (byte) Math.floorMod(y256, unitsPerBlock), (byte) Math.floorMod(z256, unitsPerBlock),
-					VERTEX_UV_FLAG, uvs[i * 2], uvs[i * 2 + 1],
+					flags, uvs[i * 2], uvs[i * 2 + 1],
 					quad.modelQuad.packedNormal);
 		}
 	}

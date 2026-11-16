@@ -58,6 +58,7 @@ public enum EDhApiTerrainVertexFormat
 	 * </code>
 	 * The offsets are in 256ths of a block and are added to the position (lowered fluid surfaces). <br>
 	 * Model and cut-out vertices set flag bit 0 and use u, v, other box faces leave the flags, u, v, and normal as 0. <br>
+	 * Flat models less than 1/16 from a side also set flag bit 1, they're pulled toward the camera. <br>
 	 * Flagged vertices read x, y, z as signed shorts since model corners can be below 0.
 	 */
 	POS_META_COLOR_MATERIAL_NORMAL_TEXTURE_OFFSET(24);
