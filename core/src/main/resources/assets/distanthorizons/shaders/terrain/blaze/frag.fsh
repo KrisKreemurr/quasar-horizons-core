@@ -121,6 +121,25 @@ vec2 blockFaceUv()
     }
 }
 
+float clipCoverage(float distance, bool opaque)
+{
+    if (uClipNearDistance <= 0.0)
+    {
+        return 1.0;
+    }
+    if (uClipFarDistance <= uClipNearDistance)
+    {
+        return step(uClipNearDistance, distance);
+    }
+    float start = opaque ? uClipNearDistance * (uClipNearDistance / uClipFarDistance) : uClipNearDistance;
+    float end = opaque ? uClipNearDistance : uClipFarDistance;
+    if (start >= end)
+    {
+        return step(end, distance);
+    }
+    return smoothstep(start, end, distance);
+}
+
 void main()
 {
     fragColor = vertexColor;
@@ -164,8 +183,7 @@ void main()
         // minor fudge factor to make sure all pixels fade out
         // if not included 1 in 16 pixels would never fade away
         worldNoise += 0.001;
-        if ((vertexColor.a > 0.999 && smoothstep(uClipNearDistance * uClipNearDistance / uClipFarDistance, uClipNearDistance, viewDist) < worldNoise)
-            || (vertexColor.a < 0.999 && smoothstep(uClipNearDistance, uClipFarDistance, viewDist) < worldNoise))
+        if (clipCoverage(viewDist, vertexColor.a >= 0.999) < worldNoise)
         {
             discard;
         }
