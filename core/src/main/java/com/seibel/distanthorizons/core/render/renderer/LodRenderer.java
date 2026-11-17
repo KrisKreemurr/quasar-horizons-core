@@ -288,6 +288,34 @@ public class LodRenderer
 					profiler.popPush("Custom Objects");
 					this.renderGenericObjects(renderParams, genericRegister, genericRenderer, false);
 				}
+				// Anti-Aliasing
+				if (Config.Client.Advanced.Graphics.enableAntiAliasing.get()
+					&&
+					(
+						// AA should be handled by the shader
+						IRIS_ACCESSOR == null
+							|| !IRIS_ACCESSOR.isShaderPackInUse()
+					)
+					&& !DhApiRenderProxy.INSTANCE.getDeferTransparentRendering()
+				)
+				{
+					profiler.popPush("Anti-Aliasing");
+					antiAliasRenderer.render(renderParams);
+				}
+				// Anti-Aliasing
+				if (Config.Client.Advanced.Graphics.enableAntiAliasing.get()
+					&&
+					(
+						// AA should be handled by the shader
+						IRIS_ACCESSOR == null
+							|| !IRIS_ACCESSOR.isShaderPackInUse()
+					)
+					&& !DhApiRenderProxy.INSTANCE.getDeferTransparentRendering()
+				)
+				{
+					profiler.popPush("Anti-Aliasing");
+					antiAliasRenderer.render(renderParams);
+				}
 				
 				// combined pass transparent rendering
 				if (!deferTransparentRendering
@@ -316,20 +344,6 @@ public class LodRenderer
 					
 					profiler.popPush("Fade Far Clip Fade");
 					farFadeRenderer.render(renderParams);
-				}
-				
-				// Anti-Aliasing
-				if (Config.Client.Advanced.Graphics.enableAntiAliasing.get()
-					&&
-					(
-						// AA should be handled by the shader
-						IRIS_ACCESSOR == null
-						|| !IRIS_ACCESSOR.isShaderPackInUse()
-					)
-				)
-				{
-					profiler.popPush("Anti-Aliasing");
-					antiAliasRenderer.render(renderParams);
 				}
 				
 				
@@ -396,6 +410,20 @@ public class LodRenderer
 						
 						fogRenderer.render(renderParams, fogRenderEventParam.getFogRenderParam());
 					}
+				}
+				// Anti-Aliasing
+				if (Config.Client.Advanced.Graphics.enableAntiAliasing.get()
+					&&
+					(
+						// AA should be handled by the shader
+						IRIS_ACCESSOR == null
+							|| !IRIS_ACCESSOR.isShaderPackInUse()
+					)
+					&& DhApiRenderProxy.INSTANCE.getDeferTransparentRendering()
+				)
+				{
+					profiler.popPush("Anti-Aliasing");
+					antiAliasRenderer.render(renderParams);
 				}
 			}
 			

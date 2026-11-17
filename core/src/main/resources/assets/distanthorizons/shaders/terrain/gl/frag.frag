@@ -19,7 +19,8 @@ out vec4 fragColor;
 uniform sampler2D uBlockAtlas;
 
 // Fade/Clip Uniforms
-uniform float uClipDistance = 0.0;
+uniform float uClipNearDistance = 0.0;
+uniform float uClipFarDistance = 0.0;
 
 // Noise Uniforms
 uniform bool uNoiseEnabled;
@@ -157,16 +158,15 @@ void main()
         // minor fudge factor to make sure all pixels fade out
         // if not included 1 in 16 pixels would never fade away
         worldNoise += 0.001;
-        
-        float fadeStep = smoothstep(uClipDistance, uClipDistance * 1.5, viewDist);
-        if (fadeStep <= worldNoise)
+        if ((vertexColor.a > 0.999 && smoothstep(uClipNearDistance * 0.1, uClipNearDistance * 0.1, viewDist) < worldNoise)
+            || (vertexColor.a < 0.999 && smoothstep(uClipNearDistance, uClipFarDistance, viewDist) < worldNoise))
         {
             discard;
         }
     }
     else
     {
-        if (viewDist < uClipDistance && uClipDistance > 0.0)
+        if (viewDist < uClipNearDistance && uClipNearDistance > 0.0)
         {
             discard;
         }
