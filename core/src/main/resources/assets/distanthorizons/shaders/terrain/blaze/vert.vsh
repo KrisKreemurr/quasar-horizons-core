@@ -106,12 +106,6 @@ void main()
     //vertexWorldPos.y += my;
     vertexWorldPos.z += mz;
     
-    uint irisMaterial = materialNormalTile.x;
-    if (irisMaterial == 12u && vColor.a < 1.0)
-    {
-        vertexWorldPos.y -= 0.1111111;
-    }
-    
     // apply the earth curvature if needed
     if (uEarthRadius < -1.0f || uEarthRadius > 1.0f)
     {

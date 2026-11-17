@@ -110,7 +110,8 @@ void main()
     vertexWorldPos.z += mz;
 
     uint irisMaterial = irisData.x;
-    if (irisMaterial == 12u && color.a < 1.0)
+    // The extended mesh already includes the fluid surface height.
+    if (!uHasOffsetData && irisMaterial == 12u && color.a < 1.0)
     {
         vertexWorldPos.y -= 0.1111111;
     }
