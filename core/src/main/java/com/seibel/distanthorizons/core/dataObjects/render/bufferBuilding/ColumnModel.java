@@ -28,6 +28,7 @@ import com.seibel.distanthorizons.core.dataObjects.render.textures.DhBlockModelQ
 import com.seibel.distanthorizons.core.enums.EDhDirection;
 import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.RenderDataPointUtil;
+import com.seibel.distanthorizons.core.wrapperInterfaces.block.IBlockStateWrapper;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.IClientLevelWrapper;
 import com.seibel.distanthorizons.coreapi.util.ColorUtil;
 import com.seibel.distanthorizons.coreapi.util.MathUtil;
@@ -140,6 +141,20 @@ public class ColumnModel
 		sideLights[faceIndex] = LodUtil.MAX_MC_LIGHT;
 	}
 	
+	/** @return the stored set if the resolved state doesn't draw a model */
+	private static BlockRenderSet getResolvedSet(BlockRenderSet storedSet, RenderDataBlockLookup blockLookup, IClientLevelWrapper clientLevelWrapper, int blockX, int blockY, int blockZ)
+	{
+		IBlockStateWrapper renderState = storedSet.blockState.resolveRenderState(blockLookup, blockX, blockY, blockZ);
+		if (renderState == storedSet.blockState)
+		{
+			return storedSet;
+		}
+		
+		short setId = BlockRenderRegistry.INSTANCE.getOrRegisterBlockStateSetId(renderState, clientLevelWrapper);
+		BlockRenderSet renderSet = BlockRenderRegistry.INSTANCE.getRenderSet(setId);
+		return (renderSet != null && renderSet.modelQuads.length != 0) ? renderSet : storedSet;
+	}
+	
 	/**
 	 * Offset seed so grass isn't always centered.
 	 * Based on vanilla's Mth.getSeed with the height always 0
@@ -173,7 +188,7 @@ public class ColumnModel
 		int worldBlockX, int worldBlockZ,
 		int color, byte irisBlockMaterialId, byte skyLight, byte blockLight,
 		long topData, long bottomData, @Nullable BlockRenderSet topSet, @Nullable BlockRenderSet bottomSet,
-		ColumnRenderView[] adjColumnViews, AdjacentColumnSets adjColumnSets, boolean[] hiddenSides, byte[] sideLights)
+		ColumnRenderView[] adjColumnViews, AdjacentColumnSets adjColumnSets, RenderDataBlockLookup blockLookup, boolean[] hiddenSides, byte[] sideLights)
 	{
 		float saturationMultiplier = Config.Client.Advanced.Graphics.Quality.saturationMultiplier.get();
 		float brightnessMultiplier = Config.Client.Advanced.Graphics.Quality.brightnessMultiplier.get();
@@ -189,12 +204,19 @@ public class ColumnModel
 		int offsetY256 = Math.round(getVerticalModelOffset(offsetSeed, maxVerticalOffset) * unitsPerBlock);
 		int offsetZ256 = Math.round(getHorizontalModelOffset(offsetSeed >> MODEL_OFFSET_Z_SHIFT, maxHorizontalOffset) * unitsPerBlock);
 		
+		// blocks that look different depending on their neighbors are resolved per block
+		boolean needsRenderResolve = modelSet.blockState.needsRenderResolve();
+		
 		// the model is drawn per block of the point
 		for (short blockY = (short) (pointMaxY - 1); blockY >= blockMinY; blockY--)
 		{
+			BlockRenderSet blockSet = needsRenderResolve
+				? getResolvedSet(modelSet, blockLookup, clientLevelWrapper, worldBlockX, blockY + clientLevelWrapper.getMinHeight(), worldBlockZ)
+				: modelSet;
+			
 			for (EDhDirection side : EDhDirection.ALL)
 			{
-				checkSide(side, blockY, modelSet, blockMinY, pointMaxY, skyLight,
+				checkSide(side, blockY, blockSet, blockMinY, pointMaxY, skyLight,
 					topData, bottomData, topSet, bottomSet, adjColumnViews, adjColumnSets, transparencyEnabled,
 					hiddenSides, sideLights);
 			}
@@ -205,9 +227,9 @@ public class ColumnModel
 				brightestLight = (byte) Math.max(brightestLight, sideLight);
 			}
 			
-			for (int quadIndex = 0; quadIndex < modelSet.modelQuads.length; quadIndex++)
+			for (int quadIndex = 0; quadIndex < blockSet.modelQuads.length; quadIndex++)
 			{
-				DhBlockModelQuad modelQuad = modelSet.modelQuads[quadIndex];
+				DhBlockModelQuad modelQuad = blockSet.modelQuads[quadIndex];
 				if (modelQuad.cullDirection != null
 					&& hiddenSides[modelQuad.cullDirection.faceIndex])
 				{
@@ -216,20 +238,20 @@ public class ColumnModel
 				
 				int quadColor = color;
 				if (useQuadColors
-					&& modelSet.modelQuadColors[quadIndex] != BlockRenderSet.USE_LOD_COLOR)
+					&& blockSet.modelQuadColors[quadIndex] != BlockRenderSet.USE_LOD_COLOR)
 				{
 					// the LOD's alpha is kept
-					quadColor = ColumnRenderBufferBuilder.applyColorSettings(modelSet.modelQuadColors[quadIndex], saturationMultiplier, brightnessMultiplier);
+					quadColor = ColumnRenderBufferBuilder.applyColorSettings(blockSet.modelQuadColors[quadIndex], saturationMultiplier, brightnessMultiplier);
 					quadColor = ColorUtil.setAlpha(quadColor, ColorUtil.getAlpha(color));
 				}
 				quadColor = ColorUtil.applyShade(quadColor, clientLevelWrapper.getShade(modelQuad.shadeDirection));
 				
-				short tileId = useTextures ? modelSet.modelQuadTileIds[quadIndex] : BlockRenderRegistry.UNTEXTURED_ID;
+				short tileId = useTextures ? blockSet.modelQuadTileIds[quadIndex] : BlockRenderRegistry.UNTEXTURED_ID;
 				
 				// quads inside the block are lit by its brightest side
 				byte quadSkyLight = (modelQuad.cullDirection != null) ? sideLights[modelQuad.cullDirection.faceIndex] : brightestLight;
 				
-				quadBuilder.addModelQuad(modelQuad, blockMinX, blockY, blockMinZ, offsetX256, offsetY256, offsetZ256, quadColor, tileId, irisBlockMaterialId, quadSkyLight, blockLight, modelSet.isFlatNearSide);
+				quadBuilder.addModelQuad(modelQuad, blockMinX, blockY, blockMinZ, offsetX256, offsetY256, offsetZ256, quadColor, tileId, irisBlockMaterialId, quadSkyLight, blockLight, blockSet.isFlatNearSide);
 			}
 		}
 	}
