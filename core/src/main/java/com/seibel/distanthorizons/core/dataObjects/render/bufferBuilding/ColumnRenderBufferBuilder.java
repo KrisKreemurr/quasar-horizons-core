@@ -168,6 +168,8 @@ public class ColumnRenderBufferBuilder
 			
 			// where each neighbor column was read from
 			AdjacentColumnSets adjColumnSets = new AdjacentColumnSets();
+			// only models resolve their neighbors
+			RenderDataBlockLookup modelBlockLookup = drawModels ? new RenderDataBlockLookup(clientLevelWrapper, renderSource, setsByPaletteIndex, columnRenderData, adjColumnViews, adjColumnSets) : null;
 			for (int relX = 0; relX < ColumnRenderSource.WIDTH; relX++)
 			{
 				for (int relZ = 0; relZ < ColumnRenderSource.WIDTH; relZ++)
@@ -315,6 +317,10 @@ public class ColumnRenderBufferBuilder
 					//==========================//
 					
 					boolean modelsInThisColumn = drawModels && renderSource.columnDrawsModels(relX, relZ);
+					if (modelBlockLookup != null)
+					{
+						modelBlockLookup.setColumn(relX, relZ, sectionMinBlockX + relX, sectionMinBlockZ + relZ);
+					}
 					
 					for (int i = 0; i < columnRenderData.size; i++)
 					{
@@ -402,7 +408,7 @@ public class ColumnRenderBufferBuilder
 							hiddenModelSides, modelSideLights,
 							thisDetailLevel, relX, relZ, sectionMinBlockX, sectionMinBlockZ,
 							quadBuilder, topDrops, modelSet, renderSource.usesTextures(),
-							topSet, bottomSet, adjColumnSets);
+							topSet, bottomSet, adjColumnSets, modelBlockLookup);
 					}
 				}// for z
 			}// for x
@@ -419,7 +425,7 @@ public class ColumnRenderBufferBuilder
 			byte detailLevel, int renderSourceOffsetPosX, int renderSourceOffsetPosZ, int sectionMinBlockX, int sectionMinBlockZ,
 			LodQuadBuilder quadBuilder, short topDrops, @Nullable BlockRenderSet modelSet, boolean useTextures,
 			@Nullable BlockRenderSet topSet, @Nullable BlockRenderSet bottomSet,
-			AdjacentColumnSets adjColumnSets)
+			AdjacentColumnSets adjColumnSets, @Nullable RenderDataBlockLookup modelBlockLookup)
 	{
 		long sectionPos = DhSectionPos.encode(detailLevel, renderSourceOffsetPosX, renderSourceOffsetPosZ);
 		
@@ -560,7 +566,7 @@ public class ColumnRenderBufferBuilder
 				RenderDataPointUtil.getLightSky(renderData),
 				fullBright ? LodUtil.MAX_MC_LIGHT : RenderDataPointUtil.getLightBlock(renderData),
 				topRenderData, bottomRenderData, topSet, bottomSet,
-				adjColumnViews, adjColumnSets, hiddenModelSides, modelSideLights);
+				adjColumnViews, adjColumnSets, modelBlockLookup, hiddenModelSides, modelSideLights);
 			
 			// waterlogged models also draw their water
 			if (!waterlogged)
