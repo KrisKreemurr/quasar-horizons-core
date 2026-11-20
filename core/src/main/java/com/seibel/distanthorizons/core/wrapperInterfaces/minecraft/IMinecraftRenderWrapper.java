@@ -80,6 +80,12 @@ public interface IMinecraftRenderWrapper extends IBindable
 	int getRenderDistance();
 	
 	/**
+	 * Used to respect vanilla's F3+U "capture frustum" debug feature.
+	 * @return true if a frustum is captured and the given block-space box is outside it
+	 */
+	default boolean isOutsideCapturedFrustum(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) { return false; }
+
+	/**
 	 * The player's FOV, measured in degrees. <br>
 	 * Doesn't include FOV effects or zoom modifiers.
 	 */
