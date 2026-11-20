@@ -183,11 +183,10 @@ public class RenderBufferHandler implements AutoCloseable
 		
 		
 		// update the frustum if necessary
+		int worldMinY = renderParams.clientLevelWrapper.getMinHeight();
+		int worldHeight = renderParams.clientLevelWrapper.getMaxHeight();
 		if (enableFrustumCulling)
 		{
-			int worldMinY = renderParams.clientLevelWrapper.getMinHeight();
-			int worldHeight = renderParams.clientLevelWrapper.getMaxHeight();
-			
 			renderParams.mcModelViewMatrix.putValuesInArray(JOML_TRANSPOSE_ARRAY);
 			WORLD_VIEW_JOML_MATRIX
 				.setTransposed(JOML_TRANSPOSE_ARRAY)
@@ -241,7 +240,10 @@ public class RenderBufferHandler implements AutoCloseable
 					int blockMinZ = DhSectionPos.getMinCornerBlockZ(renderSection.pos);
 					int blockWidth = DhSectionPos.getBlockWidth(renderSection.pos);
 					byte detailLevel = DhSectionPos.getDetailLevel(renderSection.pos);
-					if (!frustum.intersects(blockMinX, blockMinZ, blockWidth, detailLevel))
+					if (!frustum.intersects(blockMinX, blockMinZ, blockWidth, detailLevel)
+						// respect vanilla's F3+U frustum capture, testing this section as a
+						// full world-height column (the same box DH's own frustum checks)
+						|| MC_RENDER.isOutsideCapturedFrustum(blockMinX, worldMinY, blockMinZ, blockMinX + blockWidth, worldMinY + worldHeight, blockMinZ + blockWidth))
 					{
 						if (isShadowPass)
 						{
