@@ -83,6 +83,12 @@ public interface IWrapperFactory extends IDhApiWrapperFactory, IBindable
 		return blockState;
 	}
 	
+	/**
+	 * @return true if the serialized block state was saved with outdated block state data
+	 *         (IE an older version of its 1.7.10 data handler) and its LODs should be built again
+	 */
+	default boolean isBlockStateSerialOutdated(String str, ILevelWrapper levelWrapper) { return false; }
+	
 	
 	/**
 	 * Returns the set of {@link IBlockStateWrapper}'s that shouldn't be rendered. <br>

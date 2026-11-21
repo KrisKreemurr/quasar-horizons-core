@@ -72,6 +72,11 @@ public class FullDataPointIdMap
 	/** The index should be the same as the BlockBiomeWrapperPair's ID */
 	private final ArrayList<BlockBiomeWrapperPair> blockBiomePairList = new ArrayList<>();
 	private final ConcurrentHashMap<BlockBiomeWrapperPair, Integer> idMap = new ConcurrentHashMap<>();
+	/** 
+	 * IDs whose block state was saved with outdated block state data, 
+	 * only set by {@link FullDataPointIdMap#deserialize} 
+	 */
+	private final BitSet outdatedIds = new BitSet();
 	
 	private int cachedHashCode = 0;
 	
@@ -97,6 +102,9 @@ public class FullDataPointIdMap
 	public IBiomeWrapper getBiomeWrapper(int id) throws IndexOutOfBoundsException { return this.getEntry(id).biome; }
 	/** @see FullDataPointIdMap#getEntry(int) */
 	public IBlockStateWrapper getBlockStateWrapper(int id) throws IndexOutOfBoundsException { return this.getEntry(id).blockState; }
+	/** @see IWrapperFactory#isBlockStateSerialOutdated */
+	public boolean isOutdated(int id) { return this.outdatedIds.get(id); }
+	public boolean hasOutdatedIds() { return !this.outdatedIds.isEmpty(); }
 	/** @throws IndexOutOfBoundsException if the given ID isn't in the {@link FullDataPointIdMap#blockBiomePairList} */
 	private BlockBiomeWrapperPair getEntry(int id) throws IndexOutOfBoundsException
 	{
@@ -224,6 +232,7 @@ public class FullDataPointIdMap
 		this.pos = pos;
 		this.blockBiomePairList.clear();
 		this.idMap.clear();
+		this.outdatedIds.clear();
 		this.cachedHashCode = 0;
 	}
 	
@@ -312,6 +321,10 @@ public class FullDataPointIdMap
 				IBlockStateWrapper blockState = WRAPPER_FACTORY.deserializeBlockStateWrapperOrGetDefault(blockStateString, levelWrapper);
 				
 				BlockBiomeWrapperPair newPair = BlockBiomeWrapperPair.get(blockState, biome);
+				if (WRAPPER_FACTORY.isBlockStateSerialOutdated(blockStateString, levelWrapper))
+				{
+					map.outdatedIds.set(map.blockBiomePairList.size());
+				}
 				map.blockBiomePairList.add(newPair);
 				
 				

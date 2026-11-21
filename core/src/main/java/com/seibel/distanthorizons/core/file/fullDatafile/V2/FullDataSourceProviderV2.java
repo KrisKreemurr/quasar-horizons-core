@@ -227,7 +227,10 @@ public class FullDataSourceProviderV2 implements IDebugRenderable, AutoCloseable
 				dataSource = this.createDataSourceFromDto(dto);
 				
 				// automatically create and save adjacent data if missing
-				if (dto.dataFormatVersion == FullDataSourceV2DTO.DATA_FORMAT.V1_NO_ADJACENT_DATA)
+				boolean missingAdjacentData = (dto.dataFormatVersion == FullDataSourceV2DTO.DATA_FORMAT.V1_NO_ADJACENT_DATA);
+				// columns with outdated block state data are generated again
+				boolean outdatedBlockData = FullDataSourceV2DTO.markOutdatedBlockDataColumns(dataSource);
+				if (missingAdjacentData || outdatedBlockData)
 				{
 					EDhApiDataCompressionMode compressionMode = Config.Common.LodBuilding.dataCompression.get();
 					try(FullDataSourceV2DTO updatedDto = FullDataSourceV2DTO.CreateFromDataSource(dataSource, compressionMode))
