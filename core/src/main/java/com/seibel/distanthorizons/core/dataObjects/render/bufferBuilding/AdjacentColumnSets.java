@@ -44,6 +44,9 @@ public class AdjacentColumnSets
 		this.relZs[direction.compassIndex] = relZ;
 	}
 	
+	/** false for neighbors that don't draw models, IE ones at another detail level */
+	public boolean hasSets(EDhDirection direction) { return this.setsByPaletteIndex[direction.compassIndex] != null; }
+
 	@Nullable
 	public BlockRenderSet getDataPointRenderSet(EDhDirection direction, int index)
 	{

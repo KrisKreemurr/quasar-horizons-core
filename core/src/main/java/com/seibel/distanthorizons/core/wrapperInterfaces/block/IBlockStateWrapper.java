@@ -138,4 +138,16 @@ public interface IBlockStateWrapper extends IDhApiBlockStateWrapper
 	Color getMapColor();
 	Color getBeaconTintColor();
 	
+	/** If false {@link #resolveRenderState} always returns this state, so it doesn't need to be called. */
+	default boolean needsRenderResolve() { return false; }
+	/**
+	 * Blocks whose look depends on their neighbors (IE fences on MC 1.12.2)
+	 * get their state again from the LOD data when they're rendered,
+	 * so neighbors in other chunks and later changes to them are included. <br>
+	 * Only used at the block detail level.
+	 *
+	 * @return the state to render, this state if nothing changes
+	 */
+	default IBlockStateWrapper resolveRenderState(ILodBlockLookup lookup, int blockX, int blockY, int blockZ) { return this; }
+	
 }

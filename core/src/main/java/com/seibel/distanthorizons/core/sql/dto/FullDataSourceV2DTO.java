@@ -40,6 +40,7 @@ import com.seibel.distanthorizons.core.util.LodUtil;
 import com.seibel.distanthorizons.core.util.objects.DataCorruptedException;
 import com.seibel.distanthorizons.core.util.objects.dataStreams.DhDataInputStream;
 import com.seibel.distanthorizons.core.util.objects.dataStreams.DhDataOutputStream;
+import com.seibel.distanthorizons.core.wrapperInterfaces.IWrapperFactory;
 import com.seibel.distanthorizons.core.wrapperInterfaces.world.ILevelWrapper;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.bytes.ByteArrayList;
@@ -709,6 +710,47 @@ public class FullDataSourceV2DTO
 				columnGenerationSteps.set(i, EDhApiWorldGenerationStep.SURFACE.value);
 			}
 		}
+	}
+	/**
+	 * Full detail columns containing outdated block state data get generated again.
+	 *
+	 * @return true if the data source was changed and should be saved
+	 * @see IWrapperFactory#isBlockStateSerialOutdated
+	 */
+	public static boolean markOutdatedBlockDataColumns(FullDataSourceV2 dataSource)
+	{
+		if (DhSectionPos.getDetailLevel(dataSource.getPos()) != DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL
+			|| !dataSource.mapping.hasOutdatedIds())
+		{
+			return false;
+		}
+
+		boolean changed = false;
+		for (int i = 0; i < dataSource.columnGenerationSteps.size(); i++)
+		{
+			if (dataSource.columnGenerationSteps.getByte(i) < EDhApiWorldGenerationStep.FEATURES.value)
+			{
+				// already generated again, or never was
+				continue;
+			}
+
+			LongArrayList column = dataSource.dataPoints[i];
+			for (int j = 0; j < column.size(); j++)
+			{
+				if (dataSource.mapping.isOutdated(FullDataPointUtil.getId(column.getLong(j))))
+				{
+					dataSource.columnGenerationSteps.set(i, EDhApiWorldGenerationStep.SURFACE.value);
+					changed = true;
+					break;
+				}
+			}
+		}
+
+		if (changed)
+		{
+			dataSource.regenerateLeaf = true;
+		}
+		return changed;
 	}
 	
 	
