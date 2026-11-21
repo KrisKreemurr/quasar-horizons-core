@@ -56,7 +56,7 @@ import java.util.HashMap;
  * This is where all the magic happens. <br>
  * This is where LODs are draw to the world.
  */
-public class LodRenderer
+public class LodRenderer implements IDebugRenderable
 {
 	public static final DhLogger LOGGER = new DhLoggerBuilder()
 			.fileLevelConfig(Config.Common.Logging.logRendererEventToFile)
@@ -69,6 +69,8 @@ public class LodRenderer
 	
 	private static final IMinecraftClientWrapper MC = SingletonInjector.INSTANCE.get(IMinecraftClientWrapper.class);
 	private static final IIrisAccessor IRIS_ACCESSOR = ModAccessorInjector.INSTANCE.get(IIrisAccessor.class);
+	
+	private static final DebugWireframeHandler DEBUG_RENDERER = SingletonInjector.INSTANCE.get(DebugWireframeHandler.class);
 	
 	public static final LodRenderer INSTANCE = new LodRenderer();
 	
@@ -86,7 +88,10 @@ public class LodRenderer
 	//=============//
 	//region
 	
-	private LodRenderer() { }
+	private LodRenderer() 
+	{
+		DEBUG_RENDERER.addRenderer(this, Config.Client.Advanced.Debugging.DebugWireframe.enableRendering);
+	}
 	
 	//endregion
 	
@@ -347,22 +352,6 @@ public class LodRenderer
 				}
 				
 				
-				if (Config.Client.Advanced.Debugging.PositionFinder.positionFinderEnable.get())
-				{
-					// can be used to find specific positions when debugging
-					debugWireframeRenderer.renderBox(new DebugWireframeHandler.Box(
-						DhSectionPos.encode(
-							Config.Client.Advanced.Debugging.PositionFinder.positionFinderDetailLevel.get().byteValue(),
-							Config.Client.Advanced.Debugging.PositionFinder.positionFinderXPos.get(),
-							Config.Client.Advanced.Debugging.PositionFinder.positionFinderZPos.get()),
-						Config.Client.Advanced.Debugging.PositionFinder.positionFinderMinBlockY.get(),
-						Config.Client.Advanced.Debugging.PositionFinder.positionFinderMaxBlockY.get(),
-						Config.Client.Advanced.Debugging.PositionFinder.positionFinderMarginPercent.get(),
-						Color.GREEN
-					));
-				}
-				
-				
 				
 				//=========================//
 				// Apply to the MC Texture //
@@ -547,6 +536,34 @@ public class LodRenderer
 			ApiEventInjector.INSTANCE.fireAllEvents(DhApiBeforeGenericRenderCleanupEvent.class, renderEventParam);
 			
 			//endregion
+		}
+	}
+	
+	//endregion
+	
+	
+	
+	//===========//
+	// debugging //
+	//===========//
+	//region
+	
+	@Override
+	public void debugRender(IDhApiDebugWireframeRenderer renderer)
+	{
+		if (Config.Client.Advanced.Debugging.PositionFinder.positionFinderEnable.get())
+		{
+			// can be used to find specific positions when debugging
+			renderer.renderBox(new DebugWireframeHandler.Box(
+				DhSectionPos.encode(
+					Config.Client.Advanced.Debugging.PositionFinder.positionFinderDetailLevel.get().byteValue(),
+					Config.Client.Advanced.Debugging.PositionFinder.positionFinderXPos.get(),
+					Config.Client.Advanced.Debugging.PositionFinder.positionFinderZPos.get()),
+				Config.Client.Advanced.Debugging.PositionFinder.positionFinderMinBlockY.get(),
+				Config.Client.Advanced.Debugging.PositionFinder.positionFinderMaxBlockY.get(),
+				Config.Client.Advanced.Debugging.PositionFinder.positionFinderMarginPercent.get(),
+				Color.GREEN
+			));
 		}
 	}
 	
