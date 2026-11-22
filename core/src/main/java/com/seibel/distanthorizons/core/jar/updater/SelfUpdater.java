@@ -75,6 +75,13 @@ public class SelfUpdater
 	 */
 	public static boolean onStart()
 	{
+		// Quasar Horizons: never auto-update, it would replace this fork with official Distant Horizons
+		if (true)
+		{
+			LOGGER.info("Quasar Horizons: Distant Horizons auto update is disabled in this fork.");
+			return false;
+		}
+		
 		if (!Config.Client.Advanced.AutoUpdater.enableAutoUpdater.get())
 		{
 			LOGGER.info("Distant Horizons auto update disabled.");
